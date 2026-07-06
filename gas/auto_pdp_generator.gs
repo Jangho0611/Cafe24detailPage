@@ -339,9 +339,9 @@ function buildAutoFillSpecPrompt(data) {
 출력 형식:
 {
   "grade": "E열 성능·인증",
-  "keyValue": "H열 핵심 표현",
+  "keyValue": "H열 구매자가 한눈에 보는 핵심 포지션",
   "source": "I열 출처 또는 확인 상태",
-  "structure": "J열 구조/재질/구성",
+  "structure": "J열 재료·층·제조 방식 설명",
   "emphasis": "K열 작업 또는 확인 포인트",
   "use1": "L열 대표 용도 1",
   "use2": "M열 대표 용도 2"
@@ -379,17 +379,19 @@ function buildAutoFillSpecPrompt(data) {
 - 값이 불확실하면 단정하지 않는다.
 
 컬럼별 작성 규칙:
-- keyValue는 핵심 특징만 작성한다. 제품명을 반복하지 않는다.
-- keyValue 좋은 예: "다층 단판 적층 구조", "시멘트계 보드", "균일한 단면 구조", "페놀수지 발포 단열재".
-- structure는 제품 구조와 재질만 설명한다.
+- keyValue는 구매자가 한눈에 보는 핵심 포지션만 작성한다. 제품명을 반복하지 않는다.
+- keyValue는 상품을 분류·이해하기 위한 짧은 포지션 표현으로 작성하고, structure의 재료·층·제조 방식 설명을 그대로 반복하지 않는다.
+- keyValue 좋은 예: "다층 단판 판재", "시멘트계 바탕 보드", "균일 단면 가공 판재", "페놀폼 단열재".
+- structure는 재료·층·제조 방식만 설명한다.
 - structure 좋은 예: "원목 단판을 교차 적층한 판재", "목재 섬유를 고온고압으로 성형한 판재", "석고 코어 양면에 원지를 결합한 판재", "시멘트와 섬유질 원료를 압축 성형한 보드".
-- keyValue와 structure는 같은 내용을 반복하지 않는다.
+- keyValue와 structure는 같은 문장이나 같은 의미로 반복하지 않는다.
+- keyValue가 제품의 핵심 포지션이면 structure는 그 포지션의 재료, 층 구성, 제조 방식을 설명한다.
 - keyValue와 structure 조합 예: keyValue "시멘트계 보드 / 벽체·천장 바탕재", structure "시멘트와 섬유질 원료를 압축 성형한 보드".
-- emphasis는 작업 전 확인 포인트를 2~3개 포함한다.
+- emphasis는 작업 전 확인 항목 3개를 쉼표로 나열하고 반드시 "확인"으로 끝낸다.
 - emphasis 좋은 예: "절단면 처리, 고정 방식, 마감 조건 확인", "표면 상태, 도장 조건, 재단 치수 확인", "단열 시공 조건, 연결 부위, 마감 방식 확인".
-- use1은 대표 사용처를 구체적으로 작성한다.
+- use1은 대표 사용처를 장소/부위 + 작업명 형태로 구체적으로 작성한다.
 - use1 좋은 예: "실내 벽체 바탕재 및 칸막이 시공", "가구 문짝 제작 및 인테리어 몰딩", "외벽 단열 시공 및 천장 단열 작업".
-- use2는 보조 사용처를 구체적으로 작성한다.
+- use2는 보조 사용처를 장소/부위 + 작업명 형태로 구체적으로 작성한다.
 - use2 좋은 예: "천장 바탕재 및 외장 마감 하지재", "도장 마감 가구 및 필름 래핑 작업", "연결 부위 보강 및 마감 조건 확인".
 - use에 "건축자재", "보드", "실내 마감재", "벽체 바탕재", "인테리어 몰딩", "자재"처럼 짧거나 추상적인 표현만 작성하지 않는다.
 - 제품명을 그대로 반복하지 않는다.
@@ -764,6 +766,7 @@ function buildInfographicStructureGuide(data) {
 INFOGRAPHIC_STRUCTURE_LIBRARY:
 - PLYWOOD: 교차 적층 단면. 단판 / 접착층 / 교차 방향만 표현한다.
 - SOLID_PANEL: 솔리드 라멜 집성 단면. 폭 방향 라멜 접합만 표현하고 핑거조인트는 표현하지 않는다.
+- FINGER_JOINT_PANEL: 핑거조인트 라멜 집성 단면. 라멜 / 접합부 / 핑거조인트만 표현하고 합판식 단판 적층은 표현하지 않는다.
 - SIDE_FINGER_PANEL: 측면 핑거 접합 구조. 측면 접합부 중심으로 표현하고 상판 전체 톱니 패턴은 금지한다.
 - TOP_FINGER_PANEL: 상판 또는 길이 방향 핑거 접합 구조. 상판 면에서 핑거조인트가 보이는 구조로 표현한다.
 - MDF: 목재 섬유 압축 단면. 균일한 섬유 조직으로 표현한다.
@@ -781,10 +784,16 @@ INFOGRAPHIC_STRUCTURE_LIBRARY:
 구조 템플릿 선택 규칙:
 - 제품군 판별 결과에 따라 반드시 하나의 구조 템플릿만 선택한다.
 - 선택한 구조 템플릿 외 다른 제품군 구조를 섞지 않는다.
+- 합판은 PLYWOOD만 사용한다.
 - 솔리드 집성판은 SOLID_PANEL만 사용한다.
+- 집성목 / 집성판은 SOLID_PANEL만 사용한다.
+- 핑거조인트 집성판은 FINGER_JOINT_PANEL만 사용한다.
 - 사이드핑거 집성판은 SIDE_FINGER_PANEL만 사용한다.
 - 탑핑거 집성판은 TOP_FINGER_PANEL만 사용한다.
-- 합판은 PLYWOOD만 사용한다.
+- MDF는 MDF만 사용한다.
+- PB / 파티클보드는 PB만 사용한다.
+- 석고보드는 GYPSUM_BOARD만 사용한다.
+- CRC / 시멘트보드 / 섬유시멘트보드는 CEMENT_BOARD만 사용한다.
 - PF보드는 PF_BOARD만 사용한다.
 - XPS는 XPS만 사용한다.
 - EPS는 EPS만 사용한다.
@@ -795,12 +804,21 @@ INFOGRAPHIC_STRUCTURE_LIBRARY:
 
 제품군별 고정 아이콘 규칙:
 - 합판: 교차 적층 아이콘, 단판 레이어 아이콘, 접착층 아이콘.
-- 집성판: 라멜 아이콘, 목재 무늬 아이콘, 접합선 아이콘.
+- 솔리드 집성판 / 집성목 / 집성판: 라멜 아이콘, 목재 무늬 아이콘, 폭 접합선 아이콘.
+- 핑거조인트 집성판: 라멜 아이콘, 핑거조인트 아이콘, 접합부 아이콘.
+- 사이드핑거 집성판: 라멜 아이콘, 측면 핑거조인트 아이콘, 접합부 아이콘.
+- 탑핑거 집성판: 라멜 아이콘, 상판 핑거조인트 아이콘, 길이 방향 접합 아이콘.
 - MDF: 목재섬유 아이콘, 압축 코어 아이콘, 가공 아이콘.
 - PB / 파티클보드: Wood Chip 아이콘, Pressed Core 아이콘, 체결 위치 아이콘.
 - 석고보드: Paper 아이콘, Gypsum Core 아이콘, 이음부 아이콘.
 - CRC / 시멘트보드 / 섬유시멘트보드: Cement Matrix 아이콘, Fiber Reinforcement 아이콘, 절단면 아이콘.
-- 단열재: Facing 아이콘, Core 아이콘, 열 흐름 아이콘, 이음부 아이콘.
+- PF보드: Facing 아이콘, PF Foam Core 아이콘, 이음부 아이콘.
+- XPS: Closed Cell 아이콘, 압출 폼 코어 아이콘, 이음부 아이콘.
+- EPS: Expanded Bead 아이콘, EPS Foam 아이콘, 비드 구조 아이콘.
+- 글라스울: Glass Fiber 아이콘, Fiber Mat 아이콘, 충진 상태 아이콘.
+- 미네랄울 / 암면: Mineral Fiber 아이콘, Board Form 아이콘, 밀착 시공 아이콘.
+- PIR / 우레탄폼: Facing 아이콘, Urethane/PIR Foam Core 아이콘, 이음부 아이콘.
+- 열반사 단열재: Reflective Film 아이콘, Air Layer 아이콘, Cushion Layer 아이콘.
 - 아이콘 형태, 크기, 선 굵기, 배치 비율은 제품군별 고정 스타일을 유지하고 임의 변경하지 않는다.
 
 INFOGRAPHIC_QUALITY_CHECKLIST:
@@ -899,6 +917,10 @@ INFOGRAPHIC_QUALITY_CHECKLIST:
 }
 
 function buildTypeAPrompt(data) {
+  const sourceInstruction = data.source
+    ? `- 출처는 작게 표시: "출처: ${data.source}"`
+    : '';
+
   return `
 건축자재 B2B 쇼핑몰 상세페이지용 한국어 인포그래픽 이미지를 생성하라.
 
@@ -946,7 +968,7 @@ ${buildInfographicStructureGuide(data)}
 - "${data.keyValue}"에서 핵심 숫자를 가장 크게 표시
 - 숫자만 #C9A84C 골드로 강조
 - 단위는 함께 표기
-- 출처는 작게 표시: "출처: ${data.source}"
+${sourceInstruction}
 - 임의 수치 생성 금지
 - "${data.keyValue}"에 명확한 숫자가 없으면 수치 섹션을 만들지 말고 구조 특징 또는 작업 확인 포인트를 표시
 
@@ -1020,16 +1042,28 @@ ${buildInfographicStructureGuide(data)}
 
 2단: 구조 상세 확대 영역
 - exactly three zoom windows of the same product structure
-- surface layer zoom
-- core layer zoom
-- adhesive layer zoom
+- 제품군별 구조에 맞는 확대뷰만 사용한다.
+- 합판: veneer layer zoom / cross grain zoom / adhesive layer zoom
+- 솔리드 집성판, 집성목, 집성판: lamella zoom / wood grain zoom / edge joint zoom
+- 핑거조인트 집성판: lamella zoom / finger joint zoom / adhesive joint zoom
+- 사이드핑거 집성판: side finger joint zoom / lamella zoom / adhesive joint zoom
+- 탑핑거 집성판: top finger joint zoom / lamella zoom / length joint zoom
+- MDF: surface fiber zoom / compressed fiber core zoom / cut edge zoom
+- PB / 파티클보드: surface layer zoom / wood chip core zoom / fastening point zoom
+- 석고보드: paper face zoom / gypsum core zoom / board joint zoom
+- CRC / 시멘트보드 / 섬유시멘트보드: cement matrix zoom / fiber reinforcement zoom / cut edge zoom
+- PF보드: facing zoom / PF foam core zoom / joint treatment zoom
+- XPS: closed cell zoom / uniform foam core zoom / board joint zoom
+- EPS: expanded bead zoom / EPS foam core zoom / board joint zoom
+- 글라스울: glass fiber zoom / fiber mat zoom / filled cavity zoom
+- 미네랄울 / 암면: mineral fiber zoom / board edge zoom / tight joint zoom
+- PIR / 우레탄폼: facing zoom / urethane/PIR foam core zoom / joint treatment zoom
+- 열반사 단열재: reflective film zoom / air layer zoom / cushion layer zoom
 - no product names in this section
 - no title bars in this section
 - each zoom window must show magnified details from the top structure only
 - 동일 제품 구조 확대뷰 3개
-- 표면층 확대
-- 코어 확대
-- 접착층 확대
+- 선택한 제품군에 존재하는 실제 구조 요소만 확대
 - 좌우 카드/제품명/표 제목 없이 확대 이미지 중심
 
 3단: 핵심 구조 키워드

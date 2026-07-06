@@ -77,7 +77,7 @@ const PRODUCT_CATEGORY_GUIDES = [
     keyValue: '목재 섬유 압축 구조',
     structure: '목재 섬유를 고온고압으로 성형한 판재',
     emphasisCandidates: ['표면 상태', '도장 조건', '재단 치수'],
-    useCandidates: ['가구 문짝', '몰딩', '도장 마감', '필름 래핑'],
+    useCandidates: ['가구 문짝', '몰딩', '도장 마감', '가구 문짝 필름 래핑 작업'],
     infographicStructure: '목재 섬유 압축 성형 구조',
     infographicKeywords: ['목재섬유', '고밀도 압축', '균일 구조'],
     forbiddenKeywords: ['단판 적층', '라멜 집성'],
@@ -148,7 +148,7 @@ const PRODUCT_CATEGORY_GUIDES = [
     keywords: ['eps', '스티로폼', '비드법', '비드 단열'],
     keyValue: '비드 발포 단열재',
     structure: '비드 발포 폴리스티렌 구조',
-    emphasisCandidates: ['손상 방지', '마감재 접합'],
+    emphasisCandidates: ['손상 방지', '마감재 접합', '이음부 처리'],
     useCandidates: ['외단열', '충전 단열'],
     infographicStructure: '폴리스티렌 비드를 발포 성형한 단열재',
     infographicKeywords: ['Expanded Bead', 'EPS Foam', 'Bead Structure'],
@@ -243,14 +243,20 @@ function buildProductCategoryGuide(data) {
   if (hasAny(productName, ['edge glued', 'eg panel', 'solid panel'])) return findByName('솔리드 집성판');
   if (hasAny(productName, productNameKeywords)) return findByKeywords(productName);
 
+  if (hasAny(productName, ['집성', '집성목', '집성판'])) return findByName('집성목 / 집성판');
+
   if (hasAny(category, ['집성목', '집성판'])) return findByName('집성목 / 집성판');
+
+  const productGuide = findByKeywords(productName);
+  if (productGuide) return productGuide;
+
+  const categoryGuide = findByKeywords(category);
+  if (categoryGuide) return categoryGuide;
 
   const compareGuide = findByKeywords(compareTarget);
   if (compareGuide) return compareGuide;
 
-  if (hasAny(productName, ['집성', '집성목', '집성판'])) return findByName('집성목 / 집성판');
-
-  return findByKeywords(productName) || findByKeywords(category) || {
+  return {
     name: '일치 제품군 없음',
     keyValue: '',
     structure: '',
