@@ -182,7 +182,7 @@ function generateHTML(row) {
   <table class="ds-spec-table">
     <tr><th>규격</th><td>${data.size}</td></tr>
     <tr><th>두께옵션</th><td>${data.thickness}</td></tr>
-    <tr><th>등급</th><td>${data.grade}</td></tr>
+    <tr><th>성능·인증</th><td>${data.grade}</td></tr>
     <tr><th>제조사</th><td>${data.maker}</td></tr>
     <tr><th>출고안내</th><td>${getStockStatusText(data.stockType)}</td></tr>
   </table>
@@ -331,13 +331,14 @@ function fillMissingProductInfoForActiveRow() {
 }
 
 function buildAutoFillSpecPrompt(data) {
+  const guide = buildProductCategoryGuide(data);
   return `
 아래 A~D, F~G열 입력값만 근거로 상품 정보 입력값을 보완하라.
 응답은 JSON만 반환한다. 설명 문장, 마크다운, 코드블록은 출력하지 않는다.
 
 출력 형식:
 {
-  "grade": "E열 등급",
+  "grade": "E열 성능·인증",
   "keyValue": "H열 핵심 표현",
   "source": "I열 출처 또는 확인 상태",
   "structure": "J열 구조/재질/구성",
@@ -346,11 +347,26 @@ function buildAutoFillSpecPrompt(data) {
   "use2": "M열 대표 용도 2"
 }
 
+제품군 기준 DB 우선 적용:
+- GPT는 아래 제품군 DB를 변경하지 않고 문장 표현만 자연스럽게 보완한다.
+- 제품군 DB와 입력 데이터가 충돌하면 제품군 DB를 우선한다.
+- 일치 제품군: ${guide.name}
+- keyValue 기준: ${guide.keyValue || '일치 기준 없음'}
+- structure 기준: ${guide.structure || '일치 기준 없음'}
+- emphasis 후보: ${guide.emphasisCandidates.join(', ') || '일치 기준 없음'}
+- use 후보: ${guide.useCandidates.join(', ') || '일치 기준 없음'}
+- infographicStructure 기준: ${guide.infographicStructure || '일치 기준 없음'}
+- infographicKeywords 기준: ${guide.infographicKeywords.join(', ') || '일치 기준 없음'}
+- priorityMetrics 기준: ${(guide.priorityMetrics || []).join(', ') || '일치 기준 없음'}
+- forbiddenKeywords: ${guide.forbiddenKeywords.join(', ') || '없음'}
+
 작성 규칙:
 - A~D, F~G열 입력값만 근거로 작성한다.
 - 제조사 공식 자료, 인증, 성능, 원산지는 추정하지 않는다.
-- 등급은 추정하지 않는다.
-- 등급을 확정할 수 없으면 "제조사 자료 확인 필요" 또는 "확인 필요"로 작성한다.
+- grade는 등급이 아니라 E열 성능·인증 입력값이다.
+- 성능·인증은 추정하지 않는다.
+- 성능·인증을 확정할 수 없으면 "확인 필요"만 작성한다.
+- 근거 없는 KS, 준불연, E0/E1, 열전도율, 밀도, 방염, 친환경 등급은 작성하지 않는다.
 - 인증, KS, 준불연, E0/E1, 방염, 친환경 등급은 입력 데이터나 제조사 자료 근거가 없으면 작성하지 않는다.
 - source는 실제 참고자료가 명확한 경우에만 작성한다.
 - source 좋은 예: "벽산 제품자료", "LX 제품자료", "KCC 제품자료", "제조사 카탈로그".
@@ -380,14 +396,6 @@ function buildAutoFillSpecPrompt(data) {
 - category를 structure에 그대로 쓰지 않는다.
 - K/L/M은 단어 하나가 아니라 구체적인 작업 단위로 작성한다.
 - 나쁜 예: "다양한 용도", "고품질 자재", "프리미엄 보드", "실내 마감재", "벽체 바탕재", "인테리어 몰딩", "건축자재", "입력 데이터 기준", "제조사 자료 확인 필요".
-
-제품군별 자동보완 가이드:
-- 합판 계열: structure "목재 단판을 교차 적층한 판재", keyValue "다층 단판 적층 구조", emphasis "재단 치수, 표면 상태, 마감 방향 확인", use 후보 "가구 심재", "벽체 바탕재", "인테리어 제작", "노출 마감".
-- MDF 계열: structure "목재 섬유를 고온고압으로 성형한 판재", keyValue "균일한 단면 구조 / 도장·필름 마감용", emphasis "표면 상태, 도장 조건, 재단 치수 확인", use 후보 "가구 문짝 제작", "인테리어 몰딩", "도장 마감", "필름 래핑 작업".
-- 석고보드 계열: structure "석고 코어 양면에 원지를 결합한 판재", keyValue "벽체·천장 시공용 보드", emphasis "이음부, 고정 방식, 마감 조건 확인", use 후보 "벽체 시공", "천장 시공", "칸막이 작업", "실내 마감 바탕재".
-- 시멘트보드 / CRC / 섬유시멘트 계열: structure "시멘트와 섬유질 원료를 압축 성형한 보드", keyValue "시멘트계 보드 / 벽체·천장 바탕재", emphasis "절단면 처리, 고정 방식, 마감 조건 확인", use 후보 "실내 벽체 바탕재", "칸막이 시공", "천장 바탕재", "외장 마감 하지재".
-- 각재 / 목재 계열: structure "목재를 제재하거나 건조 가공한 각재", keyValue "목공 하지재 / 구조 보강재", emphasis "절단 치수, 고정 방식, 사용 위치 확인", use 후보 "목공 하지 작업", "벽체 상틀", "천장틀", "보강재 작업".
-- 단열재 / PF보드 계열: structure "단열재 코어에 면재를 결합한 구조", keyValue "단열 시공용 보드 / 두께 옵션 운영", emphasis "단열 시공 조건, 연결 부위, 마감 조건 확인", use 후보 "외벽 단열 시공", "천장 단열 작업", "단열 보강", "마감 전 바탕 작업".
 
 [A~D, F~G열 입력값]
 분류: ${data.category}
@@ -726,6 +734,170 @@ function buildInfographicPrompt(data) {
   return null;
 }
 
+function buildInfographicStructureGuide(data) {
+  const guide = buildProductCategoryGuide(data);
+  return `
+제품군 기준 DB 우선 적용:
+- 아래 일치 제품군 DB를 가장 우선한다.
+- AI는 제품군 DB를 변경하지 않고 구조 표현만 이미지에 맞게 정리한다.
+- 인포그래픽은 AI가 자유롭게 구성하는 이미지가 아니라 제품군별 정보 디자인 시스템으로 만든다.
+- 일치 제품군: ${guide.name}
+- keyValue 기준: ${guide.keyValue || '일치 기준 없음'}
+- structure 기준: ${guide.structure || '일치 기준 없음'}
+- emphasis 후보: ${guide.emphasisCandidates.join(', ') || '일치 기준 없음'}
+- use 후보: ${guide.useCandidates.join(', ') || '일치 기준 없음'}
+- infographicStructure 기준: ${guide.infographicStructure || '일치 기준 없음'}
+- infographicKeywords 기준: ${guide.infographicKeywords.join(', ') || '일치 기준 없음'}
+- forbiddenKeywords: ${guide.forbiddenKeywords.join(', ') || '없음'}
+
+제품군별 고정 레이아웃 템플릿:
+- 합판: 비교 → 핵심 구조 → 적층 단면 → 비교 포인트.
+- 집성판: 비교 → 목재 무늬 비교 → 라멜 구조 → 접합 방식.
+- MDF: 비교 → 섬유 압축 구조 → 단면 → 가공 특성.
+- PB / 파티클보드: 우드칩 구조 → 단면 → 체결 특성.
+- 석고보드: 석고코어 → 원지 구조 → 시공 포인트.
+- CRC / 시멘트보드 / 섬유시멘트보드: 섬유시멘트 구조 → 단면 → 절단/시공.
+- 단열재: 제품 비교 → 레이어 구조 → 열 흐름 → 시공 포인트.
+- 제품군이 무엇이든 정보 우선순위는 구조 > 비교 > 수치 순서다.
+- 수치가 부족하면 수치 영역을 억지로 만들지 말고 구조, 재질, 비교, 아이콘으로 채운다.
+
+INFOGRAPHIC_STRUCTURE_LIBRARY:
+- PLYWOOD: 교차 적층 단면. 단판 / 접착층 / 교차 방향만 표현한다.
+- SOLID_PANEL: 솔리드 라멜 집성 단면. 폭 방향 라멜 접합만 표현하고 핑거조인트는 표현하지 않는다.
+- SIDE_FINGER_PANEL: 측면 핑거 접합 구조. 측면 접합부 중심으로 표현하고 상판 전체 톱니 패턴은 금지한다.
+- TOP_FINGER_PANEL: 상판 또는 길이 방향 핑거 접합 구조. 상판 면에서 핑거조인트가 보이는 구조로 표현한다.
+- MDF: 목재 섬유 압축 단면. 균일한 섬유 조직으로 표현한다.
+- PB: 우드칩 압축 단면. 칩 입자 / 압축 코어로 표현한다.
+- GYPSUM_BOARD: 원지 / 석고 코어 / 원지 구조로 표현한다.
+- CEMENT_BOARD: 시멘트 매트릭스 / 섬유 보강 / 압축 보드로 표현한다.
+- PF_BOARD: 면재 / PF 폼 코어 / 면재 구조로 표현한다.
+- XPS: 폐쇄 셀 압출 발포 구조로 표현한다.
+- EPS: 비드 발포 입자 구조로 표현한다.
+- GLASS_WOOL: 유리섬유 매트 구조로 표현한다.
+- MINERAL_WOOL: 광물섬유 매트 구조로 표현한다.
+- PIR_URETHANE: 면재 / PIR 또는 우레탄 폼 코어 / 면재 구조로 표현한다.
+- REFLECTIVE_INSULATION: 반사 필름 / 공기층 / 완충층 구조로 표현한다.
+
+구조 템플릿 선택 규칙:
+- 제품군 판별 결과에 따라 반드시 하나의 구조 템플릿만 선택한다.
+- 선택한 구조 템플릿 외 다른 제품군 구조를 섞지 않는다.
+- 솔리드 집성판은 SOLID_PANEL만 사용한다.
+- 사이드핑거 집성판은 SIDE_FINGER_PANEL만 사용한다.
+- 탑핑거 집성판은 TOP_FINGER_PANEL만 사용한다.
+- 합판은 PLYWOOD만 사용한다.
+- PF보드는 PF_BOARD만 사용한다.
+- XPS는 XPS만 사용한다.
+- EPS는 EPS만 사용한다.
+- 글라스울은 GLASS_WOOL만 사용한다.
+- 미네랄울 / 암면은 MINERAL_WOOL만 사용한다.
+- PIR / 우레탄폼은 PIR_URETHANE만 사용한다.
+- 열반사 단열재는 REFLECTIVE_INSULATION만 사용한다.
+
+제품군별 고정 아이콘 규칙:
+- 합판: 교차 적층 아이콘, 단판 레이어 아이콘, 접착층 아이콘.
+- 집성판: 라멜 아이콘, 목재 무늬 아이콘, 접합선 아이콘.
+- MDF: 목재섬유 아이콘, 압축 코어 아이콘, 가공 아이콘.
+- PB / 파티클보드: Wood Chip 아이콘, Pressed Core 아이콘, 체결 위치 아이콘.
+- 석고보드: Paper 아이콘, Gypsum Core 아이콘, 이음부 아이콘.
+- CRC / 시멘트보드 / 섬유시멘트보드: Cement Matrix 아이콘, Fiber Reinforcement 아이콘, 절단면 아이콘.
+- 단열재: Facing 아이콘, Core 아이콘, 열 흐름 아이콘, 이음부 아이콘.
+- 아이콘 형태, 크기, 선 굵기, 배치 비율은 제품군별 고정 스타일을 유지하고 임의 변경하지 않는다.
+
+INFOGRAPHIC_QUALITY_CHECKLIST:
+- 합판: 라멜 구조 금지, 집성판 구조 금지, 교차 적층 구조만 사용, Veneer Layer 사용, 단판 적층 표현, 집성판 아이콘 사용 금지, 근거 없는 수치 생성 금지.
+- 솔리드 집성판: 핑거조인트 없음, 톱니형 접합 없음, 폭 방향 라멜 접합, 라멜 폭 자연스럽게 표현, 접착선 최소 표현, 단판 적층 금지, 근거 없는 수치 생성 금지.
+- 사이드핑거: 측면 접합부에만 핑거조인트, 상판 전체 톱니 표현 금지, 단판 적층 금지, 근거 없는 수치 생성 금지.
+- 탑핑거: 상판 또는 길이 방향 접합만 표현, 측면 전체 핑거 금지, 단판 적층 금지, 근거 없는 수치 생성 금지.
+- MDF: 섬유 압축 구조, 라멜 금지, Veneer Layer 금지, 근거 없는 수치 생성 금지.
+- PB: 우드칩 구조, 섬유 구조 금지, Veneer Layer 금지.
+- 석고보드: Paper / Gypsum / Paper, 단열재 구조 금지, 라멜 금지.
+- CRC: 섬유시멘트 구조, 석고보드 구조 금지, 단열재 구조 금지.
+- PF: Facing / PF Foam Core / Facing, XPS 구조 금지, EPS 구조 금지, 글라스울 구조 금지.
+- XPS: Closed Cell, PF 구조 금지, EPS 비드 구조 금지.
+- EPS: 비드 구조, Closed Cell 금지.
+- 글라스울: 섬유 매트 구조, 발포 구조 금지.
+- 미네랄울: 광물섬유 구조, 글라스울 질감 혼용 금지.
+
+제품군별 구조 규칙:
+- 합판(Plywood): 목재 단판(Veneer) 교차 적층 구조. 구조도는 단판, 교차 적층, 접착층 중심. 허용: 적층, Veneer, Layer. 금지: 라멜, 집성, 핑거조인트.
+- 솔리드 집성판: 원목 라멜을 폭 방향으로 접합한 솔리드 패널 구조. 구조도는 라멜, 폭 접합, 접착 중심. 허용: 라멜, 폭 접합, 접착, 솔리드 패널. 금지: 핑거조인트, Finger Joint, FJ, 탑핑거, 사이드핑거, 톱니형 접합, 길이 방향 접합, 단판 적층, 3~13겹, Veneer Layer, 교차 적층.
+- 사이드핑거 집성판: 제품명에 사이드핑거, 사이드 핑거, Side Finger가 명확히 포함될 때만 측면 접합부 중심으로 핑거조인트를 표현한다. 표면 전체에 과한 톱니 패턴을 만들지 않는다. 금지: 단판 적층, 3~13겹, Veneer Layer, 교차 적층.
+- 탑핑거 집성판: 제품명에 탑핑거, 탑 핑거, Top Finger가 명확히 포함될 때만 상판 면 또는 길이 방향 접합부에 핑거조인트를 표현한다. 합판식 레이어 단면으로 표현하지 않는다. 금지: 단판 적층, 3~13겹, Veneer Layer, 교차 적층.
+- 핑거조인트 집성판: 제품명에 핑거, FJ, Finger가 명확히 포함될 때만 핑거조인트 표현을 허용한다. 구조도는 라멜, 접합부, 접착 중심. 금지: 단판 적층, 3~13겹, Veneer Layer, 교차 적층.
+- 집성판 / 집성목: 제품명에 핑거, FJ, Finger가 없으면 핑거조인트를 생성하지 않는다. 원목 라멜을 폭 방향으로 접합한 집성 구조로 표현한다. 구조도는 라멜, 접착, 집성, 폭 접합 중심. 허용: Lamella, Edge Glued, Solid Panel. 금지: 핑거조인트, Finger Joint, FJ, 탑핑거, 사이드핑거, 톱니형 접합, 단판 적층, 3~13겹, Veneer Layer, 교차 적층.
+- MDF: 목재 섬유 압축 성형 구조. 구조도는 목재섬유, 고밀도 압축, 균일 구조 중심. 금지: 단판 적층, 라멜 집성.
+- PB / 파티클보드: 우드칩과 접착제를 압축 성형한 구조. 구조도는 Wood Chip, Resin, Pressed Core 중심. 금지: 단판 적층, 라멜 집성, 석고 코어.
+- 석고보드: 석고 코어 양면에 원지를 결합한 구조. 구조도는 원지, 석고 코어, 원지 중심. 금지: 단판 적층, 라멜 집성, 목재 섬유 압축.
+- CRC / 시멘트보드 / 섬유시멘트보드: 시멘트계 원료와 섬유질 원료를 압축 성형한 구조. 구조도는 Cement Matrix, Fiber Reinforcement, Pressed Board 중심. 금지: 단판 적층, 라멜 집성, 석고 코어.
+- PF보드 / 페놀폼 단열재: 페놀수지 발포 단열재 코어에 면재를 복합한 구조. 구조도는 Facing, PF Foam Core, Facing 중심. 금지: 단판 적층, 라멜 집성, 석고 코어.
+- XPS / 아이소핑크 / 압출법 단열재: 폴리스티렌 수지를 압출 발포한 폐쇄 셀 구조. 구조도는 Closed Cell Foam, Extruded Polystyrene, Uniform Foam Core 중심. 허용: 폐쇄 셀, 압출 발포, XPS Core. 금지: PF Core, Glass Wool Fiber, 단판 적층, 라멜 집성.
+- EPS / 스티로폼 / 비드법 단열재: 폴리스티렌 비드를 발포 성형한 단열재. 구조도는 Expanded Bead, EPS Foam, Bead Structure 중심. 허용: 비드 구조, 발포 입자, EPS Core. 금지: 압출 발포 구조, PF Core, Glass Wool Fiber, 단판 적층.
+- 글라스울: 유리섬유를 솜 형태로 집합한 섬유계 단열재. 구조도는 Glass Fiber, Fiber Mat, Air Layer 중심. 허용: 섬유 매트, 유리섬유, 흡음, 단열. 금지: 발포 코어, 단판 적층, 라멜 집성.
+- 미네랄울 / 암면: 광물 섬유를 매트 또는 보드 형태로 성형한 단열재. 구조도는 Mineral Fiber, Fiber Mat, Board Form 중심. 허용: 광물섬유, 섬유 매트, 보드형 단열재. 금지: 발포 코어, 단판 적층, 라멜 집성.
+- 우레탄폼 / PIR 단열재: 우레탄 또는 PIR 발포 단열재 코어에 면재를 결합한 구조. 구조도는 Facing, Urethane/PIR Foam Core, Facing 중심. 허용: Foam Core, Facing, PIR Core. 금지: PF Core로 단정, Glass Wool Fiber, 단판 적층.
+- 열반사 단열재: 반사 필름과 공기층 또는 완충재를 결합한 구조. 구조도는 Reflective Film, Air Layer, Cushion Layer 중심. 허용: 반사층, 공기층, 알루미늄 필름. 금지: 발포 코어 단정, 단판 적층, 라멜 집성.
+
+구조 혼용 금지:
+- 집성판이면 단판 적층, 3~13겹, Veneer Layer, 교차 적층을 절대 사용하지 않는다.
+- 합판이면 라멜, 집성, 핑거조인트를 절대 사용하지 않는다.
+- 단열재는 제품명에 따라 PF보드, XPS, EPS, 글라스울, 미네랄울, 우레탄폼, 열반사 단열재를 구분하고 서로 혼용하지 않는다.
+
+구조도 일치 규칙:
+- 제목, 구조 설명, 단면 이미지, 레이어 구조, 아이콘, 수치 비교는 모두 동일한 제품 구조를 사용한다.
+- 제품군이 바뀌면 모든 요소가 함께 변경되어야 한다.
+- 부분적으로 다른 제품군 구조를 혼합하지 않는다.
+- 실제 단면과 최대한 유사하게 표현한다.
+- 합판은 교차 적층 단면으로 표현한다.
+- 집성판은 라멜과 최소한의 접착선 중심으로 표현한다.
+- 솔리드, 핑거조인트, 사이드핑거, 탑핑거는 모두 별도 구조로 표현한다.
+- MDF는 목재 섬유 압축 구조로 표현한다.
+- PB는 Chip 기반 압축 구조로 표현한다.
+- 석고보드는 Paper / Gypsum / Paper 구조로 표현한다.
+- PF보드는 Facing / PF Foam Core / Facing 구조로 표현한다.
+
+사실성 우선:
+- 검색성과 디자인보다 실제 제품 구조와 일치하는 설명을 우선한다.
+- 모르는 내용은 추정하지 않는다.
+- 성능 수치, 인증, KS/KC, 준불연, 열전도율, 흡음률, 밀도 등은 A~M열 또는 제조사 자료에 명확히 있을 때만 사용한다.
+- A~M열 또는 제조사 자료에 명확한 공식 수치가 있으면 핵심 수치 섹션에 우선 배치한다.
+- 공식 수치의 숫자는 #C9A84C 골드로 크게 강조하고 단위는 정확히 표기한다.
+- 출처가 명확하면 수치 주변에 작게 표기한다.
+- 강조 가능한 공식 수치 예시는 열전도율, 밀도, 함수율, 흡수율, 압축강도, 접착강도, 준불연 / 불연 / 난연 등급, KS / KC 인증, E0 / E1 등급, 방염 등급, 두께 옵션, 규격이다.
+- 위 공식 수치는 A~M열 또는 제조사 자료에 명확히 있을 때만 사용한다.
+- A~M열에 명확한 수치가 없는 경우 임의 숫자를 생성하지 않는다.
+- 함수율, 밀도, 접착율, 접착률, 라멜 수, 열전도율, 강도, 접착제 도포량 등은 근거가 있을 때만 표시한다.
+- 근거 없는 수치 섹션은 만들지 않는다.
+- A~M열에 명확한 수치가 없으면 수치 카드나 핵심 수치 섹션을 만들지 않는다.
+- 임의 라멜 수, 임의 접착률, 임의 접착제 도포량, 임의 함수율, 임의 밀도, 임의 열전도율, 임의 강도는 절대 생성하지 않는다.
+- 출처 없는 "100%", 출처 없는 "10장", 출처 없는 "150g/m²", 출처 없는 "8~12%", 출처 없는 "30~50mm" 같은 임의 수치를 생성하지 않는다.
+- 공식 수치가 없으면 수치 카드 생성 금지, 임의 숫자 생성 금지를 지키고 구조 특징, 단면 구조, 비교 포인트, 작업 확인 포인트로 대체한다.
+- 수치가 부족하면 구조 특징, 단면 구조, 작업 확인 포인트, 비교 포인트 섹션으로 대체한다.
+- 수치가 부족한 경우 구조 특징, 단면 구조, 작업 확인 포인트 중심으로 구성한다.
+- 비교는 실제 차이만 표현하고 광고 문구나 추정 표현을 사용하지 않는다.
+- 동일한 여백, 폰트, 비율, 아이콘 크기, 선 굵기, 카드 스타일을 유지한다.
+
+출처 규칙:
+- 출처는 실제 제조사 자료나 A~M열에 명확한 근거가 있을 때만 표기한다.
+- "출처: 제품 데이터", "출처: 제품 사양서", "출처: 입력 데이터"는 사용하지 않는다.
+- 실제 근거가 없으면 출처 영역 자체를 만들지 않는다.
+
+최종 자기검증 규칙:
+- 이미지 생성 전 제품군 구조가 맞는지 확인한다.
+- 다른 제품군 구조가 섞이지 않았는지 확인한다.
+- 근거 없는 수치가 없는지 확인한다.
+- 근거 없는 출처가 없는지 확인한다.
+- 단면 구조가 실제 제품과 일치하는지 확인한다.
+- 하나라도 만족하지 않으면 해당 요소를 제거하거나 구조 중심으로 다시 구성한다.
+
+[제품군 판단 참고]
+분류: ${data.category}
+제품명: ${data.productName}
+핵심표현: ${data.keyValue}
+구조: ${data.structure}
+강조포인트: ${data.emphasis}
+  `;
+}
+
 function buildTypeAPrompt(data) {
   return `
 건축자재 B2B 쇼핑몰 상세페이지용 한국어 인포그래픽 이미지를 생성하라.
@@ -760,6 +932,8 @@ function buildTypeAPrompt(data) {
 - 그라디언트와 과한 그림자는 사용하지 않음
 - 장식보다 정보 전달 우선
 
+${buildInfographicStructureGuide(data)}
+
 1단: 비교
 - 좌우 비교 구조
 - 왼쪽 라벨: "${data.compareTarget}"
@@ -774,6 +948,7 @@ function buildTypeAPrompt(data) {
 - 단위는 함께 표기
 - 출처는 작게 표시: "출처: ${data.source}"
 - 임의 수치 생성 금지
+- "${data.keyValue}"에 명확한 숫자가 없으면 수치 섹션을 만들지 말고 구조 특징 또는 작업 확인 포인트를 표시
 
 3단: 단면 구조
 - "${data.structure}"을 기반으로 단면/구조 도해 생성
@@ -834,6 +1009,8 @@ function buildTypeBPrompt(data) {
 - 골드는 핵심 구조 포인트에만 사용
 - 그라디언트와 과한 그림자는 사용하지 않음
 - 장식보다 정보 전달 우선
+
+${buildInfographicStructureGuide(data)}
 
 1단: 단면 구조 메인
 - "${data.structure}"을 기반으로 큰 단면 도해 또는 분해도를 생성
@@ -916,6 +1093,8 @@ function buildTypeCPrompt(data) {
 - 텍스트 #1C1C1C
 - 서브텍스트 #616161
 - 보더 #E0E0E0
+
+${buildInfographicStructureGuide(data)}
 
 1단: 표면 질감 클로즈업
 - "${data.keyValue}"을 중심으로 제품 표면 질감을 크게 보여준다.
