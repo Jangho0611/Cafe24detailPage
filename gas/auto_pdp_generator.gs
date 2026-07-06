@@ -265,6 +265,140 @@ function setupStockTypeDropdown() {
   Logger.log('재고구분 드롭다운 설정 완료');
 }
 
+function fillMissingProductInfoForActiveRow() {
+  const sheet = getSheet();
+  if (!sheet) return;
+
+  const range = sheet.getActiveRange();
+  if (!range) return;
+
+  const row = range.getRow();
+  if (row < 2) {
+    SpreadsheetApp.getActiveSpreadsheet().toast('상품 행을 선택한 뒤 실행하세요.');
+    return;
+  }
+
+  const fields = [
+    { key: 'grade', col: COL.GRADE },
+    { key: 'keyValue', col: COL.KEY_VALUE },
+    { key: 'source', col: COL.SOURCE },
+    { key: 'structure', col: COL.STRUCTURE },
+    { key: 'emphasis', col: COL.EMPHASIS },
+    { key: 'use1', col: COL.USE1 },
+    { key: 'use2', col: COL.USE2 }
+  ];
+  const missingFields = fields.filter(function (field) {
+    return String(sheet.getRange(row, field.col).getValue() || '').trim() === '';
+  });
+
+  if (missingFields.length === 0) {
+    SpreadsheetApp.getActiveSpreadsheet().toast('E, H~M열에 비어 있는 칸이 없습니다.');
+    return;
+  }
+
+  const data = getRowData(sheet, row);
+  const apiKey = PropertiesService.getScriptProperties().getProperty('OPENAI_API_KEY');
+  if (!apiKey) {
+    setError(sheet, row, 'API Key 없음');
+    return;
+  }
+
+  const response = callTextAPI(apiKey, buildAutoFillSpecPrompt(data));
+  if (!response) {
+    setError(sheet, row, '상품 정보 자동보완 API 응답 없음');
+    return;
+  }
+
+  let content;
+  try {
+    const clean = response.replace(/```json|```/g, '').trim();
+    content = JSON.parse(clean);
+  } catch (e) {
+    setError(sheet, row, '상품 정보 자동보완 JSON 파싱 실패: ' + e.message);
+    return;
+  }
+
+  missingFields.forEach(function (field) {
+    const currentValue = sheet.getRange(row, field.col).getValue();
+    const nextValue = content[field.key];
+    if (String(currentValue || '').trim() === '' && nextValue) {
+      sheet.getRange(row, field.col).setValue(String(nextValue).trim());
+    }
+  });
+
+  sheet.getRange(row, COL.ERROR).setValue('');
+  SpreadsheetApp.getActiveSpreadsheet().toast(row + '행 E, H~M 자동보완 완료');
+}
+
+function buildAutoFillSpecPrompt(data) {
+  return `
+아래 A~D, F~G열 입력값만 근거로 상품 정보 입력값을 보완하라.
+응답은 JSON만 반환한다. 설명 문장, 마크다운, 코드블록은 출력하지 않는다.
+
+출력 형식:
+{
+  "grade": "E열 등급",
+  "keyValue": "H열 핵심 표현",
+  "source": "I열 출처 또는 확인 상태",
+  "structure": "J열 구조/재질/구성",
+  "emphasis": "K열 작업 또는 확인 포인트",
+  "use1": "L열 대표 용도 1",
+  "use2": "M열 대표 용도 2"
+}
+
+작성 규칙:
+- A~D, F~G열 입력값만 근거로 작성한다.
+- 제조사 공식 자료, 인증, 성능, 원산지는 추정하지 않는다.
+- 등급은 추정하지 않는다.
+- 등급을 확정할 수 없으면 "제조사 자료 확인 필요" 또는 "확인 필요"로 작성한다.
+- 인증, KS, 준불연, E0/E1, 방염, 친환경 등급은 입력 데이터나 제조사 자료 근거가 없으면 작성하지 않는다.
+- source는 실제 참고자료가 명확한 경우에만 작성한다.
+- source 좋은 예: "벽산 제품자료", "LX 제품자료", "KCC 제품자료", "제조사 카탈로그".
+- source 근거가 없으면 빈 문자열 ""로 작성한다.
+- source에 "입력 데이터 기준", "제조사 자료 확인 필요", "확인 필요"를 작성하지 않는다.
+- 광고성 표현을 사용하지 않는다.
+- 우수한, 뛰어난, 최고급, 프리미엄, 추천, 최적, 효율적, 가성비 표현을 사용하지 않는다.
+- 짧은 명사구 또는 짧은 안내 표현으로 작성한다.
+- 제품 상세 HTML 문장이 아니라 시트 입력값으로 쓰기 좋은 형태로 작성한다.
+- 값이 불확실하면 단정하지 않는다.
+
+컬럼별 작성 규칙:
+- keyValue는 핵심 특징만 작성한다. 제품명을 반복하지 않는다.
+- keyValue 좋은 예: "다층 단판 적층 구조", "시멘트계 보드", "균일한 단면 구조", "페놀수지 발포 단열재".
+- structure는 제품 구조와 재질만 설명한다.
+- structure 좋은 예: "원목 단판을 교차 적층한 판재", "목재 섬유를 고온고압으로 성형한 판재", "석고 코어 양면에 원지를 결합한 판재", "시멘트와 섬유질 원료를 압축 성형한 보드".
+- keyValue와 structure는 같은 내용을 반복하지 않는다.
+- keyValue와 structure 조합 예: keyValue "시멘트계 보드 / 벽체·천장 바탕재", structure "시멘트와 섬유질 원료를 압축 성형한 보드".
+- emphasis는 작업 전 확인 포인트를 2~3개 포함한다.
+- emphasis 좋은 예: "절단면 처리, 고정 방식, 마감 조건 확인", "표면 상태, 도장 조건, 재단 치수 확인", "단열 시공 조건, 연결 부위, 마감 방식 확인".
+- use1은 대표 사용처를 구체적으로 작성한다.
+- use1 좋은 예: "실내 벽체 바탕재 및 칸막이 시공", "가구 문짝 제작 및 인테리어 몰딩", "외벽 단열 시공 및 천장 단열 작업".
+- use2는 보조 사용처를 구체적으로 작성한다.
+- use2 좋은 예: "천장 바탕재 및 외장 마감 하지재", "도장 마감 가구 및 필름 래핑 작업", "연결 부위 보강 및 마감 조건 확인".
+- use에 "건축자재", "보드", "실내 마감재", "벽체 바탕재", "인테리어 몰딩", "자재"처럼 짧거나 추상적인 표현만 작성하지 않는다.
+- 제품명을 그대로 반복하지 않는다.
+- category를 structure에 그대로 쓰지 않는다.
+- K/L/M은 단어 하나가 아니라 구체적인 작업 단위로 작성한다.
+- 나쁜 예: "다양한 용도", "고품질 자재", "프리미엄 보드", "실내 마감재", "벽체 바탕재", "인테리어 몰딩", "건축자재", "입력 데이터 기준", "제조사 자료 확인 필요".
+
+제품군별 자동보완 가이드:
+- 합판 계열: structure "목재 단판을 교차 적층한 판재", keyValue "다층 단판 적층 구조", emphasis "재단 치수, 표면 상태, 마감 방향 확인", use 후보 "가구 심재", "벽체 바탕재", "인테리어 제작", "노출 마감".
+- MDF 계열: structure "목재 섬유를 고온고압으로 성형한 판재", keyValue "균일한 단면 구조 / 도장·필름 마감용", emphasis "표면 상태, 도장 조건, 재단 치수 확인", use 후보 "가구 문짝 제작", "인테리어 몰딩", "도장 마감", "필름 래핑 작업".
+- 석고보드 계열: structure "석고 코어 양면에 원지를 결합한 판재", keyValue "벽체·천장 시공용 보드", emphasis "이음부, 고정 방식, 마감 조건 확인", use 후보 "벽체 시공", "천장 시공", "칸막이 작업", "실내 마감 바탕재".
+- 시멘트보드 / CRC / 섬유시멘트 계열: structure "시멘트와 섬유질 원료를 압축 성형한 보드", keyValue "시멘트계 보드 / 벽체·천장 바탕재", emphasis "절단면 처리, 고정 방식, 마감 조건 확인", use 후보 "실내 벽체 바탕재", "칸막이 시공", "천장 바탕재", "외장 마감 하지재".
+- 각재 / 목재 계열: structure "목재를 제재하거나 건조 가공한 각재", keyValue "목공 하지재 / 구조 보강재", emphasis "절단 치수, 고정 방식, 사용 위치 확인", use 후보 "목공 하지 작업", "벽체 상틀", "천장틀", "보강재 작업".
+- 단열재 / PF보드 계열: structure "단열재 코어에 면재를 결합한 구조", keyValue "단열 시공용 보드 / 두께 옵션 운영", emphasis "단열 시공 조건, 연결 부위, 마감 조건 확인", use 후보 "외벽 단열 시공", "천장 단열 작업", "단열 보강", "마감 전 바탕 작업".
+
+[A~D, F~G열 입력값]
+분류: ${data.category}
+제품명: ${data.productName}
+두께: ${data.thickness}
+규격: ${data.size}
+제조사: ${data.maker}
+비교대상: ${data.compareTarget}
+  `;
+}
+
 function getSheet() {
   // onEdit에서는 openById 권한 없음 -> getActiveSpreadsheet 사용
   try {
