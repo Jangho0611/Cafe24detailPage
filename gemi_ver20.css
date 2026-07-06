@@ -1,0 +1,449 @@
+/* 
+   MDF Product Detail Page Styles (Gemini V20)
+   Based on Section3_Gemini_Prompter.md
+*/
+
+:root {
+    --zart-primary: #2d5a3d;
+    --zart-primary-light: #3d6d4d;
+    --zart-text: #1A1A1A;
+    --zart-text-sub: #616161;
+    --zart-border: #E0E0E0;
+    --zart-surface: #FAFAFA;
+    --zart-bg: #FFFFFF;
+    --zart-font: 'Pretendard Variable', sans-serif;
+    --zart-ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
+    --zart-shadow-1: 0 4px 16px rgba(0, 0, 0, 0.08);
+    --zart-shadow-2: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: var(--zart-font);
+    color: var(--zart-text);
+    background-color: var(--zart-bg);
+    line-height: 1.5;
+}
+
+.zart-wrap {
+    max-width: 790px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+.zart-section {
+    padding: 64px 0;
+}
+
+[data-animate] {
+    opacity: 0;
+    transform: translateY(24px);
+    transition: 0.6s var(--zart-ease-smooth);
+}
+
+[data-animate].is-visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Common Components */
+.zart-title-section {
+    text-align: center;
+    margin-bottom: 48px;
+}
+
+.zart-title-section h2 {
+    font-size: 31px;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.zart-title-section p {
+    color: var(--zart-text-sub);
+    font-size: 14px;
+}
+
+/* Section 1: Stats */
+.zart-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 24px;
+}
+
+.zart-stat-card {
+    background: white;
+    border: 1px solid var(--zart-border);
+    border-radius: 8px;
+    padding: 24px;
+    text-align: center;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.zart-stat-icon {
+    width: 48px;
+    height: 48px;
+    margin: 0 auto 16px;
+    background: linear-gradient(135deg, #2d5a3d 0%, #3d6d4d 100%);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+}
+
+.zart-stat-number {
+    font-size: 39px;
+    font-weight: 700;
+}
+
+.zart-stat-label {
+    font-size: 14px;
+    color: var(--zart-text-sub);
+}
+
+/* Section 2: Price */
+.zart-price-container {
+    text-align: center;
+}
+
+.zart-price-display {
+    position: relative;
+    cursor: pointer;
+    display: inline-block;
+}
+
+.zart-price-change.down {
+    color: #2196F3;
+    font-weight: 700;
+    font-size: 25px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-content: center;
+}
+
+.zart-price-popup {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    top: calc(100% + 12px);
+    width: 320px;
+    background: white;
+    border: 1px solid var(--zart-border);
+    border-radius: 8px;
+    padding: 16px;
+    box-shadow: var(--zart-shadow-2);
+    opacity: 0;
+    pointer-events: none;
+    transition: 0.2s ease;
+    z-index: 10;
+}
+
+.zart-price-display:hover .zart-price-popup {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* ===== Section 3: Gemini 스타일 통합 인포그래픽 ===== */
+.zart-gemini-infographic {
+    width: 100%;
+    background: white;
+    border: 1px solid var(--zart-border);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: var(--zart-shadow-1);
+    display: flex;
+    flex-direction: column;
+}
+
+/* 상단: 제품 헤더 */
+.zart-g-header {
+    display: flex;
+    gap: 20px;
+    background: #FAFAFA;
+    padding: 24px;
+    align-items: center;
+    border-bottom: 1px solid var(--zart-border);
+}
+
+.zart-g-img-box {
+    width: 200px;
+    height: 140px;
+    background: white;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.zart-g-img-box img {
+    max-width: 90%;
+    max-height: 90%;
+    object-fit: contain;
+}
+
+.zart-g-info {
+    flex: 1;
+}
+
+.zart-g-info h2 {
+    font-size: 32px;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.zart-g-info p {
+    font-size: 20px;
+    color: var(--zart-text-sub);
+}
+
+.zart-g-badge-box {
+    background: linear-gradient(135deg, #2d5a3d 0%, #3d6d4d 100%);
+    color: white;
+    padding: 16px 24px;
+    border-radius: 50px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    box-shadow: 0 4px 12px rgba(45, 90, 61, 0.3);
+}
+
+.zart-g-badge-circle {
+    width: 48px;
+    height: 48px;
+    background: white;
+    border-radius: 50%;
+    color: var(--zart-primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    font-weight: 700;
+}
+
+/* 중단: Visual Insight + 게이지 */
+.zart-g-mid {
+    display: flex;
+    gap: 20px;
+    padding: 24px;
+}
+
+.zart-g-visual-insight {
+    flex: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.zart-g-visual-insight h3 {
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.zart-g-compare-grid {
+    display: flex;
+    gap: 16px;
+    flex: 1;
+}
+
+.zart-g-compare-card {
+    flex: 1;
+    background: white;
+    border: 1px solid var(--zart-border);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.zart-g-compare-card.active {
+    border: 2px solid var(--zart-primary);
+}
+
+.zart-g-compare-card h4 {
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.zart-g-compare-card.active h4 {
+    color: var(--zart-primary);
+}
+
+.zart-g-zoom-box {
+    flex: 1;
+    background: #F0F0F0;
+    border-radius: 8px;
+    overflow: hidden;
+    display: flex;
+}
+
+.zart-g-zoom-box img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.zart-g-compare-card p {
+    font-size: 12px;
+    color: var(--zart-text-sub);
+    text-align: center;
+}
+
+.zart-g-compare-card.active p {
+    font-weight: 600;
+    color: var(--zart-primary);
+}
+
+.zart-g-gauge-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.zart-g-gauge-area h3 {
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.zart-g-gauge-card {
+    flex: 1;
+    background: white;
+    border: 1px solid var(--zart-border);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
+
+.zart-g-gauge-svg {
+    margin-bottom: 12px;
+}
+
+.zart-g-gauge-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--zart-text-sub);
+}
+
+/* 하단: Usage Guide */
+.zart-g-foot {
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.zart-g-foot h3 {
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.zart-g-usage-list {
+    display: flex;
+    gap: 16px;
+}
+
+.zart-g-usage-item {
+    flex: 1;
+    background: #F5F5F5;
+    border-radius: 12px;
+    padding: 24px;
+    text-align: center;
+    border: 1px solid var(--zart-border);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.zart-g-usage-icon {
+    font-size: 40px;
+}
+
+.zart-g-usage-name {
+    font-size: 15px;
+    font-weight: 600;
+}
+
+/* Section 4 & 5 (Shared with v10) */
+.zart-property-wrap {
+    background: white;
+    border: 1px solid var(--zart-border);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: var(--zart-shadow-1);
+    margin-top: 32px;
+}
+
+.zart-prop-header {
+    display: flex;
+    background: var(--zart-primary);
+    color: white;
+    padding: 16px;
+    font-weight: 700;
+}
+
+.zart-prop-row {
+    display: flex;
+    border-top: 1px solid var(--zart-border);
+    padding: 16px;
+}
+
+.zart-prop-row:nth-child(even) {
+    background: var(--zart-surface);
+}
+
+.zart-prop-col {
+    flex: 1;
+    text-align: center;
+    font-size: 14px;
+}
+
+.zart-prop-col.name {
+    flex: 2;
+    text-align: left;
+    font-weight: 600;
+}
+
+.zart-comic-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+}
+
+.zart-comic-card {
+    background: white;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: var(--zart-shadow-1);
+    text-align: center;
+}
+
+@media (max-width: 768px) {
+    .zart-stat-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .zart-g-header,
+    .zart-g-mid,
+    .zart-g-foot,
+    .zart-g-compare-grid,
+    .zart-g-usage-list {
+        flex-direction: column;
+    }
+
+    .zart-g-mid {
+        gap: 40px;
+    }
+}

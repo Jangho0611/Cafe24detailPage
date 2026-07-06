@@ -1,0 +1,686 @@
+<!-- ============================================
+     자트 OSB 상품 상세 - 리팩토링 버전 (Prompter v3 기준)
+     - Monet Design System 적용
+     - 4개 카드 구조 (신뢰/구조/스토리/프로세스)
+     - Brutalist + Swiss Typography
+     ============================================ -->
+
+<style>
+    /* 폰트 로드: Pretendard Variable */
+    @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable.min.css');
+
+    :root {
+        /* ===== 랜딩페이지 추출 색상 DNA ===== */
+        --zart-text-primary: #1C1C1C;
+        --zart-text-body: #353535;
+        --zart-text-secondary: #757575;
+        --zart-link: #000000;
+        --zart-link-hover: #008BCC;
+        --zart-accent: #B42D30;
+        --zart-button-bg: #123628;
+
+        /* ===== Brutalist Industrial 팔레트 ===== */
+        --zart-bg: #FFFFFF;
+        --zart-surface: #F8F8F8;
+        --zart-border: rgba(0, 0, 0, 0.06);
+        --zart-wood-natural: #D4A574;
+        /* 목재 포인트 */
+
+        /* ===== Typography Scale (Major Third 1.25) ===== */
+        --text-xs: 0.8rem;
+        --text-sm: 1rem;
+        --text-base: 1.25rem;
+        --text-lg: 1.563rem;
+        --text-xl: 1.953rem;
+        --text-2xl: 2.441rem;
+
+        /* ===== Spacing (8pt Grid) ===== */
+        --space-xs: 16px;
+        --space-sm: 24px;
+        --space-md: 40px;
+        --space-lg: 64px;
+    }
+
+    /* Base Styles */
+    .zart-pdp-wrapper * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+
+    .zart-pdp-wrapper {
+        font-family: 'Pretendard Variable', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+        color: var(--zart-text-body);
+        line-height: 1.6;
+        letter-spacing: -0.02em;
+        /* Swiss Typography */
+        max-width: 790px;
+        margin: 0 auto;
+        background-color: var(--zart-bg);
+        padding: var(--space-md) 0;
+        -webkit-font-smoothing: antialiased;
+    }
+
+    /* Card System (Monet Modern) */
+    .zart-card {
+        background: var(--zart-bg);
+        border-radius: 4px;
+        padding: var(--space-sm);
+        margin-bottom: var(--space-md);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.04);
+        transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    .zart-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12), 0 2px 4px rgba(0, 0, 0, 0.08);
+    }
+
+    /* Typography Helpers */
+    .zart-h2 {
+        font-size: var(--text-xl);
+        font-weight: 800;
+        color: var(--zart-text-primary);
+        margin-bottom: var(--space-sm);
+        text-align: center;
+        position: relative;
+    }
+
+    .zart-h2::after {
+        content: '';
+        display: block;
+        width: 40px;
+        height: 2px;
+        background: var(--zart-wood-natural);
+        margin: 12px auto 0;
+    }
+
+    /* Card 1: 신뢰 및 데이터 */
+    .zart-trust-grid {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-md);
+    }
+
+    .zart-quote-counter {
+        text-align: center;
+        padding: var(--space-sm) 0;
+    }
+
+    .zart-quote-number {
+        font-size: var(--text-2xl);
+        font-weight: 900;
+        color: var(--zart-accent);
+        font-feature-settings: "tnum" 1;
+    }
+
+    .zart-quote-number.updated {
+        animation: zart-pulse 0.5s ease-out;
+    }
+
+    @keyframes zart-pulse {
+        0% {
+            transform: scale(1);
+        }
+
+        50% {
+            transform: scale(1.1);
+        }
+
+        100% {
+            transform: scale(1);
+        }
+    }
+
+    .zart-quote-label {
+        font-size: var(--text-lg);
+        color: var(--zart-text-secondary);
+        font-weight: 600;
+        margin-left: 4px;
+    }
+
+    .zart-quote-desc {
+        font-size: var(--text-sm);
+        color: var(--zart-text-secondary);
+        margin-top: 8px;
+    }
+
+    /* 가격 동향 */
+    .zart-price-trend {
+        border-top: 1px solid var(--zart-border);
+        padding-top: var(--space-sm);
+    }
+
+    .zart-price-h3 {
+        font-size: var(--text-base);
+        font-weight: 700;
+        margin-bottom: var(--space-xs);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .zart-price-badge {
+        font-size: var(--text-xs);
+        background: rgba(180, 45, 48, 0.1);
+        color: var(--zart-accent);
+        padding: 4px 10px;
+        border-radius: 20px;
+    }
+
+    .zart-chart-container {
+        height: 160px;
+        background: var(--zart-surface);
+        border-radius: 4px;
+        position: relative;
+        overflow: hidden;
+        margin-bottom: 8px;
+    }
+
+    .zart-chart-svg {
+        width: 100%;
+        height: 100%;
+    }
+
+    .zart-chart-line {
+        fill: none;
+        stroke: var(--zart-accent);
+        stroke-width: 3;
+        stroke-linecap: round;
+    }
+
+    /* 자트 차별점 Grid */
+    .zart-diff-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: var(--space-xs);
+        margin-top: var(--space-sm);
+    }
+
+    .zart-diff-item {
+        text-align: center;
+        padding: var(--space-xs);
+        border-radius: 4px;
+        background: var(--zart-surface);
+    }
+
+    .zart-diff-icon {
+        font-size: 32px;
+        margin-bottom: 8px;
+        display: block;
+    }
+
+    .zart-diff-item h4 {
+        font-size: var(--text-sm);
+        font-weight: 700;
+        margin-bottom: 4px;
+    }
+
+    .zart-diff-item p {
+        font-size: var(--text-xs);
+        color: var(--zart-text-secondary);
+    }
+
+    /* Card 2: 아코디언 제품구조 */
+    .zart-accordion {
+        border: 1px solid var(--zart-border);
+        border-radius: 4px;
+        overflow: hidden;
+    }
+
+    .zart-accordion-item {
+        border-bottom: 1px solid var(--zart-border);
+    }
+
+    .zart-accordion-item:last-child {
+        border-bottom: none;
+    }
+
+    .zart-accordion-header {
+        width: 100%;
+        padding: var(--space-xs);
+        background: var(--zart-bg);
+        border: none;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        cursor: pointer;
+        font-size: var(--text-sm);
+        font-weight: 700;
+        color: var(--zart-text-primary);
+        text-align: left;
+    }
+
+    .zart-accordion-header:hover {
+        background: var(--zart-surface);
+    }
+
+    .zart-accordion-icon {
+        font-size: 12px;
+        transition: transform 0.3s ease;
+    }
+
+    .zart-accordion-header.active .zart-accordion-icon {
+        transform: rotate(180deg);
+    }
+
+    .zart-accordion-content {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        background: var(--zart-surface);
+    }
+
+    .zart-accordion-inner {
+        padding: var(--space-xs);
+        font-size: var(--text-sm);
+        color: var(--zart-text-body);
+        line-height: 1.7;
+    }
+
+    /* Card 3: 4컷 만화 (2x2 Grid) */
+    .zart-comic-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: var(--space-xs);
+    }
+
+    .zart-comic-panel {
+        background: var(--zart-surface);
+        border-radius: 4px;
+        overflow: hidden;
+        border: 1px solid var(--zart-border);
+    }
+
+    .zart-comic-img {
+        width: 100%;
+        aspect-ratio: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 48px;
+        background: #eee;
+    }
+
+    .zart-comic-caption {
+        padding: 12px;
+        font-size: var(--text-xs);
+        font-weight: 700;
+        text-align: center;
+        background: var(--zart-bg);
+        border-top: 1px solid var(--zart-border);
+    }
+
+    /* Card 4: 타임라인 */
+    .zart-timeline {
+        position: relative;
+        padding-left: 48px;
+    }
+
+    .zart-timeline::before {
+        content: '';
+        position: absolute;
+        left: 17px;
+        top: 8px;
+        bottom: 8px;
+        width: 2px;
+        background: var(--zart-border);
+    }
+
+    .zart-timeline-progress {
+        position: absolute;
+        left: 17px;
+        top: 8px;
+        width: 2px;
+        height: 0;
+        background: var(--zart-accent);
+        transition: height 0.3s ease;
+    }
+
+    .zart-timeline-item {
+        position: relative;
+        margin-bottom: var(--space-sm);
+    }
+
+    .zart-timeline-item:last-child {
+        margin-bottom: 0;
+    }
+
+    .zart-timeline-marker {
+        position: absolute;
+        left: -48px;
+        width: 36px;
+        height: 36px;
+        background: var(--zart-bg);
+        border: 2px solid var(--zart-border);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: var(--text-xs);
+        font-weight: 800;
+        z-index: 2;
+        transition: border-color 0.3s, background 0.3s, color 0.3s;
+    }
+
+    .zart-timeline-item.active .zart-timeline-marker {
+        border-color: var(--zart-accent);
+        background: var(--zart-accent);
+        color: white;
+    }
+
+    .zart-timeline-content {
+        background: var(--zart-surface);
+        padding: var(--space-xs);
+        border-radius: 4px;
+    }
+
+    .zart-timeline-title {
+        font-size: var(--text-sm);
+        font-weight: 700;
+        margin-bottom: 4px;
+    }
+
+    .zart-timeline-text {
+        font-size: var(--text-xs);
+        color: var(--zart-text-secondary);
+    }
+
+    /* Animation System */
+    [data-zart-animate] {
+        opacity: 0;
+        transform: translateY(24px);
+        transition: opacity 0.8s cubic-bezier(0.2, 0.8, 0.2, 1), transform 0.8s cubic-bezier(0.2, 0.8, 0.2, 1);
+        will-change: opacity, transform;
+    }
+
+    [data-zart-animate].is-visible {
+        opacity: 1;
+        transform: translateY(0);
+    }
+
+    /* Response */
+    @media (max-width: 768px) {
+        .zart-pdp-wrapper {
+            padding: var(--space-sm);
+        }
+
+        .zart-diff-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .zart-comic-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<div class="zart-pdp-wrapper">
+
+    <!-- Card 1: 신뢰 및 차별화 -->
+    <section class="zart-card" data-zart-animate>
+        <h2 class="zart-h2">자트만의 신뢰 데이터</h2>
+
+        <div class="zart-trust-grid">
+            <!-- 견적 카운터 -->
+            <div class="zart-quote-counter">
+                <span class="zart-quote-number" id="zartQuoteCount">0</span>
+                <span class="zart-quote-label">건</span>
+                <p class="zart-quote-desc">오늘 견적 요청 건수 (실시간 업데이트: <span id="zartLastUpdate">-:-</span>)</p>
+            </div>
+
+            <!-- 가격 동향 -->
+            <div class="zart-price-trend">
+                <div class="zart-price-h3">
+                    최근 가격 추이
+                    <span class="zart-price-badge">+12.2% 상승세</span>
+                </div>
+                <div class="zart-chart-container">
+                    <svg class="zart-chart-svg" viewBox="0 0 600 150" preserveAspectRatio="none">
+                        <polyline class="zart-chart-line"
+                            points="0,120 50,110 100,115 150,130 200,100 250,80 300,70 350,60 400,65 450,50 500,40 550,20 600,10" />
+                    </svg>
+                </div>
+                <p class="zart-quote-desc" style="text-align:right">* 12주간 ERP 연동 실제 거래 데이터 기준</p>
+            </div>
+
+            <!-- 차별점 -->
+            <div class="zart-diff-grid">
+                <div class="zart-diff-item">
+                    <span class="zart-diff-icon">📊</span>
+                    <h4>실시간 ERP</h4>
+                    <p>정확한 시세 데이터</p>
+                </div>
+                <div class="zart-diff-item">
+                    <span class="zart-diff-icon">✂️</span>
+                    <h4>정밀 재단</h4>
+                    <p>오차 없는 자동화 절단</p>
+                </div>
+                <div class="zart-diff-item">
+                    <span class="zart-diff-icon">🤖</span>
+                    <h4>AI 견적</h4>
+                    <p>30분 이내 빠른 회신</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Card 2: 제품 구조 (아코디언) -->
+    <section class="zart-card" data-zart-animate>
+        <h2 class="zart-h2">상세 사양 및 구조</h2>
+
+        <div class="zart-accordion">
+            <div class="zart-accordion-item">
+                <button class="zart-accordion-header">
+                    물리적 구조 및 소재
+                    <span class="zart-accordion-icon">▼</span>
+                </button>
+                <div class="zart-accordion-content">
+                    <div class="zart-accordion-inner">
+                        OSB(Oriented Strand Board)는 목재 스트랜드를 고온·고압으로 압착한 5층 교차 적층 구조입니다.
+                        일반 합판 대비 강한 강도와 내구성을 자랑하며, 못 유지력이 뛰어납니다.
+                    </div>
+                </div>
+            </div>
+
+            <div class="zart-accordion-item">
+                <button class="zart-accordion-header">
+                    규격 및 허용 오차
+                    <span class="zart-accordion-icon">▼</span>
+                </button>
+                <div class="zart-accordion-content">
+                    <div class="zart-accordion-inner">
+                        - 기본 규격: 1220 x 2440mm<br>
+                        - 기본 두께: 11mm (±0.3mm 오차 범위)<br>
+                        - 평균 중량: 약 18.2kg
+                    </div>
+                </div>
+            </div>
+
+            <div class="zart-accordion-item">
+                <button class="zart-accordion-header">
+                    친환경 인증 정보
+                    <span class="zart-accordion-icon">▼</span>
+                </button>
+                <div class="zart-accordion-content">
+                    <div class="zart-accordion-inner">
+                        E0 등급 이상의 친환경 접착제 사용으로 포름알데히드 방출량을 최소화하였습니다.
+                        내장재 및 DIY 가구 제작에 안전하게 사용 가능합니다.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Card 3: 활용 스토리 (4컷 만화) -->
+    <section class="zart-card" data-zart-animate>
+        <h2 class="zart-h2">현장 활용 팁</h2>
+
+        <div class="zart-comic-grid">
+            <div class="zart-comic-panel">
+                <div class="zart-comic-img">🏗️</div>
+                <div class="zart-comic-caption">1. 하지 작업용으로 제격</div>
+            </div>
+            <div class="zart-comic-panel">
+                <div class="zart-comic-img">📦</div>
+                <div class="zart-comic-caption">2. 가성비 높은 내장재</div>
+            </div>
+            <div class="zart-comic-panel">
+                <div class="zart-comic-img">🔨</div>
+                <div class="zart-comic-caption">3. 나사산이 뭉개지지 않음</div>
+            </div>
+            <div class="zart-comic-panel">
+                <div class="zart-comic-img">✅</div>
+                <div class="zart-comic-caption">4. 튼튼한 시공 완료</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Card 4: 프로세스 (타임라인) -->
+    <section class="zart-card" data-zart-animate>
+        <h2 class="zart-h2">주문 및 공정 프로세스</h2>
+
+        <div class="zart-timeline">
+            <div class="zart-timeline-progress" id="zartTimelineProgress"></div>
+
+            <div class="zart-timeline-item">
+                <div class="zart-timeline-marker">1</div>
+                <div class="zart-timeline-content">
+                    <div class="zart-timeline-title">자재 입고 및 검수</div>
+                    <p class="zart-timeline-text">입고 즉시 수분율 및 규격 정밀 테스트 진행</p>
+                </div>
+            </div>
+
+            <div class="zart-timeline-item">
+                <div class="zart-timeline-node"></div> <!-- Marker placeholder -->
+                <div class="zart-timeline-marker">2</div>
+                <div class="zart-timeline-content">
+                    <div class="zart-timeline-title">전용 라인 정밀 재단</div>
+                    <p class="zart-timeline-text">ERP 데이터를 기반으로 한 자동화 커팅 시스템 적용</p>
+                </div>
+            </div>
+
+            <div class="zart-timeline-item">
+                <div class="zart-timeline-marker">3</div>
+                <div class="zart-timeline-content">
+                    <div class="zart-timeline-title">안전 패킹 및 상차</div>
+                    <p class="zart-timeline-text">모서리 보호대 보강 및 비닐 랩핑 처리</p>
+                </div>
+            </div>
+
+            <div class="zart-timeline-item">
+                <div class="zart-timeline-marker">4</div>
+                <div class="zart-timeline-content">
+                    <div class="zart-timeline-title">현장 당일 도착</div>
+                    <p class="zart-timeline-text">지정된 현장으로 신속한 당일 물류망 가동</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+</div>
+
+<script>
+    (function () {
+        'use strict';
+
+        var initApp = function () {
+            // 1. 카운터 오토런 (기존 로직 보존)
+            var counterEl = document.getElementById('zartQuoteCount');
+            if (counterEl) {
+                var count = 0;
+                var timer = setInterval(function () {
+                    count += 2;
+                    counterEl.textContent = count;
+                    if (count >= 152) { // 기획 기준 숫자 조정
+                        counterEl.textContent = "152";
+                        counterEl.classList.add('updated');
+                        clearInterval(timer);
+                    }
+                }, 20);
+            }
+
+            // 2. 시간 표시
+            var timeEl = document.getElementById('zartLastUpdate');
+            if (timeEl) {
+                var d = new Date();
+                timeEl.textContent = d.getHours() + ":" + String(d.getMinutes()).padStart(2, '0');
+            }
+
+            // 3. Sequential Animation (Intersection Observer)
+            var observerOptions = {
+                root: null,
+                rootMargin: '-80px 0px',
+                threshold: 0.1
+            };
+
+            var observer = new IntersectionObserver(function (entries) {
+                entries.forEach(function (entry) {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('is-visible');
+                        observer.unobserve(entry.target);
+                    }
+                });
+            }, observerOptions);
+
+            document.querySelectorAll('[data-zart-animate]').forEach(function (card) {
+                observer.observe(card);
+            });
+
+            // 4. 아코디언 로직
+            document.querySelectorAll('.zart-accordion-header').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    var content = this.nextElementSibling;
+                    var isActive = this.classList.contains('active');
+
+                    // Reset others
+                    document.querySelectorAll('.zart-accordion-header').forEach(function (h) {
+                        h.classList.remove('active');
+                        h.nextElementSibling.style.maxHeight = null;
+                    });
+
+                    if (!isActive) {
+                        this.classList.add('active');
+                        content.style.maxHeight = content.scrollHeight + "px";
+                    }
+                });
+            });
+
+            // 5. 타임라인 진행도
+            var timelineProgress = document.getElementById('zartTimelineProgress');
+            var timelineItems = document.querySelectorAll('.zart-timeline-item');
+
+            var updateTimeline = function () {
+                if (!timelineProgress) return;
+                var scrollPos = window.scrollY || window.pageYOffset;
+                var windowHeight = window.innerHeight;
+
+                timelineItems.forEach(function (item, idx) {
+                    var rect = item.getBoundingClientRect();
+                    if (rect.top < windowHeight * 0.7) {
+                        item.classList.add('active');
+                    }
+                });
+
+                var firstItem = timelineItems[0].getBoundingClientRect();
+                var lastItem = timelineItems[timelineItems.length - 1].getBoundingClientRect();
+                var progress = (windowHeight * 0.7 - (firstItem.top + scrollPos)) / (lastItem.top - firstItem.top);
+                progress = Math.max(0, Math.min(1, progress));
+
+                // 실제 뷰포트 기준 계산 편의를 위해 간단화
+                var activeCount = document.querySelectorAll('.zart-timeline-item.active').length;
+                var h = (activeCount - 1) / (timelineItems.length - 1) * 100;
+                timelineProgress.style.height = Math.max(0, h) + "%";
+            };
+
+            window.addEventListener('scroll', updateTimeline);
+            updateTimeline();
+        };
+
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', initApp);
+        } else {
+            initApp();
+        }
+    })();
+</script>

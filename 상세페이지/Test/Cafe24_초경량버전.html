@@ -1,0 +1,91 @@
+<!-- 자트 OSB 상품 상세 - 초경량 버전 -->
+
+<style>
+.zart-box{width:790px;margin:0 auto;padding:60px 20px;font-family:"Malgun Gothic",sans-serif}
+.zart-title{font-size:28px;font-weight:700;text-align:center;margin-bottom:40px;color:#333}
+.zart-counter{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;padding:40px;border-radius:16px;text-align:center;margin-bottom:40px}
+.zart-number{font-size:48px;font-weight:700;font-family:Arial}
+.zart-cards{display:flex;gap:20px;margin-bottom:60px}
+.zart-card{flex:1;padding:30px 20px;background:#f5f5f5;border-radius:12px;text-align:center}
+.zart-card:hover{transform:translateY(-5px);box-shadow:0 8px 20px rgba(0,0,0,0.1);transition:all 0.3s}
+.zart-icon{font-size:48px;margin-bottom:15px}
+.zart-price{background:#fff;border:2px solid #e5e5e5;border-radius:12px;padding:30px;text-align:center;margin-bottom:60px}
+.zart-change{font-size:32px;font-weight:700;color:#26a69a;padding:15px 30px;background:rgba(38,166,154,0.1);border-radius:10px;display:inline-block}
+.zart-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.zart-item{background:#f5f5f5;border-radius:12px;padding:30px;text-align:center;aspect-ratio:1/1;display:flex;flex-direction:column;justify-content:center}
+@media(max-width:768px){
+.zart-box{width:100%;padding:40px 15px}
+.zart-cards,.zart-grid{flex-direction:column;grid-template-columns:1fr}
+}
+</style>
+
+<div class="zart-box">
+  
+  <h2 class="zart-title">자트만의 차별점</h2>
+  
+  <div class="zart-counter">
+    <div style="font-size:16px;margin-bottom:15px">오늘 견적 요청 건수</div>
+    <div class="zart-number" id="counter">112</div>
+    <div style="font-size:18px;margin-top:10px">건</div>
+  </div>
+  
+  <div class="zart-cards">
+    <div class="zart-card">
+      <div class="zart-icon">📊</div>
+      <div style="font-size:16px;font-weight:600">실시간 ERP 가격</div>
+    </div>
+    <div class="zart-card">
+      <div class="zart-icon">✂️</div>
+      <div style="font-size:16px;font-weight:600">온라인 재단 서비스</div>
+    </div>
+    <div class="zart-card">
+      <div class="zart-icon">⚡</div>
+      <div style="font-size:16px;font-weight:600">AI 30분 견적</div>
+    </div>
+  </div>
+  
+  <h2 class="zart-title">최근 3개월 가격 동향</h2>
+  
+  <div class="zart-price">
+    <div class="zart-change">+12.2% ▲</div>
+    <div style="font-size:14px;color:#999;margin-top:15px">전월 대비 상승 추세</div>
+  </div>
+  
+  <h2 class="zart-title">현장에서 이렇게 사용됩니다</h2>
+  
+  <div class="zart-grid">
+    <div class="zart-item">
+      <div style="font-size:48px;margin-bottom:15px">🏗️</div>
+      <div style="font-size:16px;font-weight:600;margin-bottom:10px">1. 문제 상황</div>
+      <div style="font-size:13px;color:#666">바닥 시공 어떻게 하지?</div>
+    </div>
+    <div class="zart-item">
+      <div style="font-size:48px;margin-bottom:15px">📦</div>
+      <div style="font-size:16px;font-weight:600;margin-bottom:10px">2. OSB 등장</div>
+      <div style="font-size:13px;color:#666">OSB 합판 쓰면 되지!</div>
+    </div>
+    <div class="zart-item">
+      <div style="font-size:48px;margin-bottom:15px">🔨</div>
+      <div style="font-size:16px;font-weight:600;margin-bottom:10px">3. 시공 과정</div>
+      <div style="font-size:13px;color:#666">재단 사이즈 딱 맞네</div>
+    </div>
+    <div class="zart-item">
+      <div style="font-size:48px;margin-bottom:15px">✅</div>
+      <div style="font-size:16px;font-weight:600;margin-bottom:10px">4. 완성!</div>
+      <div style="font-size:13px;color:#666">튼튼하고 깔끔해</div>
+    </div>
+  </div>
+  
+</div>
+
+<script>
+var c=document.getElementById('counter');
+if(c){
+  var n=0;
+  var t=setInterval(function(){
+    n+=2;
+    if(n>=112){c.textContent='112';clearInterval(t);return}
+    c.textContent=n;
+  },20);
+}
+</script>

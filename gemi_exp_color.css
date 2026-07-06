@@ -1,0 +1,49 @@
+/* 
+   Gemi Experimental Color Layer (PHASE 1-1)
+   Authority Colors: Navy #002244, Accent #0055ff, Soft BG #f8f9fa
+*/
+
+:root {
+  --zart-primary: #002244;
+  --zart-primary-light: #003366;
+  --zart-accent: #0055ff;
+  --zart-bg-soft: #f8f9fa;
+  --zart-surface: #f8f9fa;
+}
+
+/* Override sections/components using primary colors */
+.zart-stat-icon {
+  background: linear-gradient(135deg, var(--zart-primary) 0%, var(--zart-accent) 100%) !important;
+}
+
+.zart-g-badge-box {
+  background: linear-gradient(135deg, var(--zart-primary) 0%, var(--zart-accent) 100%) !important;
+  box-shadow: 0 4px 12px rgba(0, 34, 68, 0.3) !important;
+}
+
+.zart-g-badge-circle {
+  color: var(--zart-primary) !important;
+}
+
+.zart-g-compare-card.active {
+  border-color: var(--zart-primary) !important;
+}
+
+.zart-g-compare-card.active h4,
+.zart-g-compare-card.active p {
+  color: var(--zart-primary) !important;
+}
+
+.zart-prop-header {
+  background: var(--zart-primary) !important;
+}
+
+/* Explicit Button/Accent helpers as requested */
+.zart-btn-primary {
+  background: var(--zart-primary) !important;
+  color: white !important;
+}
+
+.zart-accent {
+  color: var(--zart-accent) !important;
+}

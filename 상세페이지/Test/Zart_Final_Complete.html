@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>자트 OSB - 완전체 최종버전 (All-in-One)</title>
+  
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", 
+                   "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+      background-color: #ffffff;
+      color: #333;
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+    
+    /* ===========================
+       스크롤 애니메이션
+       =========================== */
+    .scroll-reveal {
+      opacity: 0;
+      transform: translateY(50px);
+      transition: opacity 0.8s ease, transform 0.8s ease;
+    }
+    
+    .scroll-reveal.active {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    
+    .slide-left {
+      opacity: 0;
+      transform: translateX(-80px);
+      transition: opacity 0.8s ease, transform 0.8s ease;
+    }
+    
+    .slide-left.active {
+      opacity: 1;
+      transform: translateX(0);
+    }
+    
+    .slide-right {
+      opacity: 0;
+      transform: translateX(80px);
+      transition: opacity 0.8s ease, transform 0.8s ease;
+    }
+    
+    .slide-right.active {
+      opacity: 1;
+      transform: translateX(0);
+    }
+    
+    .scale-up {
+      opacity: 0;
+      transform: scale(0.85);
+      transition: opacity 0.8s ease, transform 0.8s ease;
+    }
+    
+    .scale-up.active {
+      opacity: 1;
+      transform: scale(1);
+    }
+    
+    .delay-1 { transition-delay: 0.1s; }
+    .delay-2 { transition-delay: 0.2s; }
+    .delay-3 { transition-delay: 0.3s; }
+    .delay-4 { transition-delay: 0.4s; }
+    
+    /* ===========================
+       페이지 구조
+       =========================== */
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+    
+    /* 헤더 */
+    .header {
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    
+    .header h1 {
+      font-size: 56px;
+      font-weight: 700;
+      margin-bottom: 20px;
+      letter-spacing: -1px;
+    }
+    
+    .header p {
+      font-size: 22px;
+      font-weight: 300;
+      opacity: 0.9;
+    }
+    
+    .scroll-hint {
+      position: absolute;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      animation: bounce 2s infinite;
+    }
+    
+    @keyframes bounce {
+      0%, 100% { transform: translateX(-50%) translateY(0); }
+      50% { transform: translateX(-50%) translateY(-10px); }
+    }
+    
+    .scroll-hint span {
+      font-size: 14px;
+      opacity: 0.8;
+    }
+    
+    /* 섹션 공통 */
+    .section {
+      min-height: 100vh;
+      padding: 100px 0;
+      display: flex;
+      align-items: center;
+    }
+    
+    .section-inner {
+      width: 100%;
+      max-width: 790px;
+      margin: 0 auto;
+    }
+    
+    .section-title {
+      font-size: 36px;
+      font-weight: 700;
+      text-align: center;
+      margin-bottom: 60px;
+      position: relative;
+    }
+    
+    .section-title::after {
+      content: '';
+      display: block;
+      width: 80px;
+      height: 4px;
+      background-color: #667eea;
+      margin: 20px auto 0;
+    }
+    
+    /* ===========================
+       섹션 1: 차별점 카드
+       =========================== */
+    .differentiator-grid {
+      display: flex;
+      gap: 30px;
+      margin-bottom: 100px;
+    }
+    
+    .diff-card {
+      flex: 1;
+      padding: 40px 30px;
+      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+      border-radius: 16px;
+      text-align: center;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    
+    .diff-card:hover {
+      transform: translateY(-10px);
+      box-shadow: 0 12px 30px rgba(102, 126, 234, 0.3);
+    }
+    
+    .diff-card svg {
+      width: 64px;
+      height: 64px;
+      margin-bottom: 20px;
+      stroke: #667eea;
+      stroke-width: 2;
+      fill: none;
+    }
+    
+    .diff-card h3 {
+      font-size: 18px;
+      font-weight: 600;
+      color: #333;
+    }
+    
+    /* ===========================
+       섹션 2: 제품 소개 + 마우스오버 스펙
+       =========================== */
+    .product-showcase {
+      display: flex;
+      gap: 40px;
+      align-items: center;
+      margin-bottom: 100px;
+    }
+    
+    .product-image-wrapper {
+      flex: 1;
+      position: relative;
+      cursor: pointer;
+    }
+    
+    .product-image {
+      width: 100%;
+      aspect-ratio: 4/3;
+      background: linear-gradient(135deg, #f5f5f5 0%, #e5e5e5 100%);
+      border-radius: 16px;
+      border: 2px solid #ddd;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      transition: transform 0.3s ease;
+      overflow: hidden;
+      position: relative;
+    }
+    
+    .product-image:hover {
+      transform: scale(1.02);
+    }
+    
+    .product-placeholder {
+      text-align: center;
+      padding: 40px;
+    }
+    
+    .product-emoji {
+      font-size: 80px;
+      margin-bottom: 20px;
+      display: block;
+    }
+    
+    .product-name {
+      font-size: 20px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 10px;
+    }
+    
+    .product-size {
+      font-size: 14px;
+      color: #999;
+    }
+    
+    /* 마우스오버 스펙 팝업 */
+    .spec-popup {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.9);
+      color: white;
+      padding: 30px 35px;
+      border-radius: 12px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease;
+      z-index: 10;
+      min-width: 250px;
+      backdrop-filter: blur(10px);
+    }
+    
+    .product-image-wrapper:hover .spec-popup {
+      opacity: 1;
+    }
+    
+    .spec-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 15px;
+    }
+    
+    .spec-item:last-child {
+      margin-bottom: 0;
+    }
+    
+    .spec-icon {
+      font-size: 24px;
+    }
+    
+    .spec-text {
+      font-size: 15px;
+      font-weight: 500;
+    }
+    
+    .product-description {
+      flex: 1;
+    }
+    
+    .product-description h3 {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 20px;
+      color: #000;
+    }
+    
+    .product-description p {
+      font-size: 16px;
+      line-height: 1.8;
+      color: #666;
+      margin-bottom: 15px;
+    }
+    
+    .product-features {
+      list-style: none;
+      margin-top: 20px;
+    }
+    
+    .product-features li {
+      padding-left: 25px;
+      margin-bottom: 10px;
+      position: relative;
+      font-size: 15px;
+      color: #666;
+    }
+    
+    .product-features li::before {
+      content: '✓';
+      position: absolute;
+      left: 0;
+      color: #667eea;
+      font-weight: 700;
+    }
+    
+    /* ===========================
+       섹션 3: 가격 차트
+       =========================== */
+    .chart-box {
+      background: linear-gradient(180deg, #f9f9f9 0%, #ffffff 100%);
+      border: 2px solid #e5e5e5;
+      border-radius: 16px;
+      padding: 50px 40px;
+      margin-bottom: 100px;
+    }
+    
+    .chart-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 40px;
+      padding-bottom: 25px;
+      border-bottom: 2px solid #e5e5e5;
+    }
+    
+    .chart-price {
+      font-size: 40px;
+      font-weight: 700;
+      color: #000;
+    }
+    
+    .chart-change {
+      font-size: 18px;
+      font-weight: 600;
+      color: #26a69a;
+    }
+    
+    .chart-bars {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      height: 220px;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    
+    .chart-bar {
+      flex: 1;
+      background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+      border-radius: 8px 8px 0 0;
+      transition: all 0.3s ease;
+      cursor: pointer;
+      position: relative;
+    }
+    
+    .chart-bar:hover {
+      opacity: 0.8;
+      transform: scaleY(1.05);
+    }
+    
+    /* 차트 막대 툴팁 */
+    .chart-bar::before {
+      content: attr(data-value);
+      position: absolute;
+      top: -35px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.8);
+      color: white;
+      padding: 5px 10px;
+      border-radius: 4px;
+      font-size: 12px;
+      white-space: nowrap;
+      opacity: 0;
+      transition: opacity 0.2s ease;
+      pointer-events: none;
+    }
+    
+    .chart-bar:hover::before {
+      opacity: 1;
+    }
+    
+    .chart-labels {
+      display: flex;
+      justify-content: space-between;
+      padding-top: 20px;
+      border-top: 1px solid #e5e5e5;
+    }
+    
+    .chart-label {
+      font-size: 13px;
+      color: #999;
+      font-weight: 500;
+    }
+    
+    /* ===========================
+       섹션 4: 카툰 4컷
+       =========================== */
+    .cartoon-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 30px;
+      margin-bottom: 100px;
+    }
+    
+    .cartoon-item {
+      aspect-ratio: 1 / 1;
+      background: linear-gradient(135deg, #f5f5f5 0%, #e5e5e5 100%);
+      border-radius: 16px;
+      border: 2px solid #ddd;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 30px;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    
+    .cartoon-item:hover {
+      transform: scale(1.05);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    }
+    
+    .cartoon-content {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    
+    .cartoon-emoji {
+      font-size: 56px;
+    }
+    
+    .cartoon-title {
+      font-size: 18px;
+      font-weight: 600;
+      color: #333;
+    }
+    
+    .cartoon-desc {
+      font-size: 13px;
+      color: #999;
+      line-height: 1.5;
+    }
+    
+    /* ===========================
+       섹션 5: 일러스트
+       =========================== */
+    .illust-grid {
+      display: flex;
+      gap: 30px;
+      margin-bottom: 100px;
+    }
+    
+    .illust-item {
+      flex: 1;
+    }
+    
+    .illust-box {
+      aspect-ratio: 4 / 3;
+      background: linear-gradient(135deg, #f5f5f5 0%, #e5e5e5 100%);
+      border-radius: 16px;
+      border: 2px solid #ddd;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 30px;
+      margin-bottom: 15px;
+      transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    
+    .illust-box:hover {
+      transform: scale(1.03);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    }
+    
+    .illust-content {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    
+    .illust-emoji {
+      font-size: 72px;
+    }
+    
+    .illust-title {
+      font-size: 20px;
+      font-weight: 600;
+      color: #333;
+    }
+    
+    .illust-desc {
+      font-size: 14px;
+      color: #999;
+      line-height: 1.8;
+    }
+    
+    .illust-caption {
+      text-align: center;
+      font-size: 14px;
+      color: #666;
+      font-weight: 500;
+    }
+    
+    /* ===========================
+       섹션 6: 타임라인
+       =========================== */
+    .timeline-section {
+      position: relative;
+      padding: 100px 0;
+    }
+    
+    .timeline-container {
+      position: relative;
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    
+    .timeline-line {
+      position: absolute;
+      left: 50%;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+      background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+      transform: translateX(-50%);
+      opacity: 0.3;
+    }
+    
+    .timeline-progress {
+      position: absolute;
+      left: 50%;
+      top: 0;
+      width: 4px;
+      height: 0%;
+      background: linear-gradient(180deg, #667eea 0%, #764ba2 100%);
+      transform: translateX(-50%);
+      transition: height 0.3s ease;
+      z-index: 2;
+    }
+    
+    .timeline-item {
+      position: relative;
+      margin-bottom: 100px;
+      opacity: 0;
+      transform: translateY(30px);
+      transition: opacity 0.6s ease, transform 0.6s ease;
+    }
+    
+    .timeline-item.active {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    
+    .timeline-item:last-child {
+      margin-bottom: 0;
+    }
+    
+    .timeline-item:nth-child(odd) .timeline-content {
+      margin-left: 0;
+      margin-right: calc(50% + 40px);
+      text-align: right;
+    }
+    
+    .timeline-item:nth-child(even) .timeline-content {
+      margin-left: calc(50% + 40px);
+      margin-right: 0;
+      text-align: left;
+    }
+    
+    .timeline-node {
+      position: absolute;
+      left: 50%;
+      top: 20px;
+      width: 24px;
+      height: 24px;
+      background: white;
+      border: 4px solid #667eea;
+      border-radius: 50%;
+      transform: translateX(-50%);
+      z-index: 3;
+      transition: all 0.3s ease;
+    }
+    
+    .timeline-item.active .timeline-node {
+      width: 32px;
+      height: 32px;
+      top: 16px;
+      box-shadow: 0 0 0 8px rgba(102, 126, 234, 0.2);
+    }
+    
+    .timeline-content {
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+      border: 2px solid #f0f0f0;
+      transition: all 0.3s ease;
+    }
+    
+    .timeline-item.active .timeline-content {
+      border-color: #667eea;
+      box-shadow: 0 8px 30px rgba(102, 126, 234, 0.15);
+    }
+    
+    .timeline-time {
+      font-size: 14px;
+      font-weight: 600;
+      color: #667eea;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .timeline-item:nth-child(odd) .timeline-time {
+      justify-content: flex-end;
+    }
+    
+    .timeline-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #000;
+      margin-bottom: 10px;
+    }
+    
+    .timeline-desc {
+      font-size: 15px;
+      color: #666;
+      line-height: 1.6;
+    }
+    
+    .timeline-image {
+      width: 100%;
+      aspect-ratio: 16/9;
+      background: linear-gradient(135deg, #f5f5f5 0%, #e5e5e5 100%);
+      border-radius: 8px;
+      margin-top: 15px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 48px;
+    }
+    
+    /* ===========================
+       반응형
+       =========================== */
+    @media (max-width: 768px) {
+      .header h1 {
+        font-size: 36px;
+      }
+      
+      .header p {
+        font-size: 16px;
+      }
+      
+      .section {
+        padding: 60px 0;
+      }
+      
+      .section-title {
+        font-size: 28px;
+        margin-bottom: 40px;
+      }
+      
+      .differentiator-grid {
+        flex-direction: column;
+        gap: 20px;
+      }
+      
+      .product-showcase {
+        flex-direction: column;
+        gap: 30px;
+      }
+      
+      .chart-bars {
+        height: 150px;
+      }
+      
+      .cartoon-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+      }
+      
+      .illust-grid {
+        flex-direction: column;
+        gap: 20px;
+      }
+      
+      /* 타임라인 모바일 */
+      .timeline-line {
+        left: 20px;
+      }
+      
+      .timeline-progress {
+        left: 20px;
+      }
+      
+      .timeline-node {
+        left: 20px;
+      }
+      
+      .timeline-item:nth-child(odd) .timeline-content,
+      .timeline-item:nth-child(even) .timeline-content {
+        margin-left: 60px;
+        margin-right: 0;
+        text-align: left;
+      }
+      
+      .timeline-item:nth-child(odd) .timeline-time {
+        justify-content: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<!-- 헤더 -->
+<div class="header">
+  <h1>🏗️ 자트</h1>
+  <p>OSB 합판 내장용 1220 x 2440mm (11mm)</p>
+  
+  <div class="scroll-hint">
+    <span>아래로 스크롤하세요</span>
+    <div style="font-size: 24px;">↓</div>
+  </div>
+</div>
+
+<!-- 섹션 1: 차별점 -->
+<section class="section">
+  <div class="section-inner">
+    <h2 class="section-title scroll-reveal">자트만의 차별점</h2>
+    
+    <div class="differentiator-grid">
+      <div class="diff-card slide-left delay-1">
+        <svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+          <path d="M8 32 L8 40 L16 40 L16 32 Z M20 24 L20 40 L28 40 L28 24 Z M32 16 L32 40 L40 40 L40 16 Z" />
+          <polyline points="4,20 12,12 20,16 28,8 36,14 44,6"/>
+          <circle cx="12" cy="12" r="2" fill="#667eea"/>
+          <circle cx="20" cy="16" r="2" fill="#667eea"/>
+          <circle cx="28" cy="8" r="2" fill="#667eea"/>
+          <circle cx="36" cy="14" r="2" fill="#667eea"/>
+        </svg>
+        <h3>실시간 ERP 가격</h3>
+      </div>
+      
+      <div class="diff-card scroll-reveal delay-2">
+        <svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="18" cy="18" r="2" fill="#667eea"/>
+          <circle cx="30" cy="30" r="2" fill="#667eea"/>
+          <line x1="20" y1="16" x2="28" y2="28"/>
+          <path d="M14 8 L22 8 L26 12 L26 20 L22 24 L14 24 Z"/>
+          <path d="M22 24 L30 24 L34 28 L34 36 L30 40 L22 40 Z"/>
+        </svg>
+        <h3>온라인 재단 서비스</h3>
+      </div>
+      
+      <div class="diff-card slide-right delay-3">
+        <svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+          <rect x="14" y="10" width="20" height="28" rx="2"/>
+          <line x1="14" y1="34" x2="34" y2="34"/>
+          <circle cx="24" cy="14" r="3"/>
+          <circle cx="24" cy="14" r="1" fill="#667eea"/>
+          <line x1="20" y1="22" x2="28" y2="22"/>
+          <line x1="20" y1="26" x2="28" y2="26"/>
+          <line x1="20" y1="30" x2="25" y2="30"/>
+        </svg>
+        <h3>AI 30분 견적</h3>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 섹션 2: 제품 소개 + 마우스오버 스펙 -->
+<section class="section">
+  <div class="section-inner">
+    <h2 class="section-title scroll-reveal">제품 상세</h2>
+    
+    <div class="product-showcase">
+      <div class="product-image-wrapper slide-left">
+        <div class="product-image">
+          <div class="product-placeholder">
+            <span class="product-emoji">📦</span>
+            <div class="product-name">OSB 합판</div>
+            <div class="product-size">1220 x 2440mm</div>
+          </div>
+          
+          <div class="spec-popup">
+            <div class="spec-item">
+              <span class="spec-icon">📏</span>
+              <span class="spec-text">두께: 11mm</span>
+            </div>
+            <div class="spec-item">
+              <span class="spec-icon">📦</span>
+              <span class="spec-text">밀도: 높음</span>
+            </div>
+            <div class="spec-item">
+              <span class="spec-icon">🔥</span>
+              <span class="spec-text">방화: B급</span>
+            </div>
+            <div class="spec-item">
+              <span class="spec-icon">💧</span>
+              <span class="spec-text">방수: 보통</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="product-description slide-right">
+        <h3>내구성과 경제성을 겸비한 OSB 합판</h3>
+        <p>
+          OSB(Oriented Strand Board)는 방향성 스트랜드 보드로, 
+          얇게 깎은 목재 칩을 교차 적층하여 압착 성형한 판재입니다.
+        </p>
+        <p>
+          건축 내장재, 바닥 하지재, 벽체 하지재 등 다양한 용도로 
+          활용 가능하며, 합판 대비 경제적입니다.
+        </p>
+        
+        <ul class="product-features">
+          <li>뛰어난 강도와 내구성</li>
+          <li>합판 대비 20~30% 저렴한 가격</li>
+          <li>균일한 품질 유지</li>
+          <li>못, 나사 박기 용이</li>
+          <li>친환경 인증 제품</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 섹션 3: 가격 차트 -->
+<section class="section">
+  <div class="section-inner">
+    <h2 class="section-title scroll-reveal">최근 3개월 가격 동향</h2>
+    
+    <div class="chart-box scale-up">
+      <div class="chart-info">
+        <div class="chart-price">₩16,600</div>
+        <div class="chart-change">+12.2% ▲</div>
+      </div>
+      
+      <div class="chart-bars">
+        <div class="chart-bar" style="height: 45%;" data-value="₩14,800"></div>
+        <div class="chart-bar" style="height: 60%;" data-value="₩15,300"></div>
+        <div class="chart-bar" style="height: 52%;" data-value="₩15,200"></div>
+        <div class="chart-bar" style="height: 40%;" data-value="₩14,900"></div>
+        <div class="chart-bar" style="height: 48%;" data-value="₩15,100"></div>
+        <div class="chart-bar" style="height: 65%;" data-value="₩15,500"></div>
+        <div class="chart-bar" style="height: 75%;" data-value="₩15,800"></div>
+        <div class="chart-bar" style="height: 82%;" data-value="₩16,000"></div>
+        <div class="chart-bar" style="height: 78%;" data-value="₩15,900"></div>
+        <div class="chart-bar" style="height: 85%;" data-value="₩16,200"></div>
+        <div class="chart-bar" style="height: 92%;" data-value="₩16,300"></div>
+        <div class="chart-bar" style="height: 100%;" data-value="₩16,600"></div>
+      </div>
+      
+      <div class="chart-labels">
+        <span class="chart-label">11월</span>
+        <span class="chart-label">12월</span>
+        <span class="chart-label">1월</span>
+        <span class="chart-label">2월</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 섹션 4: 카툰 4컷 -->
+<section class="section">
+  <div class="section-inner">
+    <h2 class="section-title scroll-reveal">현장에서 이렇게 사용됩니다</h2>
+    
+    <div class="cartoon-grid">
+      <div class="cartoon-item slide-left delay-1">
+        <div class="cartoon-content">
+          <div class="cartoon-emoji">🏗️</div>
+          <div class="cartoon-title">1컷: 문제 상황</div>
+          <div class="cartoon-desc">"바닥 시공 어떻게 하지?<br>예산도 빠듯한데..."</div>
+        </div>
+      </div>
+      
+      <div class="cartoon-item slide-right delay-2">
+        <div class="cartoon-content">
+          <div class="cartoon-emoji">📦</div>
+          <div class="cartoon-title">2컷: OSB 등장</div>
+          <div class="cartoon-desc">"OSB 합판 쓰면 되지!<br>가격도 착해"</div>
+        </div>
+      </div>
+      
+      <div class="cartoon-item slide-left delay-3">
+        <div class="cartoon-content">
+          <div class="cartoon-emoji">🔨</div>
+          <div class="cartoon-title">3컷: 시공 과정</div>
+          <div class="cartoon-desc">"재단 사이즈 딱 맞네<br>작업도 수월해"</div>
+        </div>
+      </div>
+      
+      <div class="cartoon-item slide-right delay-4">
+        <div class="cartoon-content">
+          <div class="cartoon-emoji">✅</div>
+          <div class="cartoon-title">4컷: 완성!</div>
+          <div class="cartoon-desc">"튼튼하고 깔끔해<br>다음에도 쓸거야"</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 섹션 5: 일러스트 -->
+<section class="section">
+  <div class="section-inner">
+    <h2 class="section-title scroll-reveal">제품 구조 및 규격</h2>
+    
+    <div class="illust-grid">
+      <div class="illust-item slide-left">
+        <div class="illust-box">
+          <div class="illust-content">
+            <div class="illust-emoji">📷</div>
+            <div class="illust-title">OSB 합판 실물</div>
+            <div class="illust-desc">
+              1220 x 2440mm<br>
+              11mm 두께<br>
+              평량: 약 18kg
+            </div>
+          </div>
+        </div>
+        <div class="illust-caption">제품 실물</div>
+      </div>
+      
+      <div class="illust-item slide-right">
+        <div class="illust-box">
+          <div class="illust-content">
+            <div class="illust-emoji">📐</div>
+            <div class="illust-title">구조 단면도</div>
+            <div class="illust-desc">
+              ┌─────────┐ 표면층<br>
+              ├─────────┤ 목재칩 층<br>
+              ├─────────┤ 접착제<br>
+              ├─────────┤ 목재칩 층<br>
+              └─────────┘ 하부층
+            </div>
+          </div>
+        </div>
+        <div class="illust-caption">5층 구조 (교차 적층)</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 섹션 6: 타임라인 -->
+<section class="section timeline-section">
+  <div class="section-inner">
+    <h2 class="section-title scroll-reveal">현장 적용 24시간 타임라인</h2>
+    
+    <div class="timeline-container">
+      <div class="timeline-line"></div>
+      <div class="timeline-progress" id="timelineProgress"></div>
+      
+      <div class="timeline-item" data-time="00:00">
+        <div class="timeline-node"></div>
+        <div class="timeline-content">
+          <div class="timeline-time">
+            <span>⏰</span>
+            <span>00:00</span>
+          </div>
+          <div class="timeline-title">자재 입고</div>
+          <div class="timeline-desc">
+            공장에서 출고된 OSB 합판이 현장에 도착합니다. 
+            품질 검수 후 보관 장소로 이동합니다.
+          </div>
+          <div class="timeline-image">🚚</div>
+        </div>
+      </div>
+      
+      <div class="timeline-item" data-time="06:00">
+        <div class="timeline-node"></div>
+        <div class="timeline-content">
+          <div class="timeline-time">
+            <span>⏰</span>
+            <span>06:00</span>
+          </div>
+          <div class="timeline-title">재단 완료</div>
+          <div class="timeline-desc">
+            현장 규격에 맞춰 OSB 합판을 정밀 재단합니다. 
+            자재 손실을 최소화하여 효율적으로 작업합니다.
+          </div>
+          <div class="timeline-image">🪚</div>
+        </div>
+      </div>
+      
+      <div class="timeline-item" data-time="12:00">
+        <div class="timeline-node"></div>
+        <div class="timeline-content">
+          <div class="timeline-time">
+            <span>⏰</span>
+            <span>12:00</span>
+          </div>
+          <div class="timeline-title">현장 배송</div>
+          <div class="timeline-desc">
+            재단된 자재를 시공 위치로 운반합니다. 
+            작업 순서에 맞춰 효율적으로 배치합니다.
+          </div>
+          <div class="timeline-image">📦</div>
+        </div>
+      </div>
+      
+      <div class="timeline-item" data-time="18:00">
+        <div class="timeline-node"></div>
+        <div class="timeline-content">
+          <div class="timeline-time">
+            <span>⏰</span>
+            <span>18:00</span>
+          </div>
+          <div class="timeline-title">시공 중</div>
+          <div class="timeline-desc">
+            바닥 및 벽체 하지 작업을 진행합니다. 
+            수평과 수직을 정밀하게 맞춰 견고하게 시공합니다.
+          </div>
+          <div class="timeline-image">🔨</div>
+        </div>
+      </div>
+      
+      <div class="timeline-item" data-time="24:00">
+        <div class="timeline-node"></div>
+        <div class="timeline-content">
+          <div class="timeline-time">
+            <span>⏰</span>
+            <span>24:00</span>
+          </div>
+          <div class="timeline-title">완공</div>
+          <div class="timeline-desc">
+            OSB 합판 시공이 완료되었습니다. 
+            최종 검수 후 다음 공정으로 넘어갑니다.
+          </div>
+          <div class="timeline-image">✅</div>
+        </div>
+      </div>
+      
+    </div>
+  </div>
+</section>
+
+<!-- JavaScript -->
+<script>
+(function() {
+  'use strict';
+  
+  // ===================================
+  // 1. 스크롤 나타남 효과
+  // ===================================
+  function revealOnScroll() {
+    const reveals = document.querySelectorAll('.scroll-reveal, .slide-left, .slide-right, .scale-up');
+    
+    reveals.forEach(function(element) {
+      const windowHeight = window.innerHeight;
+      const elementTop = element.getBoundingClientRect().top;
+      const elementVisible = 150;
+      
+      if (elementTop < windowHeight - elementVisible) {
+        element.classList.add('active');
+      }
+    });
+  }
+  
+  // ===================================
+  // 2. 타임라인 스크롤 진행
+  // ===================================
+  function updateTimeline() {
+    const timelineSection = document.querySelector('.timeline-section');
+    const timelineProgress = document.getElementById('timelineProgress');
+    const timelineItems = document.querySelectorAll('.timeline-item');
+    
+    if (!timelineSection || !timelineProgress) return;
+    
+    const sectionTop = timelineSection.offsetTop;
+    const sectionHeight = timelineSection.offsetHeight;
+    const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+    const windowHeight = window.innerHeight;
+    
+    const startPos = sectionTop - (windowHeight / 2);
+    const endPos = sectionTop + sectionHeight - (windowHeight / 2);
+    
+    let progress = (scrollTop - startPos) / (endPos - startPos);
+    progress = Math.max(0, Math.min(1, progress));
+    
+    timelineProgress.style.height = (progress * 100) + '%';
+    
+    timelineItems.forEach(function(item, index) {
+      const itemProgress = (index + 1) / timelineItems.length;
+      
+      if (progress >= itemProgress - 0.1) {
+        item.classList.add('active');
+      }
+    });
+  }
+  
+  // ===================================
+  // 3. 이벤트 리스너
+  // ===================================
+  window.addEventListener('DOMContentLoaded', function() {
+    revealOnScroll();
+    updateTimeline();
+    console.log('✅ 완전체 버전 로드 완료!');
+    console.log('📊 총 6개 섹션 + 스크롤 애니메이션 활성화');
+  });
+  
+  window.addEventListener('scroll', function() {
+    revealOnScroll();
+    updateTimeline();
+  });
+  
+})();
+</script>
+
+</body>
+</html>

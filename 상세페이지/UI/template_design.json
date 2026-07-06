@@ -1,0 +1,367 @@
+{
+  "_readme": {
+    "파일용도": "나노바나나 템플릿 디자인 설계도 — 에이전시가 이 JSON 보고 나노바나나에 직접 레이어 구성",
+    "캔버스": "800 x 1400px / 배경 #FFFFFF",
+    "폰트": "나노바나나 Custom Fonts에 업로드된 NotoSansKR-Regular / NotoSansKR-Bold 사용",
+    "섹션구성": ["SECTION 1: 제품 (사진 + 제품명 + 밀도 + 등급)", "SECTION 2: 특성 (비교이미지 + 도넛차트)", "SECTION 3: 용도 (아이콘 3개 + 라벨)"],
+    "다음단계": "이 템플릿 완성 후 → ChatGPT API가 구글시트 데이터 채움 → Apps Script로 나노바나나 API 호출"
+  },
+
+  "canvas": {
+    "width": 800,
+    "height": 1400,
+    "background_color": "#FFFFFF"
+  },
+
+  "sections": [
+
+    {
+      "id": "section_1",
+      "name": "제품 (Product Hero)",
+      "y_range": "0 ~ 400px",
+      "layers": [
+        {
+          "name": "s1_background",
+          "type": "rectangle",
+          "x": 0, "y": 0,
+          "width": 800, "height": 400,
+          "color": "#F5F0E8",
+          "border_radius": 20,
+          "설명": "섹션1 베이지 배경"
+        },
+        {
+          "name": "s1_product_image",
+          "type": "image",
+          "x": 20, "y": 20,
+          "width": 370, "height": 360,
+          "fit": "cover",
+          "border_radius": 16,
+          "api_field": "product_image_url",
+          "설명": "제품 사진 (좌측)"
+        },
+        {
+          "name": "s1_product_name",
+          "type": "text",
+          "x": 420, "y": 80,
+          "width": 340,
+          "font_family": "NotoSansKR-Bold",
+          "font_size": 72,
+          "color": "#1A1A1A",
+          "api_field": "product_name",
+          "example": "HDF",
+          "설명": "제품명 (우측 상단, 굵게 크게)"
+        },
+        {
+          "name": "s1_product_density",
+          "type": "text",
+          "x": 420, "y": 175,
+          "width": 340,
+          "font_family": "NotoSansKR-Regular",
+          "font_size": 28,
+          "color": "#444444",
+          "api_field": "product_density",
+          "example": "850kg/m³+",
+          "설명": "밀도값"
+        },
+        {
+          "name": "s1_grade_circle",
+          "type": "ellipse",
+          "x": 670, "y": 260,
+          "width": 90, "height": 90,
+          "color": "#2E8B57",
+          "설명": "E1 등급 녹색 원 배지"
+        },
+        {
+          "name": "s1_grade_text",
+          "type": "text",
+          "x": 670, "y": 275,
+          "width": 90,
+          "font_family": "NotoSansKR-Bold",
+          "font_size": 30,
+          "color": "#FFFFFF",
+          "align": "center",
+          "api_field": "grade",
+          "example": "E1",
+          "설명": "등급 텍스트 (원 안)"
+        },
+        {
+          "name": "s1_grade_label",
+          "type": "text",
+          "x": 645, "y": 362,
+          "width": 140,
+          "font_family": "NotoSansKR-Regular",
+          "font_size": 15,
+          "color": "#666666",
+          "align": "center",
+          "api_field": "grade_label",
+          "example": "친환경 인공",
+          "설명": "등급 설명 라벨 (원 아래)"
+        }
+      ]
+    },
+
+    {
+      "id": "section_2",
+      "name": "특성 (Visual Insight Graphic)",
+      "y_range": "430 ~ 760px",
+      "layers": [
+        {
+          "name": "s2_title",
+          "type": "text",
+          "x": 0, "y": 430,
+          "width": 800,
+          "font_family": "NotoSansKR-Bold",
+          "font_size": 22,
+          "color": "#1A1A1A",
+          "align": "center",
+          "value": "Visual Insight Graphic",
+          "설명": "섹션2 타이틀 (고정 텍스트)"
+        },
+        {
+          "name": "s2_compare_bg",
+          "type": "rectangle",
+          "x": 20, "y": 470,
+          "width": 470, "height": 270,
+          "color": "#F0EDE6",
+          "border_radius": 12,
+          "설명": "비교 이미지 영역 배경"
+        },
+        {
+          "name": "s2_compare_left_label",
+          "type": "text",
+          "x": 30, "y": 478,
+          "width": 210,
+          "font_family": "NotoSansKR-Regular",
+          "font_size": 15,
+          "color": "#555555",
+          "api_field": "compare_left_label",
+          "example": "일반 MDF",
+          "설명": "비교 좌측 라벨"
+        },
+        {
+          "name": "s2_compare_left_image",
+          "type": "image",
+          "x": 30, "y": 502,
+          "width": 205, "height": 205,
+          "fit": "cover",
+          "border_radius": 8,
+          "api_field": "compare_left_url",
+          "설명": "비교 좌측 이미지"
+        },
+        {
+          "name": "s2_compare_right_label",
+          "type": "text",
+          "x": 260, "y": 478,
+          "width": 210,
+          "font_family": "NotoSansKR-Regular",
+          "font_size": 15,
+          "color": "#555555",
+          "api_field": "compare_right_label",
+          "example": "고밀도 HDF",
+          "설명": "비교 우측 라벨"
+        },
+        {
+          "name": "s2_compare_right_image",
+          "type": "image",
+          "x": 260, "y": 502,
+          "width": 205, "height": 205,
+          "fit": "cover",
+          "border_radius": 8,
+          "api_field": "compare_right_url",
+          "설명": "비교 우측 이미지"
+        },
+        {
+          "name": "s2_chart_image",
+          "type": "image",
+          "x": 520, "y": 460,
+          "width": 255, "height": 255,
+          "fit": "contain",
+          "api_field": "chart_url",
+          "설명": "도넛 차트 이미지 (PNG)"
+        },
+        {
+          "name": "s2_chart_top_label",
+          "type": "text",
+          "x": 520, "y": 465,
+          "width": 255,
+          "font_family": "NotoSansKR-Regular",
+          "font_size": 14,
+          "color": "#555555",
+          "align": "center",
+          "api_field": "chart_top_label",
+          "example": "밀도 높음",
+          "설명": "차트 위 라벨"
+        },
+        {
+          "name": "s2_chart_center_label",
+          "type": "text",
+          "x": 520, "y": 555,
+          "width": 255,
+          "font_family": "NotoSansKR-Bold",
+          "font_size": 20,
+          "color": "#1A1A1A",
+          "align": "center",
+          "api_field": "chart_center_label",
+          "example": "휨 강도",
+          "설명": "차트 중앙 라벨 (굵게)"
+        },
+        {
+          "name": "s2_chart_value",
+          "type": "text",
+          "x": 520, "y": 585,
+          "width": 255,
+          "font_family": "NotoSansKR-Regular",
+          "font_size": 16,
+          "color": "#555555",
+          "align": "center",
+          "api_field": "chart_value",
+          "example": "35 N/mm²",
+          "설명": "차트 수치값"
+        }
+      ]
+    },
+
+    {
+      "id": "section_3",
+      "name": "용도 (Usage Guide Card)",
+      "y_range": "790 ~ 1080px",
+      "layers": [
+        {
+          "name": "s3_title",
+          "type": "text",
+          "x": 0, "y": 790,
+          "width": 800,
+          "font_family": "NotoSansKR-Bold",
+          "font_size": 22,
+          "color": "#1A1A1A",
+          "align": "center",
+          "value": "Usage Guide Card",
+          "설명": "섹션3 타이틀 (고정 텍스트)"
+        },
+        {
+          "name": "s3_card1_bg",
+          "type": "rectangle",
+          "x": 20, "y": 830,
+          "width": 235, "height": 210,
+          "color": "#F0EDE6",
+          "border_radius": 16,
+          "설명": "용도 카드1 배경"
+        },
+        {
+          "name": "s3_icon1",
+          "type": "image",
+          "x": 55, "y": 848,
+          "width": 160, "height": 120,
+          "fit": "contain",
+          "api_field": "use_icon_1_url",
+          "설명": "용도1 아이콘"
+        },
+        {
+          "name": "s3_label1",
+          "type": "text",
+          "x": 20, "y": 978,
+          "width": 235,
+          "font_family": "NotoSansKR-Regular",
+          "font_size": 20,
+          "color": "#333333",
+          "align": "center",
+          "api_field": "use_label_1",
+          "example": "가구재",
+          "설명": "용도1 라벨"
+        },
+        {
+          "name": "s3_card2_bg",
+          "type": "rectangle",
+          "x": 283, "y": 830,
+          "width": 235, "height": 210,
+          "color": "#F0EDE6",
+          "border_radius": 16,
+          "설명": "용도 카드2 배경"
+        },
+        {
+          "name": "s3_icon2",
+          "type": "image",
+          "x": 318, "y": 848,
+          "width": 160, "height": 120,
+          "fit": "contain",
+          "api_field": "use_icon_2_url",
+          "설명": "용도2 아이콘"
+        },
+        {
+          "name": "s3_label2",
+          "type": "text",
+          "x": 283, "y": 978,
+          "width": 235,
+          "font_family": "NotoSansKR-Regular",
+          "font_size": 20,
+          "color": "#333333",
+          "align": "center",
+          "api_field": "use_label_2",
+          "example": "마루판",
+          "설명": "용도2 라벨"
+        },
+        {
+          "name": "s3_card3_bg",
+          "type": "rectangle",
+          "x": 546, "y": 830,
+          "width": 235, "height": 210,
+          "color": "#F0EDE6",
+          "border_radius": 16,
+          "설명": "용도 카드3 배경"
+        },
+        {
+          "name": "s3_icon3",
+          "type": "image",
+          "x": 581, "y": 848,
+          "width": 160, "height": 120,
+          "fit": "contain",
+          "api_field": "use_icon_3_url",
+          "설명": "용도3 아이콘"
+        },
+        {
+          "name": "s3_label3",
+          "type": "text",
+          "x": 546, "y": 978,
+          "width": 235,
+          "font_family": "NotoSansKR-Regular",
+          "font_size": 20,
+          "color": "#333333",
+          "align": "center",
+          "api_field": "use_label_3",
+          "example": "건축 내장재",
+          "설명": "용도3 라벨"
+        }
+      ]
+    }
+
+  ],
+
+  "_api_fields_summary": {
+    "설명": "ChatGPT API가 채워야 할 필드 목록 — 구글시트 컬럼과 1:1 매핑",
+    "section_1_제품": {
+      "product_image_url": "제품 사진 URL (내가 직접 제공)",
+      "product_name": "제품명 (예: HDF)",
+      "product_density": "밀도 (예: 850kg/m³+)",
+      "grade": "등급 (예: E1)",
+      "grade_label": "등급 설명 (예: 친환경 인공)"
+    },
+    "section_2_특성": {
+      "compare_left_label": "비교 좌측 라벨 (예: 일반 MDF)",
+      "compare_left_url": "비교 좌측 이미지 URL",
+      "compare_right_label": "비교 우측 라벨 (예: 고밀도 HDF)",
+      "compare_right_url": "비교 우측 이미지 URL",
+      "chart_url": "도넛차트 이미지 URL",
+      "chart_top_label": "차트 위 설명 (예: 밀도 높음)",
+      "chart_center_label": "차트 중앙 특성명 (예: 휨 강도)",
+      "chart_value": "특성 수치 (예: 35 N/mm²)"
+    },
+    "section_3_용도": {
+      "use_icon_1_url": "용도1 아이콘 URL",
+      "use_label_1": "용도1 (예: 가구재)",
+      "use_icon_2_url": "용도2 아이콘 URL",
+      "use_label_2": "용도2 (예: 마루판)",
+      "use_icon_3_url": "용도3 아이콘 URL",
+      "use_label_3": "용도3 (예: 건축 내장재)"
+    }
+  }
+}

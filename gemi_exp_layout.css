@@ -1,0 +1,52 @@
+/* 
+   Gemi Experimental Layout Layer (PHASE 1-2, 1-3 & 1-4)
+   Unifying all content width to 800px, adjusting vertical density, and unifying cards
+*/
+
+.zart-wrap {
+    max-width: 800px !important;
+    margin: 0 auto !important;
+    padding: 0 24px !important;
+}
+
+/* Ensure images and other specific blocks also respect or match the 800px constraint */
+.zart-section img {
+    max-width: 100% !important;
+    height: auto;
+}
+
+/* Section Padding (PHASE 1-3) */
+.zart-section {
+    padding: 40px 0 !important;
+}
+
+.zart-section--product {
+    padding: 0 !important;
+}
+
+.zart-section--tech,
+.zart-section--price {
+    padding: 32px 0 !important;
+}
+
+.zart-section--trust,
+.zart-section--usage {
+    padding: 40px 0 !important;
+}
+
+/* 공통 카드 시스템 (PHASE 1-4) */
+.zart-card,
+.zart-stat-card,
+.zart-tech-card,
+.zart-usage-card {
+    background: #ffffff !important;
+    border: 1px solid #E8ECF0 !important;
+    border-radius: 12px !important;
+    box-shadow: 0 2px 12px rgba(0, 34, 68, 0.08) !important;
+    overflow: hidden;
+}
+
+/* Section5 인라인 배경 보완 */
+.zart-usage-card {
+    background: #ffffff !important;
+}

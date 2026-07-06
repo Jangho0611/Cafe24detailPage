@@ -1,0 +1,678 @@
+/* 
+   MDF Product Detail Page Styles (V10)
+   Based on DSS_ver1.md
+*/
+
+:root {
+    /* 브랜드 */
+    --zart-primary: #2d5a3d;
+    /* 메인 녹색 */
+    --zart-primary-light: #3d6d4d;
+    /* 호버용 */
+    --zart-primary-dark: #1d4a2d;
+    /* 액센트 */
+
+    /* 가격 시그널 */
+    --zart-price-up: #EF5350;
+    /* 상승 - 빨강 */
+    --zart-price-down: #2196F3;
+    /* 하락 - 파랑 */
+    --zart-price-flat: #78909C;
+    /* 보합 - 블루그레이 */
+
+    /* 중립 */
+    --zart-text: #1A1A1A;
+    /* 진한 차콜 (가독성) */
+    --zart-text-sub: #616161;
+    /* 서브텍스트 */
+    --zart-border: #E0E0E0;
+    /* 라인 */
+    --zart-surface: #FAFAFA;
+    /* 카드 배경 */
+    --zart-bg: #FFFFFF;
+    /* 메인 배경 */
+
+    /* Typography */
+    --zart-font: 'Pretendard Variable', -apple-system, BlinkMacSystemFont,
+        'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+
+    --zart-text-xs: clamp(0.75rem, 1.5vw, 0.75rem);
+    /* 12px */
+    --zart-text-sm: clamp(0.875rem, 2vw, 0.875rem);
+    /* 14px */
+    --zart-text-base: clamp(1rem, 2.5vw, 1rem);
+    /* 16px */
+    --zart-text-lg: clamp(1.25rem, 3vw, 1.25rem);
+    /* 20px */
+    --zart-text-xl: clamp(1.563rem, 3.5vw, 1.563rem);
+    /* 25px */
+    --zart-text-2xl: clamp(1.953rem, 4vw, 1.953rem);
+    /* 31px */
+    --zart-text-3xl: clamp(2.441rem, 5vw, 2.441rem);
+    /* 39px */
+
+    --zart-weight-regular: 400;
+    --zart-weight-medium: 500;
+    --zart-weight-semibold: 600;
+    --zart-weight-bold: 700;
+
+    --zart-leading-tight: 1.2;
+    --zart-leading-normal: 1.5;
+    --zart-leading-relaxed: 1.75;
+
+    /* Spacing */
+    --zart-space-0: 0px;
+    --zart-space-1: 4px;
+    --zart-space-2: 8px;
+    --zart-space-3: 12px;
+    --zart-space-4: 16px;
+    --zart-space-5: 20px;
+    --zart-space-6: 24px;
+    --zart-space-8: 32px;
+    --zart-space-10: 40px;
+    --zart-space-12: 48px;
+    --zart-space-16: 64px;
+    --zart-space-20: 80px;
+    --zart-space-24: 96px;
+
+    /* Shadows */
+    --zart-shadow-0: none;
+    --zart-shadow-1: 0 1px 3px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.03);
+    --zart-shadow-2: 0 4px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+    --zart-shadow-3: 0 8px 24px rgba(0, 0, 0, 0.12), 0 4px 8px rgba(0, 0, 0, 0.08);
+
+    /* Easing */
+    --zart-ease-smooth: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: var(--zart-font);
+    color: var(--zart-text);
+    background-color: var(--zart-bg);
+    line-height: var(--zart-leading-normal);
+}
+
+.zart-wrap {
+    max-width: 790px;
+    margin: 0 auto;
+}
+
+@media (max-width: 820px) {
+    .zart-wrap {
+        padding: 0 var(--zart-space-4);
+    }
+}
+
+.zart-section {
+    padding: var(--zart-space-16) 0;
+}
+
+/* Scroll Reveal */
+[data-animate] {
+    opacity: 0;
+    transform: translateY(24px);
+    transition: opacity 0.6s var(--zart-ease-smooth), transform 0.6s var(--zart-ease-smooth);
+}
+
+[data-animate].is-visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Stats Cards */
+.zart-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--zart-space-6);
+}
+
+@media (max-width: 768px) {
+    .zart-stat-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.zart-stat-card {
+    background: var(--zart-bg);
+    border: 1px solid var(--zart-border);
+    border-radius: 8px;
+    padding: var(--zart-space-6);
+    text-align: center;
+    transition: all 0.3s var(--zart-ease-smooth);
+    box-shadow: var(--zart-shadow-1);
+}
+
+.zart-stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--zart-shadow-2);
+}
+
+.zart-stat-icon {
+    width: 48px;
+    height: 48px;
+    margin: 0 auto var(--zart-space-4);
+    background: linear-gradient(135deg, #2d5a3d 0%, #3d6d4d 100%);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.zart-stat-icon svg {
+    width: 28px;
+    height: 28px;
+    stroke: white;
+    fill: none;
+}
+
+.zart-stat-number {
+    font-size: var(--zart-text-3xl);
+    font-weight: var(--zart-weight-bold);
+    color: var(--zart-text);
+    font-feature-settings: 'tnum' 1;
+    line-height: var(--zart-leading-tight);
+    margin-bottom: var(--zart-space-2);
+}
+
+.zart-stat-plus {
+    display: inline-block;
+    opacity: 0;
+    color: var(--zart-primary);
+}
+
+.zart-stat-card.is-visible .zart-stat-plus {
+    animation: fadeInPlus 0.4s ease 0.6s forwards;
+}
+
+@keyframes fadeInPlus {
+    0% {
+        opacity: 0;
+        transform: translateX(-4px);
+    }
+
+    100% {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.zart-stat-label {
+    font-size: var(--zart-text-sm);
+    color: var(--zart-text-sub);
+    font-weight: var(--zart-weight-medium);
+}
+
+/* Price Trend */
+.zart-price-container {
+    text-align: center;
+}
+
+.zart-price-change {
+    display: flex;
+    align-items: baseline;
+    gap: var(--zart-space-2);
+    justify-content: center;
+    margin-bottom: var(--zart-space-3);
+}
+
+.zart-price-arrow {
+    font-size: var(--zart-text-lg);
+}
+
+.zart-price-percent {
+    font-size: var(--zart-text-2xl);
+    font-weight: var(--zart-weight-bold);
+    font-feature-settings: 'tnum' 1;
+}
+
+.zart-price-change.up {
+    color: var(--zart-price-up);
+}
+
+.zart-price-change.down {
+    color: var(--zart-price-down);
+}
+
+.zart-price-change.flat {
+    color: var(--zart-price-flat);
+}
+
+.zart-price-display {
+    position: relative;
+    cursor: pointer;
+    display: inline-block;
+}
+
+.zart-price-popup {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    top: calc(100% + 12px);
+    width: 320px;
+    background: var(--zart-bg);
+    border: 1px solid var(--zart-border);
+    border-radius: 8px;
+    padding: var(--zart-space-4);
+    box-shadow: var(--zart-shadow-3);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    z-index: 10;
+}
+
+.zart-price-display:hover .zart-price-popup {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.zart-graph-image {
+    width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 4px;
+}
+
+/* Comic Grid */
+.zart-comic-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--zart-space-4);
+}
+
+@media (max-width: 768px) {
+    .zart-comic-grid {
+        grid-template-columns: 1fr;
+        gap: var(--zart-space-6);
+    }
+}
+
+.zart-comic-holder {
+    background: var(--zart-bg);
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: var(--zart-shadow-1);
+    transition: all 0.3s var(--zart-ease-smooth);
+}
+
+.zart-comic-holder:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--zart-shadow-2);
+}
+
+.zart-comic-img {
+    width: 100%;
+    height: auto;
+    display: block;
+    border-radius: 8px;
+}
+
+/* Product Detail Sections */
+.zart-detail-cols {
+    display: grid;
+    grid-template-columns: 6fr 4fr;
+    gap: var(--zart-space-8);
+    align-items: start;
+}
+
+@media (max-width: 768px) {
+    .zart-detail-cols {
+        grid-template-columns: 1fr;
+        gap: var(--zart-space-6);
+    }
+}
+
+.zart-detail-image-holder {
+    position: relative;
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid var(--zart-border);
+    background: var(--zart-surface);
+    box-shadow: var(--zart-shadow-1);
+}
+
+.zart-detail-img {
+    width: 100%;
+    height: auto;
+    display: block;
+    transition: transform 0.5s var(--zart-ease-smooth);
+}
+
+.zart-detail-image-holder:hover .zart-detail-img {
+    transform: scale(1.02);
+}
+
+.zart-detail-content {
+    font-size: var(--zart-text-base);
+    line-height: var(--zart-leading-relaxed);
+    color: var(--zart-text);
+}
+
+.zart-detail-content h2 {
+    font-size: var(--zart-text-2xl);
+    font-weight: var(--zart-weight-bold);
+    color: var(--zart-text);
+    margin-bottom: var(--zart-space-2);
+    padding-left: var(--zart-space-4);
+    border-left: 4px solid var(--zart-primary);
+}
+
+.zart-detail-content .zart-detail-en {
+    font-size: var(--zart-text-sm);
+    color: var(--zart-text-sub);
+    margin-bottom: var(--zart-space-6);
+    margin-left: calc(var(--zart-space-4) + 4px);
+}
+
+.zart-detail-content h3 {
+    font-size: var(--zart-text-lg);
+    font-weight: var(--zart-weight-semibold);
+    color: var(--zart-text);
+    margin-top: var(--zart-space-8);
+    margin-bottom: var(--zart-space-4);
+    display: flex;
+    align-items: center;
+    gap: var(--zart-space-2);
+}
+
+.zart-detail-content h3::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    background: var(--zart-primary);
+    border-radius: 2px;
+}
+
+.zart-detail-content ul {
+    list-style: none;
+    padding-left: 0;
+    margin-bottom: var(--zart-space-6);
+}
+
+.zart-detail-content li {
+    position: relative;
+    padding-left: var(--zart-space-6);
+    margin-bottom: var(--zart-space-3);
+    font-size: var(--zart-text-sm);
+}
+
+.zart-detail-content li::before {
+    content: '▸';
+    position: absolute;
+    left: 0;
+    color: var(--zart-primary);
+    font-weight: var(--zart-weight-bold);
+}
+
+.zart-spec-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: var(--zart-space-6) 0;
+    border-top: 1px solid var(--zart-text);
+}
+
+.zart-spec-table th,
+.zart-spec-table td {
+    border-bottom: 1px solid var(--zart-border);
+    padding: var(--zart-space-4) var(--zart-space-2);
+    text-align: left;
+}
+
+.zart-spec-table th {
+    width: 120px;
+    font-weight: var(--zart-weight-semibold);
+    color: var(--zart-text);
+    font-size: var(--zart-text-sm);
+    background: var(--zart-surface);
+}
+
+.zart-spec-table td {
+    font-size: var(--zart-text-sm);
+    color: var(--zart-text-sub);
+}
+
+/* ===== Section 4: 제품 상세 (완전 시각화) ===== */
+.zart-detail-visual {
+    display: grid;
+    grid-template-columns: 6fr 4fr;
+    gap: var(--zart-space-8);
+    align-items: start;
+}
+
+.zart-product-card {
+    background: white;
+    border: 1px solid var(--zart-border);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: var(--zart-shadow-1);
+    transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.zart-product-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--zart-shadow-2);
+}
+
+.zart-card-img-area {
+    height: 280px;
+    background: var(--zart-surface);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.zart-card-img-area img {
+    max-width: 90%;
+    max-height: 90%;
+    object-fit: contain;
+}
+
+.zart-card-badge {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: var(--zart-primary);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.zart-card-title-area {
+    background: var(--zart-primary);
+    color: white;
+    padding: 24px;
+}
+
+.zart-card-title-area h2 {
+    font-size: 24px;
+    font-weight: 700;
+    margin: 0;
+    color: white;
+}
+
+.zart-card-title-area p {
+    font-size: 14px;
+    opacity: 0.9;
+    margin: 4px 0 0 0;
+    color: white;
+}
+
+.zart-card-spec-area {
+    padding: 24px;
+    background: var(--zart-surface);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.zart-card-spec-row {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+}
+
+.zart-spec-label {
+    font-size: 14px;
+    color: var(--zart-text-sub);
+    min-width: 60px;
+}
+
+.zart-spec-value {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--zart-text);
+}
+
+.zart-card-foot {
+    padding: 24px;
+    border-top: 1px solid var(--zart-border);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.zart-mini-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.zart-mini-card {
+    background: white;
+    border: 1px solid var(--zart-border);
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: var(--zart-shadow-1);
+    transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.zart-mini-card:hover {
+    transform: translateX(4px);
+    box-shadow: var(--zart-shadow-2);
+}
+
+.zart-mini-card-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--zart-primary);
+}
+
+.zart-mini-card-head h3 {
+    font-size: 16px;
+    font-weight: 700;
+    margin: 0;
+}
+
+.zart-mini-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.zart-mini-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+}
+
+.zart-mini-bullet {
+    color: var(--zart-primary);
+    font-weight: 700;
+}
+
+/* ===== Section 5: 물성표 인포그래픽 ===== */
+.zart-property-section {
+    text-align: center;
+}
+
+.zart-property-wrap {
+    background: var(--zart-bg);
+    border: 1px solid var(--zart-border);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: var(--zart-shadow-1);
+    margin-top: var(--zart-space-8);
+}
+
+.zart-prop-header {
+    display: flex;
+    background: var(--zart-primary);
+    color: white;
+    font-weight: var(--zart-weight-bold);
+}
+
+.zart-prop-row {
+    display: flex;
+    border-top: 1px solid var(--zart-border);
+    transition: background 0.2s ease;
+}
+
+.zart-prop-row:nth-child(even) {
+    background: var(--zart-surface);
+}
+
+.zart-prop-row:hover {
+    background: rgba(45, 90, 61, 0.03);
+}
+
+.zart-prop-col {
+    padding: var(--zart-space-4);
+    font-size: var(--zart-text-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+.zart-prop-col.name {
+    flex: 2;
+    justify-content: flex-start;
+    text-align: left;
+    font-weight: var(--zart-weight-semibold);
+    padding-left: var(--zart-space-6);
+}
+
+.zart-prop-col.unit {
+    flex: 1;
+    color: var(--zart-text-sub);
+    font-size: var(--zart-text-xs);
+}
+
+.zart-prop-col.val {
+    flex: 1;
+}
+
+.zart-property-note {
+    font-size: var(--zart-text-xs);
+    color: var(--zart-text-sub);
+    margin-top: var(--zart-space-6);
+}
+
+/* Typography Utility */
+.zart-title-section {
+    text-align: center;
+    margin-bottom: var(--zart-space-12);
+}
+
+.zart-title-section h2 {
+    font-size: var(--zart-text-2xl);
+    font-weight: var(--zart-weight-bold);
+    margin-bottom: var(--zart-space-2);
+}
+
+.zart-title-section p {
+    color: var(--zart-text-sub);
+    font-size: var(--zart-text-sm);
+}

@@ -1,0 +1,13 @@
+{
+  "image_provider": "gpt",
+  "gpt_model": "gpt-image-2",
+  "nano_banana_model": "gemini-3-pro-image",
+  "nano_banana_fast_model": "gemini-3.1-flash-image",
+  "fallback_provider": "gpt",
+  "nano_banana_response_format": {
+    "type": "image",
+    "mime_type": "image/jpeg",
+    "aspect_ratio": "1:1",
+    "image_size": "1K"
+  }
+}
