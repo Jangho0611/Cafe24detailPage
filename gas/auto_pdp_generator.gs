@@ -19,6 +19,7 @@ const COL = {
   EMPHASIS: 11,
   USE1: 12,
   USE2: 13,
+  STOCK_TYPE: 14,
   IMAGE_URL: 15,
   IMAGE_ENGINE: 16,
   TYPE: 18,
@@ -183,7 +184,7 @@ function generateHTML(row) {
     <tr><th>두께옵션</th><td>${data.thickness}</td></tr>
     <tr><th>등급</th><td>${data.grade}</td></tr>
     <tr><th>제조사</th><td>${data.maker}</td></tr>
-    <tr><th>즉시출고</th><td>재고보유 즉시출고 가능</td></tr>
+    <tr><th>출고안내</th><td>${getStockStatusText(data.stockType)}</td></tr>
   </table>
   <div class="ds-section-title">${sectionTitle}</div>
   ${infraImg}
@@ -248,6 +249,22 @@ function setupTrigger() {
   Logger.log('트리거 설정 완료');
 }
 
+function setupStockTypeDropdown() {
+  const sheet = getSheet();
+  if (!sheet) return;
+
+  sheet.getRange(1, COL.STOCK_TYPE).setValue('재고구분');
+
+  const lastRow = Math.max(sheet.getLastRow(), 2);
+  const rule = SpreadsheetApp.newDataValidation()
+    .requireValueInList(['재고', '주문재', '일부재고'], true)
+    .setAllowInvalid(false)
+    .build();
+
+  sheet.getRange(2, COL.STOCK_TYPE, lastRow - 1, 1).setDataValidation(rule);
+  Logger.log('재고구분 드롭다운 설정 완료');
+}
+
 function getSheet() {
   // onEdit에서는 openById 권한 없음 -> getActiveSpreadsheet 사용
   try {
@@ -272,9 +289,18 @@ function getRowData(sheet, row) {
     emphasis: sheet.getRange(row, COL.EMPHASIS).getValue(),
     use1: sheet.getRange(row, COL.USE1).getValue(),
     use2: sheet.getRange(row, COL.USE2).getValue(),
+    stockType: sheet.getRange(row, COL.STOCK_TYPE).getValue(),
     infographic: sheet.getRange(row, COL.IMAGE_URL).getValue(),
     type: sheet.getRange(row, COL.TYPE).getValue()
   };
+}
+
+function getStockStatusText(stockType) {
+  const value = String(stockType || '').trim();
+  if (value === '재고') return '재고보유 즉시출고 가능';
+  if (value === '주문재') return '주문재 / 입고 일정 확인 필요';
+  if (value === '일부재고') return '일부 규격 재고보유 / 주문 전 재고 확인 필요';
+  return '재고 및 출고 일정 확인 필요';
 }
 
 function buildHTMLNoteFacts(data) {
@@ -403,8 +429,7 @@ function getCategoryDefaultNotes(data) {
     return [
       '노출 마감은 입고 제품의 표면 상태를 확인합니다.',
       '도장 작업은 표면 상태와 작업 조건을 함께 확인합니다.',
-      '재단이 필요한 경우 작업 치수를 먼저 확인합니다.',
-      '재고와 출고 일정은 주문 전에 확인합니다.'
+      '재단이 필요한 경우 작업 치수를 먼저 확인합니다.'
     ];
   }
 
@@ -421,8 +446,7 @@ function getCategoryDefaultNotes(data) {
     return [
       '구조재 사용 여부와 각재 치수를 먼저 확인합니다.',
       '절단이 필요한 경우 작업 치수를 먼저 확인합니다.',
-      '노출 마감은 입고 제품의 표면 상태를 확인합니다.',
-      '재고와 출고 일정은 주문 전에 확인합니다.'
+      '노출 마감은 입고 제품의 표면 상태를 확인합니다.'
     ];
   }
 
@@ -430,16 +454,14 @@ function getCategoryDefaultNotes(data) {
     return [
       '시공 환경에 맞는 두께와 마감 조건을 확인합니다.',
       '단열 시공 조건을 먼저 확인합니다.',
-      '연결 부위와 마감 방법을 함께 확인합니다.',
-      '재고와 출고 일정은 주문 전에 확인합니다.'
+      '연결 부위와 마감 방법을 함께 확인합니다.'
     ];
   }
 
   return [
     '노출 마감은 입고 제품의 표면 상태를 확인합니다.',
     'CNC 가공이 필요한 경우 작업 조건을 먼저 확인합니다.',
-    '재단이 필요한 경우 작업 치수를 먼저 확인합니다.',
-    '재고와 출고 일정은 주문 전에 확인합니다.'
+    '재단이 필요한 경우 작업 치수를 먼저 확인합니다.'
   ];
 }
 
@@ -478,7 +500,7 @@ function buildFallbackNotes() {
     '제품 구조와 사용 용도는 주문 전 확인합니다.',
     '시공 전 현장 조건을 먼저 확인합니다.',
     '마감 방법은 사용 환경에 맞춰 확인합니다.',
-    '재고와 출고 일정은 주문 전 확인합니다.'
+    '재단이나 가공이 필요한 경우 작업 조건을 확인합니다.'
   ];
 }
 
