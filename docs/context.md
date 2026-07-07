@@ -35,3 +35,4 @@
 - Validate actual OpenAI output quality with representative products.
 - Fine-tune prompts based on real HTML/image outputs.
 - Add new product categories and category-specific rules as needed.
+- Research image edit request workflow for v1.1 only; v1.0 operation keeps generate-only image flow.

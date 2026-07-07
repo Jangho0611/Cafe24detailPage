@@ -26,7 +26,7 @@ const COL = {
   CHECKBOX: 19,
   PROMPT: 20,
   STATUS: 21,
-  ERROR: 26
+  ERROR: 22
 };
 
 const STATUS = {
