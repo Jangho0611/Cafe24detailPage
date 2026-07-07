@@ -497,30 +497,128 @@ function getAndParticle(text) {
   return ((lastChar - 0xAC00) % 28) === 0 ? '와' : '과';
 }
 
+function uniqueCleanTerms(values) {
+  const terms = [];
+  (values || []).forEach(function (value) {
+    const clean = normalizeUseTerm(cleanNoteSource(value));
+    if (clean && terms.indexOf(clean) === -1) {
+      terms.push(clean);
+    }
+  });
+  return terms;
+}
+
+function buildNaturalUseList(terms) {
+  const items = (terms || []).filter(function (term) {
+    return term && String(term).trim() !== '';
+  });
+
+  if (items.length === 0) return '';
+  if (items.length === 1) return items[0];
+  if (items.length === 2) return items[0] + ', ' + items[1];
+  return items.slice(0, 3).join(', ');
+}
+
+function getFAQCategoryType(data) {
+  const productLabel = String(data && data.productName || '');
+  const categoryLabel = String(data && data.category || '');
+  const label = categoryLabel + ' ' + productLabel;
+  if (productLabel.indexOf('MDF') !== -1) return 'MDF';
+  if (productLabel.indexOf('합판') !== -1) return 'PLYWOOD';
+  if (label.indexOf('석고') !== -1) return 'GYPSUM';
+  if (label.indexOf('PF') !== -1 || label.indexOf('피에프') !== -1 || label.indexOf('단열') !== -1) return 'PF';
+  if (label.indexOf('각재') !== -1 || label.indexOf('뉴송') !== -1) return 'WOOD';
+  if (label.indexOf('합판') !== -1) return 'PLYWOOD';
+  if (label.indexOf('MDF') !== -1) return 'MDF';
+  return 'DEFAULT';
+}
+
+function buildFAQUseAnswer(data) {
+  const useTerms = uniqueCleanTerms([data.use1, data.use2]);
+  const useText = buildNaturalUseList(useTerms);
+  if (useText) {
+    return useText + ' 등에 사용됩니다.';
+  }
+
+  const categoryType = getFAQCategoryType(data);
+  const fallback = {
+    PLYWOOD: '가구 제작, 실내 벽체 바탕, 천장 마감 등에 사용됩니다.',
+    MDF: '가구 제작, 도장 마감, 필름 래핑 바탕 등에 사용됩니다.',
+    GYPSUM: '실내 벽체, 천장 시공, 마감 바탕 등에 사용됩니다.',
+    PF: '벽체와 천장 단열, 마감 전 바탕 시공 등에 사용됩니다.',
+    WOOD: '틀 작업, 보강재, 현장 목공 작업 등에 사용됩니다.',
+    DEFAULT: '현장 마감, 제작, 보조 자재 용도 등에 사용됩니다.'
+  };
+  return fallback[categoryType];
+}
+
+function buildFAQCheckAnswer(data) {
+  const checks = [];
+  if (data.size) checks.push('규격');
+  if (data.thickness) checks.push('두께');
+  checks.push('사용 위치');
+  checks.push('필요한 재단 여부');
+  return '주문 전에는 ' + buildNaturalUseList(checks) + '를 확인하세요.';
+}
+
+function buildFAQProcessAnswer(data) {
+  const categoryType = getFAQCategoryType(data);
+  const answers = {
+    PLYWOOD: '재단 방향과 마감면을 먼저 정하고, 현장 치수에 맞춰 가공 조건을 확인하세요.',
+    MDF: '재단면과 표면 마감 상태를 확인하고, 도장이나 필름 작업 조건에 맞춰 진행하세요.',
+    GYPSUM: '절단면 파손을 줄이도록 취급하고, 이음부와 고정 간격을 현장 조건에 맞춰 확인하세요.',
+    PF: '단열층 손상과 연결 부위 틈을 줄이도록 재단하고, 마감 방법을 함께 확인하세요.',
+    WOOD: '길이 재단 전 치수를 다시 확인하고, 휨이나 노출면 상태를 살펴본 뒤 시공하세요.',
+    DEFAULT: '재단 치수, 마감 방향, 현장 고정 조건을 먼저 확인한 뒤 작업하세요.'
+  };
+  return answers[categoryType];
+}
+
+function normalizeFAQCompareText(text) {
+  return String(text || '')
+    .replace(/\s+/g, '')
+    .replace(/[.,!?。]/g, '')
+    .trim();
+}
+
+function ensureFAQDistinctAnswer(answer, notes, fallback) {
+  const answerKey = normalizeFAQCompareText(answer);
+  const duplicated = (notes || []).some(function (note) {
+    return normalizeFAQCompareText(note) === answerKey;
+  });
+  return duplicated ? fallback : answer;
+}
+
 function buildFAQItems(data, notes) {
-  const productName = String(data.productName || '이 제품').trim() || '이 제품';
-  const useText = getProductUseText(data);
-  const checkNote = (notes || []).filter(function (note) {
-    return String(note || '').indexOf('확인') !== -1 || String(note || '').indexOf('주의') !== -1;
-  })[0] || '주문 전 규격, 두께, 사용 위치를 확인하는 것이 좋습니다.';
-  const processNote = (notes || []).filter(function (note) {
-    return ['재단', '절단', '마감', '시공', '가공'].some(function (word) {
-      return String(note || '').indexOf(word) !== -1;
-    });
-  })[0] || '재단이나 마감이 필요한 경우 작업 치수와 현장 조건을 함께 확인하는 것이 좋습니다.';
+  const faqNotes = notes || [];
+  const useAnswer = ensureFAQDistinctAnswer(
+    buildFAQUseAnswer(data),
+    faqNotes,
+    '사용 위치와 작업 목적에 맞춰 현장 자재로 활용됩니다.'
+  );
+  const checkAnswer = ensureFAQDistinctAnswer(
+    buildFAQCheckAnswer(data),
+    faqNotes,
+    '주문 전에는 필요한 치수, 두께, 시공 위치를 먼저 확인하세요.'
+  );
+  const processAnswer = ensureFAQDistinctAnswer(
+    buildFAQProcessAnswer(data),
+    faqNotes,
+    '재단 전 치수와 마감 방향을 확인하고 현장 조건에 맞춰 작업하세요.'
+  );
 
   return [
     {
-      question: productName + getSubjectParticle(productName) + ' 어떤 용도로 사용하나요?',
-      answer: '주요 사용처는 ' + useText + '입니다.'
+      question: '이 제품은 어디에 사용하나요?',
+      answer: useAnswer
     },
     {
-      question: '주문 전에 어떤 정보를 확인해야 하나요?',
-      answer: checkNote
+      question: '주문 전에 무엇을 확인해야 하나요?',
+      answer: checkAnswer
     },
     {
-      question: '재단이나 마감 작업 시 확인할 점이 있나요?',
-      answer: processNote
+      question: '재단·시공 시 주의사항은 무엇인가요?',
+      answer: processAnswer
     }
   ];
 }
@@ -665,6 +763,10 @@ function normalizeUseTerm(text) {
   if (!text) return '';
 
   return String(text)
+    .replace(/사용 작업/g, '사용')
+    .replace(/활용 작업/g, '활용')
+    .replace(/(으)?로 사용$/g, '')
+    .replace(/(으)?로 활용$/g, '')
     .replace(/ 작업$/g, '')
     .replace(/ 사용$/g, '')
     .replace(/ 활용$/g, '')
@@ -674,17 +776,14 @@ function normalizeUseTerm(text) {
 }
 
 function buildUseNote(cleanUse1, cleanUse2) {
-  const use1 = normalizeUseTerm(cleanUse1);
-  const use2 = normalizeUseTerm(cleanUse2);
+  const uses = uniqueCleanTerms([cleanUse1, cleanUse2]);
 
-  if (use1 && use2) {
-    return use1 + getAndParticle(use1) + ' ' + use2 + '에 사용됩니다.';
+  if (uses.length >= 2) {
+    const useText = uses[0] + getAndParticle(uses[0]) + ' ' + uses[1];
+    return useText + ' 용도로 선택됩니다.';
   }
-  if (use1) {
-    return use1 + '에 사용됩니다.';
-  }
-  if (use2) {
-    return use2 + '에 사용됩니다.';
+  if (uses.length === 1) {
+    return uses[0] + ' 용도로 선택됩니다.';
   }
   return '';
 }
