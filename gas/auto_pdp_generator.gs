@@ -157,6 +157,11 @@ function generateHTML(row) {
 .ds-reason{background:#F8F8F8;border-top:2px solid #123628;padding:16px;margin:0 0 20px 0;font-size:15px;color:#616161;}
 .ds-reason p{margin:0 0 8px 0;}
 .ds-reason p:last-child{margin:0;}
+.ds-faq{border-top:1px solid #E0E0E0;margin:0 0 20px 0;padding:18px 0 0 0;}
+.ds-faq h3{font-size:18px;font-weight:700;color:#1C1C1C;margin:0 0 12px 0;}
+.ds-faq-item{margin:0 0 14px 0;}
+.ds-faq-q{font-size:15px;font-weight:600;color:#123628;margin:0 0 4px 0;}
+.ds-faq-a{font-size:14px;color:#616161;margin:0;}
 .ds-cta{display:block;width:100%;background:#123628;color:#FFFFFF;padding:16px;border-radius:4px;text-align:center;text-decoration:none;font-size:15px;font-weight:600;margin:0 0 12px 0;}
 .ds-cta:hover{opacity:0.92;}
 .ds-phone{color:#616161;font-size:13px;text-align:center;margin:0 0 20px 0;}
@@ -178,6 +183,9 @@ function generateHTML(row) {
   const gradeRowHtml = shouldDisplayGrade(data.grade)
     ? `    <tr><th>성능·인증</th><td>${data.grade}</td></tr>`
     : '';
+  const faqItems = buildFAQItems(data, defaultNotes);
+  const faqHtml = buildFAQHtml(faqItems);
+  const schemaHtml = buildSchemaHtml(data, content.define, faqItems);
 
   const html = `${css}
 <div class="ds-wrap">
@@ -195,10 +203,12 @@ ${gradeRowHtml}
   <div class="ds-reason">
 ${reasonHtml}
   </div>
+${faqHtml}
   <a class="ds-cta" href="https://web-cadalog-ver10.vercel.app/">대량구매 견적 · 규격 확인하기 →</a>
   <div class="ds-phone">전화 031-388-3833 · 평일 09:00–18:00</div>
   <div class="ds-footer">(주)대산 · 35년 신뢰의 건축자재 전문 공급사</div>
-</div>`;
+</div>
+${schemaHtml}`;
 
   sheet.getRange(row, 24).setValue(html);
   sheet.getRange(row, 21).setValue('HTML_CREATED');
@@ -453,6 +463,149 @@ function getStockStatusText(stockType) {
   return '재고 및 출고 일정 확인 필요';
 }
 
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function getProductUseText(data) {
+  const use1 = normalizeUseTerm(cleanNoteSource(data.use1));
+  const use2 = normalizeUseTerm(cleanNoteSource(data.use2));
+  if (use1 && use2) return use1 + ' 작업과 ' + use2 + ' 작업';
+  if (use1) return use1 + ' 작업';
+  if (use2) return use2 + ' 작업';
+  return '제품 정보에 표시된 용도';
+}
+
+function getSubjectParticle(text) {
+  const value = String(text || '').trim();
+  if (!value) return '은';
+  const lastChar = value.charCodeAt(value.length - 1);
+  if (lastChar < 0xAC00 || lastChar > 0xD7A3) return '는';
+  return ((lastChar - 0xAC00) % 28) === 0 ? '는' : '은';
+}
+
+function buildFAQItems(data, notes) {
+  const productName = String(data.productName || '이 제품').trim() || '이 제품';
+  const useText = getProductUseText(data);
+  const checkNote = (notes || []).filter(function (note) {
+    return String(note || '').indexOf('확인') !== -1 || String(note || '').indexOf('주의') !== -1;
+  })[0] || '주문 전 규격, 두께, 사용 위치를 확인하는 것이 좋습니다.';
+  const processNote = (notes || []).filter(function (note) {
+    return ['재단', '절단', '마감', '시공', '가공'].some(function (word) {
+      return String(note || '').indexOf(word) !== -1;
+    });
+  })[0] || '재단이나 마감이 필요한 경우 작업 치수와 현장 조건을 함께 확인하는 것이 좋습니다.';
+
+  return [
+    {
+      question: productName + getSubjectParticle(productName) + ' 어떤 용도로 사용하나요?',
+      answer: useText + '에 사용됩니다.'
+    },
+    {
+      question: '주문 전에 어떤 정보를 확인해야 하나요?',
+      answer: checkNote
+    },
+    {
+      question: '재단이나 마감 작업 시 확인할 점이 있나요?',
+      answer: processNote
+    }
+  ];
+}
+
+function buildFAQHtml(items) {
+  if (!items || items.length === 0) return '';
+
+  const itemHtml = items.map(function (item) {
+    return `    <div class="ds-faq-item">
+      <p class="ds-faq-q">${escapeHtml(item.question)}</p>
+      <p class="ds-faq-a">${escapeHtml(item.answer)}</p>
+    </div>`;
+  }).join('\n');
+
+  return `  <div class="ds-faq">
+    <h3>자주 묻는 질문</h3>
+${itemHtml}
+  </div>`;
+}
+
+function buildSchemaHtml(data, defineText, faqItems) {
+  const productSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'Product',
+    name: String(data.productName || '').trim(),
+    description: String(defineText || '').trim()
+  };
+
+  if (data.infographic) {
+    productSchema.image = String(data.infographic).trim();
+  }
+  const pageUrl = String(data.pageUrl || data.productUrl || data.url || '').trim();
+  if (pageUrl) {
+    productSchema.url = pageUrl;
+  }
+  if (data.maker) {
+    productSchema.manufacturer = {
+      '@type': 'Organization',
+      name: String(data.maker).trim()
+    };
+  }
+
+  const additionalProperty = [];
+  if (data.size) {
+    additionalProperty.push({
+      '@type': 'PropertyValue',
+      name: '규격',
+      value: String(data.size).trim()
+    });
+  }
+  if (data.thickness) {
+    additionalProperty.push({
+      '@type': 'PropertyValue',
+      name: '두께',
+      value: String(data.thickness).trim()
+    });
+  }
+  if (shouldDisplayGrade(data.grade)) {
+    additionalProperty.push({
+      '@type': 'PropertyValue',
+      name: '성능·인증',
+      value: String(data.grade).trim()
+    });
+  }
+  if (additionalProperty.length > 0) {
+    productSchema.additionalProperty = additionalProperty;
+  }
+
+  const faqSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: (faqItems || []).map(function (item) {
+      return {
+        '@type': 'Question',
+        name: item.question,
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: item.answer
+        }
+      };
+    })
+  };
+
+  return [
+    '<script type="application/ld+json">' + stringifyJsonLd(productSchema) + '</script>',
+    '<script type="application/ld+json">' + stringifyJsonLd(faqSchema) + '</script>'
+  ].join('\n');
+}
+
+function stringifyJsonLd(value) {
+  return JSON.stringify(value).replace(/<\//g, '<\\/');
+}
+
 function shouldDisplayGrade(value) {
   const text = String(value || '').trim();
   if (!text) return false;
@@ -514,7 +667,7 @@ function buildUseNote(cleanUse1, cleanUse2) {
   const use2 = normalizeUseTerm(cleanUse2);
 
   if (use1 && use2) {
-    return use1 + ' 및 ' + use2 + ' 작업에 사용됩니다.';
+    return use1 + ' 작업과 ' + use2 + ' 작업에 사용됩니다.';
   }
   if (use1) {
     return use1 + ' 작업에 사용됩니다.';
@@ -538,7 +691,7 @@ function buildEmphasisNote(cleanEmphasis, data) {
       return cleanEmphasis.indexOf(word) !== -1 || rawEmphasis.indexOf(word) !== -1;
     })
   ) {
-    return '도장 및 필름 래핑 작업은 표면 상태와 작업 조건을 함께 확인합니다.';
+    return '도장과 필름 래핑 작업은 표면 상태에 맞춰 진행 조건을 살펴봅니다.';
   }
   if (
     (label.indexOf('PF') !== -1 || label.indexOf('피에프') !== -1 || label.indexOf('단열') !== -1) &&
@@ -549,12 +702,12 @@ function buildEmphasisNote(cleanEmphasis, data) {
     return '단열 성능이나 기준 충족 여부는 제조사 자료 기준으로 확인합니다.';
   }
   if (cleanEmphasis.indexOf('CNC') !== -1) {
-    return 'CNC 가공이 필요한 경우 작업 조건을 먼저 확인합니다.';
+    return 'CNC 가공이 필요한 경우 작업 조건을 먼저 살펴봅니다.';
   }
   if (cleanEmphasis.indexOf('노출') !== -1) {
-    return '노출 마감은 입고 제품의 표면 상태를 확인합니다.';
+    return '노출 마감은 입고 제품의 표면 상태를 기준으로 검토합니다.';
   }
-  return cleanEmphasis + ' 관련 사항은 주문 전에 확인합니다.';
+  return cleanEmphasis + ' 관련 사항은 주문 전에 살펴봅니다.';
 }
 
 function buildStructureNote(cleanStructure, data) {
@@ -591,8 +744,8 @@ function getCategoryDefaultNotes(data) {
 
   if (label.indexOf('MDF') !== -1) {
     return [
-      '노출 마감은 입고 제품의 표면 상태를 확인합니다.',
-      '도장 작업은 표면 상태와 작업 조건을 함께 확인합니다.',
+      '노출 마감은 입고 제품의 표면 상태를 기준으로 검토합니다.',
+      '도장 작업은 표면 상태와 작업 조건을 함께 살펴봅니다.',
       '재단이 필요한 경우 작업 치수를 먼저 확인합니다.'
     ];
   }
@@ -600,7 +753,7 @@ function getCategoryDefaultNotes(data) {
   if (label.indexOf('석고') !== -1) {
     return [
       '시공 전 벽체와 천장 규격을 확인합니다.',
-      '이음부와 마감 방법을 함께 확인합니다.',
+      '이음부와 마감 방법을 함께 살펴봅니다.',
       '현장 반입 전 필요한 수량과 시공 면적을 확인합니다.',
       '보관 시 습기와 충격에 주의합니다.'
     ];
@@ -610,7 +763,7 @@ function getCategoryDefaultNotes(data) {
     return [
       '구조재 사용 여부와 각재 치수를 먼저 확인합니다.',
       '절단이 필요한 경우 작업 치수를 먼저 확인합니다.',
-      '노출 마감은 입고 제품의 표면 상태를 확인합니다.'
+      '노출 마감은 입고 제품의 표면 상태를 기준으로 검토합니다.'
     ];
   }
 
@@ -618,14 +771,14 @@ function getCategoryDefaultNotes(data) {
     return [
       '시공 환경에 맞는 두께와 마감 조건을 확인합니다.',
       '단열 시공 조건을 먼저 확인합니다.',
-      '연결 부위와 마감 방법을 함께 확인합니다.'
+      '연결 부위와 마감 방법을 함께 살펴봅니다.'
     ];
   }
 
   return [
-    'CNC 가공이 필요한 경우 작업 조건을 먼저 확인합니다.',
+    'CNC 가공이 필요한 경우 작업 조건을 먼저 살펴봅니다.',
     '재단이 필요한 경우 작업 치수를 먼저 확인합니다.',
-    '노출 마감은 입고 제품의 표면 상태를 확인합니다.'
+    '노출 마감은 입고 제품의 표면 상태를 기준으로 검토합니다.'
   ];
 }
 
@@ -692,7 +845,7 @@ function buildDefaultNotes(data) {
 
   [
     '작업 전 제품 규격과 사용 조건을 확인합니다.',
-    '마감 방향은 현장 조건에 맞춰 확인합니다.',
+    '마감 방향은 현장 조건에 맞춰 검토합니다.',
     '보관 시 습기와 충격에 주의합니다.',
     '현장 반입 전 필요한 수량을 확인합니다.'
   ].forEach(function (note) {
@@ -708,7 +861,7 @@ function buildFallbackNotes() {
   return [
     '제품 구조와 사용 용도는 주문 전 확인합니다.',
     '시공 전 현장 조건을 먼저 확인합니다.',
-    '마감 방법은 사용 환경에 맞춰 확인합니다.',
+    '마감 방법은 사용 환경에 맞춰 검토합니다.',
     '재단이나 가공이 필요한 경우 작업 조건을 확인합니다.'
   ];
 }
