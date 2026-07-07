@@ -202,6 +202,66 @@ const PRODUCT_CATEGORY_GUIDES = [
     infographicKeywords: ['Reflective Film', 'Air Layer', 'Cushion Layer'],
     forbiddenKeywords: ['발포 코어 단정', '단판 적층', '라멜 집성'],
     priorityMetrics: ['반사율', '방사율', '두께']
+  },
+  {
+    name: '각재',
+    keywords: ['각재', 'kd'],
+    keyValue: '목재 각재 구조',
+    structure: '목재를 사각 단면으로 제재하거나 건조 가공한 자재',
+    emphasisCandidates: ['단면 치수', '건조 상태', '절단 길이'],
+    useCandidates: ['실내 목공 골조 작업', '벽체 보강틀 시공', '가구 프레임 제작'],
+    infographicStructure: '사각 단면 목재를 길이 방향으로 제재한 구조',
+    infographicKeywords: ['Square Section', 'Wood Grain', 'Cut Length'],
+    forbiddenKeywords: ['단판 적층', '발포 코어', '석고 코어'],
+    priorityMetrics: ['수종', '함수율', '단면 치수']
+  },
+  {
+    name: '구조재',
+    keywords: ['구조재', '구조목'],
+    keyValue: '목조 구조용 목재',
+    structure: '목재를 구조용 단면으로 제재하거나 건조 가공한 자재',
+    emphasisCandidates: ['단면 치수', '건조 상태', '사용 부위'],
+    useCandidates: ['목조 골조 시공', '벽체 하지틀 작업', '지붕 구조 보강 작업'],
+    infographicStructure: '구조용 목재 단면과 길이 방향 결을 보여주는 구조',
+    infographicKeywords: ['Structural Lumber', 'Wood Grain', 'Framing'],
+    forbiddenKeywords: ['단판 적층', '발포 코어', '석고 코어'],
+    priorityMetrics: ['수종', '건조 상태', '단면 치수']
+  },
+  {
+    name: '방부목',
+    keywords: ['방부목', '방부 목재', 'treated wood'],
+    keyValue: '방부 처리 목재',
+    structure: '목재에 방부 처리를 적용한 실외용 목재 자재',
+    emphasisCandidates: ['사용 환경', '절단면 처리', '고정 방식'],
+    useCandidates: ['데크 하지틀 시공', '외부 목재 구조 작업', '조경 시설물 제작'],
+    infographicStructure: '목재 단면과 방부 처리층을 구분해 보여주는 구조',
+    infographicKeywords: ['Treated Wood', 'Wood Grain', 'Cut Edge'],
+    forbiddenKeywords: ['단판 적층', '발포 코어', '석고 코어'],
+    priorityMetrics: ['방부 처리', '수종', '사용 환경']
+  },
+  {
+    name: '이보드',
+    keywords: ['이보드', 'e보드', 'e-board'],
+    keyValue: '복합 단열 보드',
+    structure: '단열 코어와 표면 마감층을 결합한 복합 보드',
+    emphasisCandidates: ['이음부 처리', '고정 방식', '마감 조건'],
+    useCandidates: ['실내 벽체 단열 시공', '결로 보완 단열 작업', '벽면 마감 하지 작업'],
+    infographicStructure: '단열 코어와 표면 마감층을 결합한 복합 단열 보드 구조',
+    infographicKeywords: ['Insulation Core', 'Facing Layer', 'Board Joint'],
+    forbiddenKeywords: ['단판 적층', '라멜 집성', '석고 코어 단정'],
+    priorityMetrics: ['두께', '단열 성능', '마감층']
+  },
+  {
+    name: 'GCS보드',
+    keywords: ['gcs', 'gcs보드', 'gcs 보드'],
+    keyValue: '복합 단열 보드',
+    structure: '단열 코어와 보드형 면재를 결합한 복합 단열재',
+    emphasisCandidates: ['이음부 처리', '고정 방식', '마감 조건'],
+    useCandidates: ['실내 벽체 단열 시공', '천장 단열 보강 작업', '벽면 마감 하지 작업'],
+    infographicStructure: '단열 코어와 보드형 면재를 결합한 복합 단열 구조',
+    infographicKeywords: ['Insulation Core', 'Board Facing', 'Joint'],
+    forbiddenKeywords: ['단판 적층', '라멜 집성', '석고 코어 단정'],
+    priorityMetrics: ['두께', '단열 성능', '면재']
   }
 ];
 
