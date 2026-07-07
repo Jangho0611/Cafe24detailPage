@@ -175,6 +175,10 @@ function generateHTML(row) {
     .map(function (text) { return '    <p>' + text + '</p>'; })
     .join('\n');
 
+  const gradeRowHtml = shouldDisplayGrade(data.grade)
+    ? `    <tr><th>성능·인증</th><td>${data.grade}</td></tr>`
+    : '';
+
   const html = `${css}
 <div class="ds-wrap">
   <h2>${data.productName}</h2>
@@ -182,7 +186,7 @@ function generateHTML(row) {
   <table class="ds-spec-table">
     <tr><th>규격</th><td>${data.size}</td></tr>
     <tr><th>두께옵션</th><td>${data.thickness}</td></tr>
-    <tr><th>성능·인증</th><td>${data.grade}</td></tr>
+${gradeRowHtml}
     <tr><th>제조사</th><td>${data.maker}</td></tr>
     <tr><th>출고안내</th><td>${getStockStatusText(data.stockType)}</td></tr>
   </table>
@@ -447,6 +451,20 @@ function getStockStatusText(stockType) {
   if (value === '주문재') return '주문재 / 입고 일정 확인 필요';
   if (value === '일부재고') return '일부 규격 재고보유 / 주문 전 재고 확인 필요';
   return '재고 및 출고 일정 확인 필요';
+}
+
+function shouldDisplayGrade(value) {
+  const text = String(value || '').trim();
+  if (!text) return false;
+
+  return ![
+    '확인 필요',
+    '확인필요',
+    '확인 불가',
+    '확인불가'
+  ].some(function (placeholder) {
+    return text.indexOf(placeholder) !== -1;
+  });
 }
 
 function buildHTMLNoteFacts(data) {
