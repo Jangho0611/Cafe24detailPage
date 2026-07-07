@@ -157,10 +157,10 @@ function generateHTML(row) {
 .ds-reason{background:#F8F8F8;border-top:2px solid #123628;padding:16px;margin:0 0 20px 0;font-size:15px;color:#616161;}
 .ds-reason p{margin:0 0 8px 0;}
 .ds-reason p:last-child{margin:0;}
-.ds-faq{border-top:1px solid #E0E0E0;margin:0 0 20px 0;padding:18px 0 0 0;}
-.ds-faq h3{font-size:18px;font-weight:700;color:#1C1C1C;margin:0 0 12px 0;}
+.ds-faq{border-top:2px solid #123628;margin:28px 0 22px 0;padding:24px 0 0 0;}
+.ds-faq h3{font-size:21px;font-weight:800;color:#1C1C1C;margin:0 0 16px 0;}
 .ds-faq-item{margin:0 0 14px 0;}
-.ds-faq-q{font-size:15px;font-weight:600;color:#123628;margin:0 0 4px 0;}
+.ds-faq-q{font-size:15px;font-weight:800;color:#123628;margin:0 0 4px 0;}
 .ds-faq-a{font-size:14px;color:#616161;margin:0;}
 .ds-cta{display:block;width:100%;background:#123628;color:#FFFFFF;padding:16px;border-radius:4px;text-align:center;text-decoration:none;font-size:15px;font-weight:600;margin:0 0 12px 0;}
 .ds-cta:hover{opacity:0.92;}
@@ -475,9 +475,9 @@ function escapeHtml(value) {
 function getProductUseText(data) {
   const use1 = normalizeUseTerm(cleanNoteSource(data.use1));
   const use2 = normalizeUseTerm(cleanNoteSource(data.use2));
-  if (use1 && use2) return use1 + ' 작업과 ' + use2 + ' 작업';
-  if (use1) return use1 + ' 작업';
-  if (use2) return use2 + ' 작업';
+  if (use1 && use2) return use1 + ', ' + use2;
+  if (use1) return use1;
+  if (use2) return use2;
   return '제품 정보에 표시된 용도';
 }
 
@@ -487,6 +487,14 @@ function getSubjectParticle(text) {
   const lastChar = value.charCodeAt(value.length - 1);
   if (lastChar < 0xAC00 || lastChar > 0xD7A3) return '는';
   return ((lastChar - 0xAC00) % 28) === 0 ? '는' : '은';
+}
+
+function getAndParticle(text) {
+  const value = String(text || '').trim();
+  if (!value) return '와';
+  const lastChar = value.charCodeAt(value.length - 1);
+  if (lastChar < 0xAC00 || lastChar > 0xD7A3) return '와';
+  return ((lastChar - 0xAC00) % 28) === 0 ? '와' : '과';
 }
 
 function buildFAQItems(data, notes) {
@@ -504,7 +512,7 @@ function buildFAQItems(data, notes) {
   return [
     {
       question: productName + getSubjectParticle(productName) + ' 어떤 용도로 사용하나요?',
-      answer: useText + '에 사용됩니다.'
+      answer: '주요 사용처는 ' + useText + '입니다.'
     },
     {
       question: '주문 전에 어떤 정보를 확인해야 하나요?',
@@ -522,7 +530,7 @@ function buildFAQHtml(items) {
 
   const itemHtml = items.map(function (item) {
     return `    <div class="ds-faq-item">
-      <p class="ds-faq-q">${escapeHtml(item.question)}</p>
+      <p class="ds-faq-q">Q. ${escapeHtml(item.question)}</p>
       <p class="ds-faq-a">${escapeHtml(item.answer)}</p>
     </div>`;
   }).join('\n');
@@ -658,6 +666,9 @@ function normalizeUseTerm(text) {
 
   return String(text)
     .replace(/ 작업$/g, '')
+    .replace(/ 사용$/g, '')
+    .replace(/ 활용$/g, '')
+    .replace(/^(사용|활용)$/g, '')
     .replace(/ 마감$/g, ' 마감')
     .trim();
 }
@@ -667,13 +678,13 @@ function buildUseNote(cleanUse1, cleanUse2) {
   const use2 = normalizeUseTerm(cleanUse2);
 
   if (use1 && use2) {
-    return use1 + ' 작업과 ' + use2 + ' 작업에 사용됩니다.';
+    return use1 + getAndParticle(use1) + ' ' + use2 + '에 사용됩니다.';
   }
   if (use1) {
-    return use1 + ' 작업에 사용됩니다.';
+    return use1 + '에 사용됩니다.';
   }
   if (use2) {
-    return use2 + ' 작업에 사용됩니다.';
+    return use2 + '에 사용됩니다.';
   }
   return '';
 }
