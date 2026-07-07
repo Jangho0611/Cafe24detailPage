@@ -23,14 +23,19 @@ const COL = {
   IMAGE_PROVIDER: 16,
   PROMPT: 20,
   STATUS: 21,
-  ERROR: 22,
+  EDIT_REQUEST: 22,
+  ERROR: 26,
+  EDIT_HISTORY: 27,
 };
 
 const STATUS = {
   PROMPT_CREATED: 'PROMPT_CREATED',
   IMAGE_SAVED: 'IMAGE_SAVED',
+  IMAGE_EDITED: 'IMAGE_EDITED',
   ERROR: 'ERROR',
 };
+
+const EDIT_IMAGE_MODEL = 'gpt-image-1';
 
 const DEFAULT_IMAGE_CONFIG = {
   image_provider: 'gpt',
@@ -53,6 +58,7 @@ async function main() {
 
   const sheets = await getSheetsClient();
   const sheetId = await getSheetId(sheets);
+  await ensureSheetColumns(sheets, sheetId, COL.EDIT_HISTORY);
   const rows = await getPromptCreatedRows(sheets);
 
   if (rows.length === 0) {
@@ -129,6 +135,7 @@ function createProviders(imageConfig) {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     providers.gpt = {
       model: imageConfig.gpt_model,
+      openai,
       generate: async (prompt) => {
         const response = await callGptImageAPIWithRetry(openai, imageConfig.gpt_model, prompt);
         return extractOpenAIImageBuffer(response);
@@ -179,10 +186,41 @@ async function getSheetId(sheets) {
   return sheet.properties.sheetId;
 }
 
+async function ensureSheetColumns(sheets, sheetId, minColumnCount) {
+  const response = await sheets.spreadsheets.get({
+    spreadsheetId: process.env.GOOGLE_SHEET_ID,
+    fields: 'sheets(properties(sheetId,gridProperties(columnCount)))',
+  });
+
+  const sheet = (response.data.sheets || []).find(
+    (item) => item.properties && item.properties.sheetId === sheetId
+  );
+  const columnCount = sheet?.properties?.gridProperties?.columnCount || 0;
+
+  if (columnCount >= minColumnCount) {
+    return;
+  }
+
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: process.env.GOOGLE_SHEET_ID,
+    requestBody: {
+      requests: [
+        {
+          appendDimension: {
+            sheetId,
+            dimension: 'COLUMNS',
+            length: minColumnCount - columnCount,
+          },
+        },
+      ],
+    },
+  });
+}
+
 async function getPromptCreatedRows(sheets) {
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: process.env.GOOGLE_SHEET_ID,
-    range: `${SHEET_NAME}!A:V`,
+    range: `${SHEET_NAME}!A:AA`,
   });
 
   const values = response.data.values || [];
@@ -194,12 +232,16 @@ async function getPromptCreatedRows(sheets) {
     const prompt = row[COL.PROMPT - 1] || '';
     const status = row[COL.STATUS - 1] || '';
     const imageProvider = row[COL.IMAGE_PROVIDER - 1] || '';
+    const editRequest = row[COL.EDIT_REQUEST - 1] || '';
+    const editHistory = row[COL.EDIT_HISTORY - 1] || '';
 
-    if (status === STATUS.PROMPT_CREATED && prompt.trim()) {
+    if (status === STATUS.PROMPT_CREATED && (prompt.trim() || String(editRequest).trim())) {
       rows.push({
         rowIndex,
         prompt,
         imageProvider,
+        editRequest,
+        editHistory,
       });
     }
   }
@@ -208,16 +250,21 @@ async function getPromptCreatedRows(sheets) {
 }
 
 async function processRow({ providers, imageConfig, sheets, sheetId, row }) {
-  const { rowIndex, prompt } = row;
+  const { rowIndex } = row;
   const localFile = path.join(DESKTOP_INFO_DIR, `${rowIndex}.png`);
   const imageUrl = `${CAFE24_BASE_URL}/${rowIndex}.png`;
+  const isEditMode = Boolean(String(row.editRequest || '').trim());
 
   console.log(`처리 시작: row ${rowIndex}`);
 
   try {
-    const generated = await generateImage({ providers, imageConfig, row });
+    if (isEditMode) {
+      backupImage(localFile, rowIndex);
+    }
+
+    const generated = await generateImage({ providers, imageConfig, row, localFile });
     await saveImage(localFile, generated);
-    await updateRowSuccess({ sheets, sheetId, rowIndex, imageUrl });
+    await updateRowSuccess({ sheets, sheetId, row, imageUrl, isEditMode });
     console.log(`완료: row ${rowIndex} -> ${localFile}`);
   } catch (error) {
     await updateRowError({ sheets, sheetId, rowIndex, error });
@@ -225,8 +272,13 @@ async function processRow({ providers, imageConfig, sheets, sheetId, row }) {
   }
 }
 
-async function generateImage({ providers, imageConfig, row }) {
+async function generateImage({ providers, imageConfig, row, localFile }) {
   const { prompt } = row;
+
+  if (String(row.editRequest || '').trim()) {
+    return editImage({ providers, row, localFile });
+  }
+
   console.log('=== 전달 프롬프터 ===');
   console.log(prompt);
   console.log('=== 프롬프터 끝 ===');
@@ -246,6 +298,42 @@ async function generateImage({ providers, imageConfig, row }) {
     );
     return runProvider(providers, fallbackProvider, prompt);
   }
+}
+
+async function editImage({ providers, row, localFile }) {
+  const provider = providers.gpt;
+  if (!provider || !provider.openai) {
+    throw new Error('OPENAI_API_KEY 없음');
+  }
+
+  if (!fs.existsSync(localFile)) {
+    throw new Error(`Edit 기준 이미지가 없습니다: ${localFile}`);
+  }
+
+  const prompt = buildEditPrompt(row.editRequest);
+  console.log('=== 이미지 수정 요청 ===');
+  console.log(prompt);
+  console.log('=== 수정 요청 끝 ===');
+
+  const response = await provider.openai.images.edit({
+    model: EDIT_IMAGE_MODEL,
+    image: await OpenAI.toFile(fs.createReadStream(localFile), `${row.rowIndex}.png`, {
+      type: 'image/png',
+    }),
+    prompt,
+    size: '1024x1024',
+  });
+
+  return extractOpenAIImageBuffer(response);
+}
+
+function buildEditPrompt(editRequest) {
+  return [
+    '기존 이미지를 유지하면서 사용자가 요청한 부분만 수정한다.',
+    '전체 레이아웃, 색상, 텍스트 스타일, 제품군, 주요 구조, 아이콘 수량은 유지한다.',
+    '이미지 전체를 새로 구성하거나 다른 디자인으로 재생성하지 않는다.',
+    '수정 요청: ' + String(editRequest || '').trim(),
+  ].join('\n');
 }
 
 function resolveRowProvider(rawValue) {
@@ -407,25 +495,50 @@ async function saveImage(localFile, generated) {
   throw new Error(`지원하지 않는 이미지 저장 타입입니다: ${generated.type}`);
 }
 
-async function updateRowSuccess({ sheets, sheetId, rowIndex, imageUrl }) {
+function backupImage(localFile, rowIndex) {
+  if (!fs.existsSync(localFile)) {
+    throw new Error(`Edit 기준 이미지가 없습니다: ${localFile}`);
+  }
+
+  const historyDir = path.join(DESKTOP_INFO_DIR, 'history');
+  fs.mkdirSync(historyDir, { recursive: true });
+
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const backupFile = path.join(historyDir, `${rowIndex}_${timestamp}.png`);
+  fs.copyFileSync(localFile, backupFile);
+  return backupFile;
+}
+
+async function updateRowSuccess({ sheets, sheetId, row, imageUrl, isEditMode }) {
+  const { rowIndex } = row;
+  const status = isEditMode ? STATUS.IMAGE_EDITED : STATUS.IMAGE_SAVED;
+  const data = [
+    {
+      range: `${SHEET_NAME}!O${rowIndex}`,
+      values: [[imageUrl]],
+    },
+    {
+      range: `${SHEET_NAME}!U${rowIndex}`,
+      values: [[status]],
+    },
+    {
+      range: `${SHEET_NAME}!Z${rowIndex}`,
+      values: [['']],
+    },
+  ];
+
+  if (isEditMode) {
+    data.push({
+      range: `${SHEET_NAME}!AA${rowIndex}`,
+      values: [[buildEditHistory(row)]],
+    });
+  }
+
   await sheets.spreadsheets.values.batchUpdate({
     spreadsheetId: process.env.GOOGLE_SHEET_ID,
     requestBody: {
       valueInputOption: 'RAW',
-      data: [
-        {
-          range: `${SHEET_NAME}!O${rowIndex}`,
-          values: [[imageUrl]],
-        },
-        {
-          range: `${SHEET_NAME}!U${rowIndex}`,
-          values: [[STATUS.IMAGE_SAVED]],
-        },
-        {
-          range: `${SHEET_NAME}!V${rowIndex}`,
-          values: [['']],
-        },
-      ],
+      data,
     },
   });
 
@@ -437,6 +550,13 @@ async function updateRowSuccess({ sheets, sheetId, rowIndex, imageUrl }) {
     green: 0.97,
     blue: 0.91,
   });
+}
+
+function buildEditHistory(row) {
+  const timestamp = new Date().toISOString();
+  const entry = `[${timestamp}] ${String(row.editRequest || '').trim()}`;
+  const previous = String(row.editHistory || '').trim();
+  return previous ? `${previous}\n${entry}` : entry;
 }
 
 async function updateRowError({ sheets, sheetId, rowIndex, error }) {
@@ -452,7 +572,7 @@ async function updateRowError({ sheets, sheetId, rowIndex, error }) {
           values: [[STATUS.ERROR]],
         },
         {
-          range: `${SHEET_NAME}!V${rowIndex}`,
+          range: `${SHEET_NAME}!Z${rowIndex}`,
           values: [[message]],
         },
       ],
