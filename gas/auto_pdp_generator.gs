@@ -149,6 +149,9 @@ function generateHTML(row) {
 .ds-wrap{max-width:790px;margin:0 auto;font-family:'Pretendard','Apple SD Gothic Neo','Noto Sans KR',sans-serif;line-height:1.75;color:#1C1C1C;}
 .ds-wrap *{box-sizing:border-box;}
 .ds-wrap h2{font-size:24px;font-weight:700;color:#1C1C1C;margin:0 0 16px 0;}
+.ds-ai-summary{background:#FFFFFF;border:1px solid #E0E0E0;border-left:3px solid #123628;padding:16px;margin:0 0 20px 0;font-size:15px;color:#1C1C1C;}
+.ds-ai-summary p{margin:0 0 6px 0;}
+.ds-ai-summary p:last-child{margin:0;}
 .ds-define{background:#F8F8F8;border-left:3px solid #123628;color:#616161;padding:16px;margin:0 0 20px 0;font-size:15px;}
 .ds-spec-table{width:100%;border-collapse:collapse;margin:0 0 20px 0;}
 .ds-spec-table th{background:#F8F8F8;color:#616161;font-weight:600;font-size:14px;padding:12px;border-bottom:1px solid #E0E0E0;width:30%;text-align:left;}
@@ -187,10 +190,22 @@ function generateHTML(row) {
   const faqItems = buildFAQItems(data, defaultNotes);
   const faqHtml = buildFAQHtml(faqItems);
   const schemaHtml = buildSchemaHtml(data, content.define, faqItems);
+  const aiSummary = buildAISummary(entityData);
+  const aiSummaryHtml = buildAISummaryHtml(aiSummary);
+  const contentQualityScore = evaluateContentQuality({
+    entity: entityData,
+    aiSummary: aiSummary,
+    defineText: content.define,
+    reasonNotes: defaultNotes,
+    faqItems: faqItems,
+    schemaHtml: schemaHtml
+  });
+  Logger.log('Content Quality Score: ' + JSON.stringify(contentQualityScore));
 
   const html = `${css}
 <div class="ds-wrap">
   <h2>${data.productName}</h2>
+${aiSummaryHtml}
   <div class="ds-define">${content.define}</div>
   <table class="ds-spec-table">
     <tr><th>규격</th><td>${data.size}</td></tr>
@@ -518,6 +533,79 @@ function buildEntityData(data) {
   };
 }
 
+function filterAISummaryText(text) {
+  return String(text || '')
+    .replace(/선택됩니다/g, '많이 사용합니다')
+    .replace(/활용됩니다/g, '사용합니다')
+    .replace(/사용 작업/g, '사용')
+    .replace(/활용 작업/g, '사용')
+    .replace(/최적/g, '')
+    .replace(/우수한/g, '')
+    .replace(/효율적/g, '')
+    .replace(/프리미엄/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+function buildAISummary(entity) {
+  if (!entity) return [];
+
+  const summary = [];
+  const name = cleanEntityValue(entity.productName) || '이 제품';
+  const uses = entity.uses || [];
+  const checks = entity.preorderChecks || [];
+
+  summary.push(buildAISummaryDefinition(entity));
+
+  if (uses.length > 0) {
+    summary.push(buildNaturalUseList(uses) + '에 많이 사용합니다.');
+  }
+
+  if (checks.length > 0) {
+    const checkText = buildNaturalUseList(checks);
+    summary.push('주문 전에는 ' + checkText + getObjectParticle(checkText) + ' 확인하는 것이 좋습니다.');
+  }
+
+  return summary
+    .slice(0, 3)
+    .map(filterAISummaryText)
+    .filter(function (text) { return text !== ''; });
+}
+
+function buildAISummaryDefinition(entity) {
+  const name = cleanEntityValue(entity.productName) || '이 제품';
+  const group = cleanEntityValue(entity.productGroup);
+  const material = cleanEntityValue(entity.material);
+
+  if (group === 'PLYWOOD') return name + getSubjectParticle(name) + ' 단판 적층 구조를 기준으로 보는 판재입니다.';
+  if (group === 'MDF') return name + getSubjectParticle(name) + ' 목재 섬유를 압축한 판재입니다.';
+  if (group === 'GYPSUM') return name + getSubjectParticle(name) + ' 석고 코어와 원지로 구성된 판재입니다.';
+  if (group === 'PF') return name + getSubjectParticle(name) + ' 페놀수지 발포층을 쓰는 단열재입니다.';
+  if (group === 'WOOD') return name + getSubjectParticle(name) + ' 목재를 길이 방향으로 가공한 각재입니다.';
+  if (material) return name + getSubjectParticle(name) + ' ' + material + ' 계열 자재입니다.';
+  return name + getSubjectParticle(name) + ' 건축자재 상세 정보입니다.';
+}
+
+function getObjectParticle(text) {
+  const value = String(text || '').trim();
+  if (!value) return '를';
+  const lastChar = value.charCodeAt(value.length - 1);
+  if (lastChar < 0xAC00 || lastChar > 0xD7A3) return '를';
+  return ((lastChar - 0xAC00) % 28) === 0 ? '를' : '을';
+}
+
+function buildAISummaryHtml(summary) {
+  if (!summary || summary.length === 0) return '';
+
+  const summaryHtml = summary
+    .map(function (text) { return '    <p>' + escapeHtml(text) + '</p>'; })
+    .join('\n');
+
+  return `  <div class="ds-ai-summary">
+${summaryHtml}
+  </div>`;
+}
+
 function getStockStatusText(stockType) {
   const value = String(stockType || '').trim();
   if (value === '재고') return '재고보유 즉시출고 가능';
@@ -653,6 +741,12 @@ function ensureFAQDistinctAnswer(answer, notes, fallback) {
 }
 
 function buildFAQItems(data, notes) {
+  const entity = buildEntityData(data);
+  const categoryItems = buildProductGroupFAQItems(entity, notes);
+  if (categoryItems.length > 0) {
+    return categoryItems;
+  }
+
   const faqNotes = notes || [];
   const useAnswer = ensureFAQDistinctAnswer(
     buildFAQUseAnswer(data),
@@ -684,6 +778,107 @@ function buildFAQItems(data, notes) {
       answer: processAnswer
     }
   ];
+}
+
+function buildProductGroupFAQItems(entity, notes) {
+  const productGroup = entity && entity.productGroup;
+  const productName = cleanEntityValue(entity && entity.productName) || '이 제품';
+  const itemsByGroup = {
+    PLYWOOD: [
+      {
+        question: productName + getSubjectParticle(productName) + ' 어디에 사용하나요?',
+        answer: buildEntityUseAnswer(entity)
+      },
+      {
+        question: '일반합판과 MDF는 무엇이 다른가요?',
+        answer: '일반합판은 단판을 겹친 판재이고, MDF는 목재 섬유를 압축한 판재입니다.'
+      },
+      {
+        question: '주문 전에 무엇을 확인해야 하나요?',
+        answer: buildEntityPreorderAnswer(entity)
+      }
+    ],
+    MDF: [
+      {
+        question: 'MDF는 무엇인가요?',
+        answer: 'MDF는 목재 섬유를 압축해 만든 판재입니다.'
+      },
+      {
+        question: 'MDF와 PB는 무엇이 다른가요?',
+        answer: 'MDF는 목재 섬유를 압축한 판재이고, PB는 목재 칩을 압착한 판재입니다.'
+      },
+      {
+        question: '도장 전 무엇을 확인해야 하나요?',
+        answer: '도장 전에는 표면 상태와 재단면을 먼저 확인하는 것이 좋습니다.'
+      }
+    ],
+    GYPSUM: [
+      {
+        question: '일반석고보드는 어디에 사용하나요?',
+        answer: buildEntityUseAnswer(entity)
+      },
+      {
+        question: '일반석고보드와 방수석고보드는 무엇이 다른가요?',
+        answer: '일반석고보드는 실내 벽체와 천장에 쓰고, 방수석고보드는 습기가 있는 공간에 맞춰 확인합니다.'
+      },
+      {
+        question: '석고보드 재단 시 무엇을 확인해야 하나요?',
+        answer: '재단할 때는 절단면 파손과 이음부 처리 조건을 함께 확인하는 것이 좋습니다.'
+      }
+    ],
+    PF: [
+      {
+        question: 'PF보드는 어디에 사용하나요?',
+        answer: buildEntityUseAnswer(entity)
+      },
+      {
+        question: 'PF보드 시공 전 무엇을 확인해야 하나요?',
+        answer: '시공 전에는 두께, 사용 위치, 연결 부위 마감 조건을 확인하는 것이 좋습니다.'
+      },
+      {
+        question: 'PF보드 재단 시 주의사항은 무엇인가요?',
+        answer: '재단할 때는 단열층 손상과 연결 부위 틈이 생기지 않도록 확인해야 합니다.'
+      }
+    ],
+    WOOD: [
+      {
+        question: '각재는 어디에 사용하나요?',
+        answer: buildEntityUseAnswer(entity)
+      },
+      {
+        question: '각재 주문 전 어떤 치수를 확인해야 하나요?',
+        answer: '주문 전에는 단면 치수, 길이, 재단 여부를 먼저 확인하는 것이 좋습니다.'
+      },
+      {
+        question: '노출면으로 사용할 각재는 무엇을 확인해야 하나요?',
+        answer: '노출면으로 쓸 경우 표면 상태와 휨 여부를 먼저 확인하는 것이 좋습니다.'
+      }
+    ]
+  };
+
+  return (itemsByGroup[productGroup] || []).map(function (item) {
+    return {
+      question: item.question,
+      answer: ensureFAQDistinctAnswer(item.answer, notes || [], item.answer)
+    };
+  });
+}
+
+function buildEntityUseAnswer(entity) {
+  const uses = entity && entity.uses || [];
+  if (uses.length > 0) {
+    return '대표적으로 ' + buildNaturalUseList(uses) + '에 많이 사용합니다.';
+  }
+  return '사용 위치와 작업 목적에 맞춰 확인하는 것이 좋습니다.';
+}
+
+function buildEntityPreorderAnswer(entity) {
+  const checks = entity && entity.preorderChecks || [];
+  if (checks.length > 0) {
+    const checkText = buildNaturalUseList(checks);
+    return '주문할 때는 ' + checkText + getObjectParticle(checkText) + ' 먼저 확인하는 것이 좋습니다.';
+  }
+  return '주문 전에는 규격, 두께, 사용할 위치를 먼저 확인하는 것이 좋습니다.';
 }
 
 function buildFAQHtml(items) {
@@ -775,6 +970,318 @@ function stringifyJsonLd(value) {
   return JSON.stringify(value).replace(/<\//g, '<\\/');
 }
 
+function evaluateContentQuality(input) {
+  const data = input || {};
+  const textBlocks = collectQualityTextBlocks(data);
+  const schemaState = getFAQSchemaState(data.schemaHtml);
+  const result = {
+    humanWriting: scoreHumanWriting(textBlocks),
+    duplication: scoreDuplication(textBlocks),
+    trustworthiness: scoreTrustworthiness(textBlocks, data.entity, data.schemaHtml),
+    aiSummary: scoreAISummary(data.aiSummary),
+    faqSchemaSync: scoreFAQSchemaSync(data.faqItems, schemaState)
+  };
+
+  const total = result.humanWriting.score +
+    result.duplication.score +
+    result.trustworthiness.score +
+    result.aiSummary.score +
+    result.faqSchemaSync.score;
+  const qualityIssues = []
+    .concat(result.humanWriting.failures)
+    .concat(result.duplication.failures)
+    .concat(result.trustworthiness.failures)
+    .concat(result.aiSummary.failures)
+    .concat(result.faqSchemaSync.failures);
+  const immediateFailures = qualityIssues.filter(isImmediateQualityFailure);
+
+  return {
+    total: total,
+    status: getContentQualityStatus(total, immediateFailures),
+    issues: qualityIssues,
+    immediateFailures: immediateFailures,
+    items: result
+  };
+}
+
+function collectQualityTextBlocks(data) {
+  const blocks = [];
+  (data.aiSummary || []).forEach(function (text, index) {
+    blocks.push({ section: 'AI Summary ' + (index + 1), text: text });
+  });
+  if (data.defineText) {
+    blocks.push({ section: 'Define', text: data.defineText });
+  }
+  (data.reasonNotes || []).forEach(function (text, index) {
+    blocks.push({ section: 'ds-reason ' + (index + 1), text: text });
+  });
+  (data.faqItems || []).forEach(function (item, index) {
+    blocks.push({ section: 'FAQ Q' + (index + 1), text: item.question });
+    blocks.push({ section: 'FAQ A' + (index + 1), text: item.answer });
+  });
+  return blocks;
+}
+
+function scoreHumanWriting(blocks) {
+  const failures = [];
+  let score = 20;
+  const endings = [];
+  const forbidden = [
+    '용도로 선택됩니다',
+    '선택됩니다',
+    '활용됩니다',
+    '사용 작업',
+    '활용 작업',
+    '?좏깮?⑸땲?',
+    '?쒖슜?⑸땲?',
+    '?ъ슜 ?묒뾽',
+    '?쒖슜 ?묒뾽'
+  ];
+
+  blocks.forEach(function (block) {
+    const text = normalizeQualityText(block.text);
+    const found = findQualityMatches(text, forbidden);
+    if (found.length > 0) {
+      score -= 6;
+      failures.push(block.section + ' forbidden expression: ' + found.join(', '));
+    }
+    splitQualitySentences(text).forEach(function (sentence) {
+      if ((sentence.match(/및/g) || []).length > 1) {
+        score -= 3;
+        failures.push(block.section + ' repeated and-expression');
+      }
+      if (sentence.length > 110) {
+        score -= 2;
+        failures.push(block.section + ' long sentence');
+      }
+      endings.push(getQualityEnding(sentence));
+    });
+  });
+
+  for (let i = 1; i < endings.length; i += 1) {
+    if (endings[i] && endings[i] === endings[i - 1]) {
+      score -= 2;
+      failures.push('repeated sentence ending: ' + endings[i]);
+      break;
+    }
+  }
+
+  return buildScoreItem(score, failures);
+}
+
+function scoreDuplication(blocks) {
+  const failures = [];
+  let score = 20;
+  const seen = {};
+
+  blocks.forEach(function (block) {
+    splitQualitySentences(block.text).forEach(function (sentence) {
+      const normalized = normalizeQualityText(sentence)
+        .replace(/[.!?。]/g, '')
+        .toLowerCase();
+      if (normalized.length < 12) return;
+      if (seen[normalized]) {
+        score -= 8;
+        failures.push('duplicate sentence: ' + block.section + ' / ' + seen[normalized]);
+      } else {
+        seen[normalized] = block.section;
+      }
+    });
+  });
+
+  return buildScoreItem(score, failures);
+}
+
+function scoreTrustworthiness(blocks, entity, schemaHtml) {
+  const failures = [];
+  let score = 20;
+  const blockedClaims = [
+    '최적',
+    '우수한',
+    '효율적',
+    '프리미엄',
+    '최고',
+    '완벽',
+    '강력',
+    '보장',
+    '理쒖쟻',
+    '?곗닔?',
+    '?⑥쑉?',
+    '?꾨━誘몄뾼'
+  ];
+  const schemaText = String(schemaHtml || '');
+
+  blocks.forEach(function (block) {
+    const found = findQualityMatches(normalizeQualityText(block.text), blockedClaims);
+    if (found.length > 0) {
+      score -= 8;
+      failures.push(block.section + ' unsupported claim: ' + found.join(', '));
+    }
+  });
+
+  if (!entity || !entity.productName || !entity.productGroup) {
+    score -= 4;
+    failures.push('missing core entity data');
+  }
+  if (/"offers"|"price"|"aggregateRating"|"review"|"availability"/i.test(schemaText)) {
+    score -= 6;
+    failures.push('unsupported commercial schema field');
+  }
+  if (!schemaText || schemaText.indexOf('"@type":"Product"') === -1) {
+    score -= 2;
+    failures.push('product schema missing');
+  }
+
+  return buildScoreItem(score, failures);
+}
+
+function scoreAISummary(summary) {
+  const failures = [];
+  let score = 20;
+  const lines = (summary || []).filter(function (text) {
+    return normalizeQualityText(text) !== '';
+  });
+  const joined = lines.join(' ');
+
+  if (lines.length === 0 || lines.length > 3) {
+    score -= 10;
+    failures.push('ai summary sentence count invalid');
+  }
+  if (!hasAnyQualityTerm(joined, ['입니다', '합니다', '납니다', '됩니다', '?낅땲'])) {
+    score -= 3;
+  }
+  if (!hasAnyQualityTerm(joined, ['사용', '쓰', '용도', '?ъ슜'])) {
+    score -= 4;
+  }
+  if (!hasAnyQualityTerm(joined, ['확인', '주문', '?뺤씤', '二쇰Ц'])) {
+    score -= 3;
+  }
+
+  return buildScoreItem(score, failures);
+}
+
+function scoreFAQSchemaSync(faqItems, schemaState) {
+  const failures = [];
+  let score = 20;
+  const items = faqItems || [];
+  const schemaItems = schemaState.items || [];
+
+  if (items.length < 3) {
+    score -= 5;
+    failures.push('faq item count below 3');
+  }
+  if (!schemaState.exists) {
+    score -= 8;
+    failures.push('faq schema missing');
+  }
+  if (items.length !== schemaItems.length) {
+    score -= 5;
+    failures.push('faq schema item count mismatch');
+  }
+  items.forEach(function (item, index) {
+    const schemaItem = schemaItems[index] || {};
+    if (normalizeQualityText(item.question) !== normalizeQualityText(schemaItem.question)) {
+      score -= 2;
+      failures.push('faq schema question mismatch: ' + (index + 1));
+    }
+    if (normalizeQualityText(item.answer) !== normalizeQualityText(schemaItem.answer)) {
+      score -= 4;
+      failures.push('faq schema answer mismatch: ' + (index + 1));
+    }
+  });
+
+  return buildScoreItem(score, failures);
+}
+
+function getFAQSchemaState(schemaHtml) {
+  const state = { exists: false, items: [] };
+  const scripts = String(schemaHtml || '').match(/<script type="application\/ld\+json">[\s\S]*?<\/script>/g) || [];
+
+  scripts.forEach(function (script) {
+    const jsonText = script
+      .replace(/^<script type="application\/ld\+json">/, '')
+      .replace(/<\/script>$/, '');
+    try {
+      const schema = JSON.parse(jsonText);
+      if (schema && schema['@type'] === 'FAQPage') {
+        state.exists = true;
+        state.items = (schema.mainEntity || []).map(function (item) {
+          return {
+            question: item.name,
+            answer: item.acceptedAnswer && item.acceptedAnswer.text
+          };
+        });
+      }
+    } catch (error) {
+      state.exists = false;
+    }
+  });
+
+  return state;
+}
+
+function findQualityMatches(text, patterns) {
+  return patterns.filter(function (pattern) {
+    return text.indexOf(pattern) !== -1;
+  });
+}
+
+function hasAnyQualityTerm(text, patterns) {
+  return patterns.some(function (pattern) {
+    return String(text || '').indexOf(pattern) !== -1;
+  });
+}
+
+function normalizeQualityText(text) {
+  return String(text || '').replace(/\s+/g, ' ').trim();
+}
+
+function splitQualitySentences(text) {
+  return (normalizeQualityText(text).match(/[^.!?。]+[.!?。]?/g) || [])
+    .map(function (sentence) { return sentence.trim(); })
+    .filter(function (sentence) { return sentence !== ''; });
+}
+
+function getQualityEnding(sentence) {
+  const text = normalizeQualityText(sentence).replace(/[.!?。]/g, '');
+  if (!text) return '';
+  return text.slice(Math.max(0, text.length - 4));
+}
+
+function buildScoreItem(score, failures) {
+  return {
+    score: Math.max(0, Math.min(20, score)),
+    failures: failures
+  };
+}
+
+function isImmediateQualityFailure(message) {
+  return [
+    'forbidden expression',
+    'duplicate sentence',
+    'unsupported claim',
+    'missing core entity data',
+    'unsupported commercial schema field',
+    'product schema missing',
+    'ai summary sentence count invalid',
+    'faq schema missing',
+    'faq schema item count mismatch',
+    'faq schema question mismatch',
+    'faq schema answer mismatch'
+  ].some(function (pattern) {
+    return String(message || '').indexOf(pattern) !== -1;
+  });
+}
+
+function getContentQualityStatus(total, immediateFailures) {
+  if ((immediateFailures || []).length > 0) {
+    return '재생성 또는 수정';
+  }
+  if (total >= 85) return '운영 가능';
+  if (total >= 75) return '검토 권장';
+  return '재생성 또는 수정';
+}
+
 function shouldDisplayGrade(value) {
   const text = String(value || '').trim();
   if (!text) return false;
@@ -825,7 +1332,7 @@ function cleanNoteSource(text) {
 function normalizeUseTerm(text) {
   if (!text) return '';
 
-  return String(text)
+  return limitAndUsage(String(text)
     .replace(/사용 작업/g, '사용')
     .replace(/활용 작업/g, '활용')
     .replace(/(으)?로 사용$/g, '')
@@ -835,20 +1342,33 @@ function normalizeUseTerm(text) {
     .replace(/ 활용$/g, '')
     .replace(/^(사용|활용)$/g, '')
     .replace(/ 마감$/g, ' 마감')
-    .trim();
+    .trim());
+}
+
+function limitAndUsage(text) {
+  const parts = String(text || '').split(' 및 ');
+  if (parts.length <= 1) return String(text || '');
+  return parts[0] + getAndParticle(parts[0]) + ' ' + parts.slice(1).join(', ');
 }
 
 function buildUseNote(cleanUse1, cleanUse2) {
   const uses = uniqueCleanTerms([cleanUse1, cleanUse2]);
 
   if (uses.length >= 2) {
-    const useText = uses[0] + getAndParticle(uses[0]) + ' ' + uses[1];
-    return useText + ' 용도로 선택됩니다.';
+    return uses[0] + '에 많이 사용합니다. ' + uses[1] + getUseParticle(uses[1]) + '도 찾는 경우가 있습니다.';
   }
   if (uses.length === 1) {
-    return uses[0] + ' 용도로 선택됩니다.';
+    return uses[0] + '에 많이 사용합니다.';
   }
   return '';
+}
+
+function getUseParticle(text) {
+  const value = String(text || '').trim();
+  if (!value) return '로';
+  const lastChar = value.charCodeAt(value.length - 1);
+  if (lastChar < 0xAC00 || lastChar > 0xD7A3) return '로';
+  return ((lastChar - 0xAC00) % 28) === 0 ? '로' : '으로';
 }
 
 function buildEmphasisNote(cleanEmphasis, data) {
