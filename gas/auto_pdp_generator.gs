@@ -117,6 +117,7 @@ function generateHTML(row) {
   }
 
   const data = getRowData(sheet, row);
+  const entityData = buildEntityData(data);
   const apiKey = PropertiesService.getScriptProperties().getProperty('OPENAI_API_KEY');
   if (!apiKey) { setError(sheet, row, 'API Key 없음'); return; }
 
@@ -452,6 +453,68 @@ function getRowData(sheet, row) {
     stockType: sheet.getRange(row, COL.STOCK_TYPE).getValue(),
     infographic: sheet.getRange(row, COL.IMAGE_URL).getValue(),
     type: sheet.getRange(row, COL.TYPE).getValue()
+  };
+}
+
+function cleanEntityValue(value) {
+  return String(value || '').trim();
+}
+
+function splitEntityTerms(value) {
+  const terms = [];
+  String(value || '')
+    .split(/[，、,]/)
+    .map(function (term) { return term.trim(); })
+    .filter(function (term) { return term !== ''; })
+    .forEach(function (term) {
+      if (terms.indexOf(term) === -1) {
+        terms.push(term);
+      }
+    });
+  return terms;
+}
+
+function inferEntityMaterial(data, productGroup) {
+  const label = [
+    data && data.productName,
+    data && data.category,
+    data && data.structure
+  ].map(cleanEntityValue).join(' ');
+
+  if (productGroup === 'MDF') return '목재 섬유';
+  if (productGroup === 'PLYWOOD') return '원목 단판';
+  if (productGroup === 'GYPSUM') return '석고';
+  if (productGroup === 'PF') return '페놀수지 단열재';
+  if (productGroup === 'WOOD') return '목재';
+  if (label.indexOf('석고') !== -1) return '석고';
+  if (label.indexOf('단판') !== -1 || label.indexOf('합판') !== -1) return '원목 단판';
+  if (label.indexOf('목재') !== -1 || label.indexOf('각재') !== -1) return '목재';
+  return '';
+}
+
+function buildEntityData(data) {
+  const productGroup = getFAQCategoryType(data);
+  const uses = uniqueCleanTerms([data.use1, data.use2]);
+  const cautions = splitEntityTerms(data.emphasis);
+  const preorderChecks = [];
+
+  if (cleanEntityValue(data.size)) preorderChecks.push('규격');
+  if (cleanEntityValue(data.thickness)) preorderChecks.push('두께');
+  if (uses.length > 0) preorderChecks.push('사용 위치');
+  if (cautions.length > 0) preorderChecks.push('시공/재단 조건');
+
+  return {
+    productName: cleanEntityValue(data.productName),
+    productGroup: productGroup,
+    material: inferEntityMaterial(data, productGroup),
+    structure: cleanEntityValue(data.structure),
+    size: cleanEntityValue(data.size),
+    thickness: cleanEntityValue(data.thickness),
+    maker: cleanEntityValue(data.maker),
+    uses: uses,
+    installationCautions: cautions,
+    compareProduct: cleanEntityValue(data.compareTarget),
+    preorderChecks: preorderChecks
   };
 }
 
