@@ -148,25 +148,27 @@ function generateHTML(row) {
   const css = `<style>
 .ds-wrap{max-width:790px;margin:0 auto;font-family:'Pretendard','Apple SD Gothic Neo','Noto Sans KR',sans-serif;line-height:1.75;color:#1C1C1C;}
 .ds-wrap *{box-sizing:border-box;}
-.ds-wrap h2{font-size:24px;font-weight:700;color:#1C1C1C;margin:0 0 16px 0;}
-.ds-ai-summary{background:#FFFFFF;border:1px solid #E0E0E0;border-left:3px solid #123628;padding:16px;margin:0 0 20px 0;font-size:15px;color:#1C1C1C;}
+.ds-wrap h2{font-size:28px;font-weight:800;color:#1C1C1C;margin:0 0 24px;}
+.ds-block-title{font-size:18px;font-weight:700;color:#1C1C1C;margin:32px 0 14px;padding-left:10px;border-left:4px solid #123628;}
+.ds-wrap h2 + .ds-block-title{margin-top:0;}
+.ds-ai-summary{background:#FBFCF8;border:1px solid #E3E1D8;border-left:3px solid #123628;border-radius:6px;padding:18px;margin:0 0 22px 0;font-size:15px;color:#1C1C1C;}
 .ds-ai-summary p{margin:0 0 6px 0;}
 .ds-ai-summary p:last-child{margin:0;}
-.ds-define{background:#F8F8F8;border-left:3px solid #123628;color:#616161;padding:16px;margin:0 0 20px 0;font-size:15px;}
-.ds-spec-table{width:100%;border-collapse:collapse;margin:0 0 20px 0;}
-.ds-spec-table th{background:#F8F8F8;color:#616161;font-weight:600;font-size:14px;padding:12px;border-bottom:1px solid #E0E0E0;width:30%;text-align:left;}
-.ds-spec-table td{background:#FFFFFF;color:#1C1C1C;font-weight:400;font-size:15px;padding:12px;border-bottom:1px solid #E0E0E0;text-align:left;}
-.ds-section-title{font-size:14px;font-weight:600;color:#123628;margin:24px 0 8px 0;}
+.ds-define{background:#FAFAF7;border-left:3px solid #123628;border-radius:6px;color:#616161;padding:18px;margin:0 0 22px 0;font-size:15px;}
+.ds-spec-table{width:100%;border-collapse:separate;border-spacing:0;margin:0 0 22px 0;border-top:1px solid #E6E3DA;}
+.ds-spec-table th{background:#FAFAF7;color:#616161;font-weight:600;font-size:14px;padding:13px 12px;border-bottom:1px solid #E6E3DA;width:30%;text-align:left;}
+.ds-spec-table td{background:#FFFFFF;color:#1C1C1C;font-weight:400;font-size:15px;padding:13px 12px;border-bottom:1px solid #E6E3DA;text-align:left;}
+.ds-section-title{font-size:18px;font-weight:700;color:#1C1C1C;margin:24px 0 12px;}
 .ds-infographic{border:1px solid #E0E0E0;border-radius:4px;overflow:hidden;margin:0 0 24px 0;}
-.ds-reason{background:#F8F8F8;border-top:2px solid #123628;padding:16px;margin:0 0 20px 0;font-size:15px;color:#616161;}
+.ds-reason{background:#FAFAF7;border:1px solid #E3E1D8;border-top:2px solid #123628;border-radius:6px;padding:18px;margin:0 0 22px 0;font-size:15px;color:#616161;}
+.ds-ai-summary,.ds-define,.ds-spec-table,.ds-infographic,.ds-reason{margin-bottom:24px;}
 .ds-reason p{margin:0 0 8px 0;}
 .ds-reason p:last-child{margin:0;}
-.ds-faq{border-top:2px solid #123628;margin:28px 0 22px 0;padding:24px 0 0 0;}
-.ds-faq h3{font-size:21px;font-weight:800;color:#1C1C1C;margin:0 0 16px 0;}
-.ds-faq-item{margin:0 0 14px 0;}
-.ds-faq-q{font-size:15px;font-weight:800;color:#123628;margin:0 0 4px 0;}
+.ds-faq{margin:0 0 22px 0;padding:0;}
+.ds-faq-item{background:#FCFCFA;border:1px solid #DEDAD0;border-radius:6px;padding:15px 16px;margin:0 0 12px 0;}
+.ds-faq-q{font-size:16px;font-weight:800;color:#123628;margin:0 0 6px 0;}
 .ds-faq-a{font-size:14px;color:#616161;margin:0;}
-.ds-cta{display:block;width:100%;background:#123628;color:#FFFFFF;padding:16px;border-radius:4px;text-align:center;text-decoration:none;font-size:15px;font-weight:600;margin:0 0 12px 0;}
+.ds-cta{display:block;width:100%;background:#123628;color:#FFFFFF;padding:16px;border-radius:6px;text-align:center;text-decoration:none;font-size:15px;font-weight:600;margin:0 0 12px 0;}
 .ds-cta:hover{opacity:0.92;}
 .ds-phone{color:#616161;font-size:13px;text-align:center;margin:0 0 20px 0;}
 .ds-footer{background:#123628;color:#FFFFFF;text-align:center;padding:20px;font-size:13px;}
@@ -207,8 +209,11 @@ function generateHTML(row) {
   const html = `${css}
 <div class="ds-wrap">
   <h2>${data.productName}</h2>
+  <div class="ds-block-title">제품 한눈에 보기</div>
 ${aiSummaryHtml}
+  <div class="ds-block-title">제품 소개</div>
   <div class="ds-define">${content.define}</div>
+  <div class="ds-block-title">규격 정보</div>
   <table class="ds-spec-table">
     <tr><th>규격</th><td>${data.size}</td></tr>
     <tr><th>두께옵션</th><td>${data.thickness}</td></tr>
@@ -218,6 +223,7 @@ ${gradeRowHtml}
   </table>
   <div class="ds-section-title">${sectionTitle}</div>
   ${infraImg}
+  <div class="ds-block-title">구매 전 체크포인트</div>
   <div class="ds-reason">
 ${reasonHtml}
   </div>
@@ -958,8 +964,8 @@ function buildFAQHtml(items) {
     </div>`;
   }).join('\n');
 
-  return `  <div class="ds-faq">
-    <h3>자주 묻는 질문</h3>
+  return `  <div class="ds-block-title">자주 묻는 질문</div>
+  <div class="ds-faq">
 ${itemHtml}
   </div>`;
 }
