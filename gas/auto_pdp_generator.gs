@@ -177,7 +177,9 @@ function generateHTML(row) {
     .map(sanitizeNoteText)
     .filter(function (text) { return text && String(text).trim() !== ''; });
   if (defaultNotes.length === 0) {
-    defaultNotes = buildFallbackNotes();
+    defaultNotes = buildFallbackNotes()
+      .map(sanitizeNoteText)
+      .filter(function (text) { return text && String(text).trim() !== ''; });
   }
 
   const reasonHtml = defaultNotes
@@ -500,6 +502,7 @@ function inferEntityMaterial(data, productGroup) {
   if (productGroup === 'PLYWOOD') return '원목 단판';
   if (productGroup === 'GYPSUM') return '석고';
   if (productGroup === 'PF') return '페놀수지 단열재';
+  if (productGroup === 'XPS') return '압출법 폴리스티렌';
   if (productGroup === 'WOOD') return '목재';
   if (label.indexOf('석고') !== -1) return '석고';
   if (label.indexOf('단판') !== -1 || label.indexOf('합판') !== -1) return '원목 단판';
@@ -533,18 +536,83 @@ function buildEntityData(data) {
   };
 }
 
-function filterAISummaryText(text) {
-  return String(text || '')
-    .replace(/선택됩니다/g, '많이 사용합니다')
+function cleanHumanWritingText(text) {
+  return limitAndUsage(String(text || '')
+    .replace(/용도로 선택됩니다/g, '에 많이 사용합니다')
+    .replace(/선택됩니다/g, '사용합니다')
     .replace(/활용됩니다/g, '사용합니다')
     .replace(/사용 작업/g, '사용')
     .replace(/활용 작업/g, '사용')
+    .replace(/선호도\s*1위/g, '')
+    .replace(/판매\s*1위/g, '')
+    .replace(/1위/g, '')
+    .replace(/친환경/g, '')
     .replace(/최적/g, '')
     .replace(/우수한/g, '')
+    .replace(/뛰어난/g, '')
     .replace(/효율적/g, '')
     .replace(/프리미엄/g, '')
+    .replace(/최고급/g, '')
+    .replace(/최고/g, '')
+    .replace(/고급/g, '')
+    .replace(/추천/g, '')
+    .replace(/가성비/g, '')
+    .replace(/보장/g, '')
     .replace(/\s{2,}/g, ' ')
-    .trim();
+    .replace(/\s+([.,!?])/g, '$1')
+    .trim());
+}
+
+function filterAISummaryText(text) {
+  return cleanHumanWritingText(text);
+}
+
+function getHumanExpressionDictionary(productGroup) {
+  const dictionaries = {
+    PLYWOOD: {
+      summaryDefinition: function (name) { return name + getSubjectParticle(name) + ' 얇은 단판을 겹쳐 만든 판재입니다.'; },
+      summaryUse: function (useText) { return useText + '에 많이 사용합니다.'; },
+      preorder: '주문 전에는 두께, 규격, 마감 방향을 확인하는 것이 좋습니다.',
+      secondaryUse: function (useText) { return useText + getUseParticle(useText) + '도 함께 봅니다.'; }
+    },
+    MDF: {
+      summaryDefinition: function (name) { return name + getSubjectParticle(name) + ' 목재 섬유를 압축해 만든 판재입니다.'; },
+      summaryUse: function (useText) { return useText + '에 많이 사용합니다.'; },
+      preorder: '주문 전에는 두께, 표면 상태, 도장이나 필름 작업 여부를 확인하는 것이 좋습니다.',
+      secondaryUse: function (useText) { return useText + getUseParticle(useText) + '도 작업 조건에 맞춰 봅니다.'; }
+    },
+    GYPSUM: {
+      summaryDefinition: function (name) { return name + getSubjectParticle(name) + ' 석고 코어 양면에 원지를 붙인 판재입니다.'; },
+      summaryUse: function (useText) { return useText + '에 사용합니다.'; },
+      preorder: '주문 전에는 두께, 시공 위치, 이음부 처리 조건을 확인하는 것이 좋습니다.',
+      secondaryUse: function (useText) { return useText + getUseParticle(useText) + '도 함께 봅니다.'; }
+    },
+    PF: {
+      summaryDefinition: function (name) { return name + getSubjectParticle(name) + ' 페놀수지 발포층에 면재를 더한 단열재입니다.'; },
+      summaryUse: function (useText) { return useText + '에 사용합니다.'; },
+      preorder: '주문 전에는 두께, 시공 위치, 연결 부위 마감 조건을 확인하는 것이 좋습니다.',
+      secondaryUse: function (useText) { return useText + '도 현장 조건에 맞춰 봅니다.'; }
+    },
+    XPS: {
+      summaryDefinition: function (name) { return name + getSubjectParticle(name) + ' 압출법 폴리스티렌 계열 단열재입니다.'; },
+      summaryUse: function (useText) { return useText + '에 사용합니다.'; },
+      preorder: '주문 전에는 두께, 시공 위치, 하중 조건을 확인하는 것이 좋습니다.',
+      secondaryUse: function (useText) { return useText + '도 현장 조건에 맞춰 봅니다.'; }
+    },
+    WOOD: {
+      summaryDefinition: function (name) { return name + getSubjectParticle(name) + ' 목재를 길이 방향으로 가공한 각재입니다.'; },
+      summaryUse: function (useText) { return useText + '에 사용합니다.'; },
+      preorder: '주문 전에는 단면 치수, 길이, 노출면 상태를 확인하는 것이 좋습니다.',
+      secondaryUse: function (useText) { return useText + getUseParticle(useText) + '도 같이 봅니다.'; }
+    }
+  };
+
+  return dictionaries[productGroup] || {
+    summaryDefinition: function (name) { return name + getSubjectParticle(name) + ' 현장 조건에 맞춰 규격을 확인하는 자재입니다.'; },
+    summaryUse: function (useText) { return useText + '에 사용합니다.'; },
+    preorder: '주문 전에는 규격, 두께, 사용할 위치를 확인하는 것이 좋습니다.',
+    secondaryUse: function (useText) { return useText + getUseParticle(useText) + '도 함께 확인합니다.'; }
+  };
 }
 
 function buildAISummary(entity) {
@@ -553,37 +621,37 @@ function buildAISummary(entity) {
   const summary = [];
   const name = cleanEntityValue(entity.productName) || '이 제품';
   const uses = entity.uses || [];
-  const checks = entity.preorderChecks || [];
+  const dictionary = getHumanExpressionDictionary(entity.productGroup);
 
   summary.push(buildAISummaryDefinition(entity));
 
   if (uses.length > 0) {
-    summary.push(buildNaturalUseList(uses) + '에 많이 사용합니다.');
+    summary.push(dictionary.summaryUse(buildNaturalUseList(uses)));
   }
 
-  if (checks.length > 0) {
-    const checkText = buildNaturalUseList(checks);
-    summary.push('주문 전에는 ' + checkText + getObjectParticle(checkText) + ' 확인하는 것이 좋습니다.');
-  }
+  summary.push(dictionary.preorder);
 
-  return summary
+  const cleanedSummary = summary
     .slice(0, 3)
     .map(filterAISummaryText)
     .filter(function (text) { return text !== ''; });
+
+  if (cleanedSummary.length > 0) {
+    return cleanedSummary;
+  }
+
+  return [cleanHumanWritingText(name + getSubjectParticle(name) + ' 주문 전 규격과 사용 위치를 확인해야 하는 건축자재입니다.')];
 }
 
 function buildAISummaryDefinition(entity) {
   const name = cleanEntityValue(entity.productName) || '이 제품';
   const group = cleanEntityValue(entity.productGroup);
   const material = cleanEntityValue(entity.material);
+  const dictionary = getHumanExpressionDictionary(group);
 
-  if (group === 'PLYWOOD') return name + getSubjectParticle(name) + ' 단판 적층 구조를 기준으로 보는 판재입니다.';
-  if (group === 'MDF') return name + getSubjectParticle(name) + ' 목재 섬유를 압축한 판재입니다.';
-  if (group === 'GYPSUM') return name + getSubjectParticle(name) + ' 석고 코어와 원지로 구성된 판재입니다.';
-  if (group === 'PF') return name + getSubjectParticle(name) + ' 페놀수지 발포층을 쓰는 단열재입니다.';
-  if (group === 'WOOD') return name + getSubjectParticle(name) + ' 목재를 길이 방향으로 가공한 각재입니다.';
+  if (group !== 'DEFAULT') return dictionary.summaryDefinition(name);
   if (material) return name + getSubjectParticle(name) + ' ' + material + ' 계열 자재입니다.';
-  return name + getSubjectParticle(name) + ' 건축자재 상세 정보입니다.';
+  return dictionary.summaryDefinition(name);
 }
 
 function getObjectParticle(text) {
@@ -677,7 +745,8 @@ function getFAQCategoryType(data) {
   if (productLabel.indexOf('MDF') !== -1) return 'MDF';
   if (productLabel.indexOf('합판') !== -1) return 'PLYWOOD';
   if (label.indexOf('석고') !== -1) return 'GYPSUM';
-  if (label.indexOf('PF') !== -1 || label.indexOf('피에프') !== -1 || label.indexOf('단열') !== -1) return 'PF';
+  if (label.indexOf('아이소핑크') !== -1 || label.indexOf('XPS') !== -1 || label.indexOf('압출법') !== -1 || label.indexOf('폴리스티렌') !== -1) return 'XPS';
+  if (label.indexOf('PF') !== -1 || label.indexOf('피에프') !== -1 || label.indexOf('페놀') !== -1) return 'PF';
   if (label.indexOf('각재') !== -1 || label.indexOf('뉴송') !== -1) return 'WOOD';
   if (label.indexOf('합판') !== -1) return 'PLYWOOD';
   if (label.indexOf('MDF') !== -1) return 'MDF';
@@ -697,6 +766,7 @@ function buildFAQUseAnswer(data) {
     MDF: '가구 제작, 도장 마감, 필름 래핑 바탕 등에 사용됩니다.',
     GYPSUM: '실내 벽체, 천장 시공, 마감 바탕 등에 사용됩니다.',
     PF: '벽체와 천장 단열, 마감 전 바탕 시공 등에 사용됩니다.',
+    XPS: '바닥 단열, 벽체 단열, 지하층 단열 등에 사용됩니다.',
     WOOD: '틀 작업, 보강재, 현장 목공 작업 등에 사용됩니다.',
     DEFAULT: '현장 마감, 제작, 보조 자재 용도 등에 사용됩니다.'
   };
@@ -719,6 +789,7 @@ function buildFAQProcessAnswer(data) {
     MDF: '재단면과 표면 마감 상태를 확인하고, 도장이나 필름 작업 조건에 맞춰 진행하세요.',
     GYPSUM: '절단면 파손을 줄이도록 취급하고, 이음부와 고정 간격을 현장 조건에 맞춰 확인하세요.',
     PF: '단열층 손상과 연결 부위 틈을 줄이도록 재단하고, 마감 방법을 함께 확인하세요.',
+    XPS: '재단할 때는 절단면과 시공 위치를 확인하고, 이음부 틈이 생기지 않도록 작업하세요.',
     WOOD: '길이 재단 전 치수를 다시 확인하고, 휨이나 노출면 상태를 살펴본 뒤 시공하세요.',
     DEFAULT: '재단 치수, 마감 방향, 현장 고정 조건을 먼저 확인한 뒤 작업하세요.'
   };
@@ -751,7 +822,7 @@ function buildFAQItems(data, notes) {
   const useAnswer = ensureFAQDistinctAnswer(
     buildFAQUseAnswer(data),
     faqNotes,
-    '사용 위치와 작업 목적에 맞춰 현장 자재로 활용됩니다.'
+    '사용 위치와 작업 목적에 맞춰 현장에서 사용합니다.'
   );
   const checkAnswer = ensureFAQDistinctAnswer(
     buildFAQCheckAnswer(data),
@@ -767,15 +838,15 @@ function buildFAQItems(data, notes) {
   return [
     {
       question: '이 제품은 어디에 사용하나요?',
-      answer: useAnswer
+      answer: cleanHumanWritingText(useAnswer)
     },
     {
       question: '주문 전에 무엇을 확인해야 하나요?',
-      answer: checkAnswer
+      answer: cleanHumanWritingText(checkAnswer)
     },
     {
       question: '재단·시공 시 주의사항은 무엇인가요?',
-      answer: processAnswer
+      answer: cleanHumanWritingText(processAnswer)
     }
   ];
 }
@@ -858,8 +929,8 @@ function buildProductGroupFAQItems(entity, notes) {
 
   return (itemsByGroup[productGroup] || []).map(function (item) {
     return {
-      question: item.question,
-      answer: ensureFAQDistinctAnswer(item.answer, notes || [], item.answer)
+      question: cleanHumanWritingText(item.question),
+      answer: cleanHumanWritingText(ensureFAQDistinctAnswer(item.answer, notes || [], item.answer))
     };
   });
 }
@@ -873,12 +944,8 @@ function buildEntityUseAnswer(entity) {
 }
 
 function buildEntityPreorderAnswer(entity) {
-  const checks = entity && entity.preorderChecks || [];
-  if (checks.length > 0) {
-    const checkText = buildNaturalUseList(checks);
-    return '주문할 때는 ' + checkText + getObjectParticle(checkText) + ' 먼저 확인하는 것이 좋습니다.';
-  }
-  return '주문 전에는 규격, 두께, 사용할 위치를 먼저 확인하는 것이 좋습니다.';
+  const dictionary = getHumanExpressionDictionary(entity && entity.productGroup);
+  return dictionary.preorder;
 }
 
 function buildFAQHtml(items) {
@@ -1346,19 +1413,27 @@ function normalizeUseTerm(text) {
 }
 
 function limitAndUsage(text) {
-  const parts = String(text || '').split(' 및 ');
-  if (parts.length <= 1) return String(text || '');
-  return parts[0] + getAndParticle(parts[0]) + ' ' + parts.slice(1).join(', ');
+  return String(text || '')
+    .split(/([.!?。]\s*)/)
+    .map(function (part) {
+      if (/^[.!?。]\s*$/.test(part)) return part;
+      const parts = part.split(' 및 ');
+      if (parts.length <= 1) return part;
+      if (parts.length === 2) return parts[0] + getAndParticle(parts[0]) + ' ' + parts[1];
+      return parts[0] + getAndParticle(parts[0]) + ' ' + parts.slice(1).join(', ');
+    })
+    .join('');
 }
 
-function buildUseNote(cleanUse1, cleanUse2) {
+function buildUseNote(cleanUse1, cleanUse2, data) {
   const uses = uniqueCleanTerms([cleanUse1, cleanUse2]);
+  const dictionary = getHumanExpressionDictionary(getFAQCategoryType(data || {}));
 
   if (uses.length >= 2) {
-    return uses[0] + '에 많이 사용합니다. ' + uses[1] + getUseParticle(uses[1]) + '도 찾는 경우가 있습니다.';
+    return cleanHumanWritingText(uses[0] + '에 많이 사용합니다. ' + dictionary.secondaryUse(uses[1]));
   }
   if (uses.length === 1) {
-    return uses[0] + '에 많이 사용합니다.';
+    return cleanHumanWritingText(uses[0] + '에 많이 사용합니다.');
   }
   return '';
 }
@@ -1376,7 +1451,7 @@ function buildEmphasisNote(cleanEmphasis, data) {
   const label = String(data && data.category || '') + ' ' + String(data && data.productName || '');
   const rawEmphasis = String(data && data.emphasis || '');
   if (label.indexOf('석고') !== -1 && cleanEmphasis.indexOf('재단') !== -1) {
-    return '현장 절단 시 칼을 이용한 작업이 가능합니다.';
+    return '석고보드는 절단면이 깨지지 않도록 칼선과 지지 상태를 먼저 보는 것이 좋습니다.';
   }
   if (
     label.indexOf('MDF') !== -1 &&
@@ -1384,7 +1459,7 @@ function buildEmphasisNote(cleanEmphasis, data) {
       return cleanEmphasis.indexOf(word) !== -1 || rawEmphasis.indexOf(word) !== -1;
     })
   ) {
-    return '도장과 필름 래핑 작업은 표면 상태에 맞춰 진행 조건을 살펴봅니다.';
+    return '도장이나 필름 래핑을 할 때는 표면 상태와 재단면을 먼저 확인하는 것이 좋습니다.';
   }
   if (
     (label.indexOf('PF') !== -1 || label.indexOf('피에프') !== -1 || label.indexOf('단열') !== -1) &&
@@ -1392,15 +1467,15 @@ function buildEmphasisNote(cleanEmphasis, data) {
       return cleanEmphasis.indexOf(word) !== -1;
     })
   ) {
-    return '단열 성능이나 기준 충족 여부는 제조사 자료 기준으로 확인합니다.';
+    return '단열 성능이나 기준 충족 여부는 제조사 자료를 기준으로 확인해야 합니다.';
   }
   if (cleanEmphasis.indexOf('CNC') !== -1) {
-    return 'CNC 가공이 필요한 경우 작업 조건을 먼저 살펴봅니다.';
+    return 'CNC 가공이 필요하면 재단 치수와 작업 조건을 먼저 확인하는 것이 좋습니다.';
   }
   if (cleanEmphasis.indexOf('노출') !== -1) {
-    return '노출 마감은 입고 제품의 표면 상태를 기준으로 검토합니다.';
+    return '노출 마감으로 쓸 경우 입고 제품의 표면 상태를 먼저 확인하는 것이 좋습니다.';
   }
-  return cleanEmphasis + ' 관련 사항은 주문 전에 살펴봅니다.';
+  return cleanHumanWritingText('주문 전에는 ' + cleanEmphasis + ' 기준을 먼저 확인하는 것이 좋습니다.');
 }
 
 function buildStructureNote(cleanStructure, data) {
@@ -1427,9 +1502,22 @@ function buildStructureNote(cleanStructure, data) {
       ? cleanStructure + ' 구조입니다.'
       : cleanStructure + ' 단열재 구조입니다.';
   }
+  if (label.indexOf('MDF') !== -1) {
+    return cleanStructure.indexOf('판재') !== -1
+      ? cleanStructure + '입니다.'
+      : cleanStructure + ' 판재입니다.';
+  }
+  if (label.indexOf('합판') !== -1) {
+    return cleanStructure.indexOf('판재') !== -1
+      ? cleanStructure + '입니다.'
+      : cleanStructure + ' 합판 구조입니다.';
+  }
+  if (cleanStructure.indexOf('판재') !== -1 || cleanStructure.indexOf('자재') !== -1) {
+    return cleanStructure + '입니다.';
+  }
   return cleanStructure.indexOf('구조') !== -1
     ? cleanStructure + '입니다.'
-    : cleanStructure + ' 적층 구조입니다.';
+    : cleanStructure + ' 구조입니다.';
 }
 
 function getCategoryDefaultNotes(data) {
@@ -1520,7 +1608,7 @@ function buildDefaultNotes(data) {
     notes.push(buildStructureNote(cleanStructure, data));
   }
 
-  const useNote = buildUseNote(cleanUse1, cleanUse2);
+  const useNote = buildUseNote(cleanUse1, cleanUse2, data);
   if (useNote) {
     notes.push(useNote);
   }
@@ -1584,7 +1672,7 @@ function sanitizeNoteText(text) {
     return '';
   }
 
-  return clean;
+  return cleanHumanWritingText(clean);
 }
 
 function setError(sheet, row, message) {
