@@ -36,3 +36,26 @@
 - Fine-tune prompts based on real HTML/image outputs.
 - Add new product categories and category-specific rules as needed.
 - Research image edit request workflow for v1.1 only; v1.0 operation keeps generate-only image flow.
+
+# 2026-07-09 작업 기록
+
+## 완료
+- DECK_BOARD 제품군 추가
+- 데크재 6종 자동 분류 지원
+- AI Summary / FAQ / 인포그래픽 구조 추가
+- A타입 VS 자동 분리 기능 추가
+- compareTarget의 "VS" 자동 파싱
+- A타입을 비교 중심 구조로 개선
+- 일반합판 원산지 비교 규칙 추가
+- DECK_BOARD 전용 비교 규칙 추가
+- Hidden Clip / 상부 피스 혼용 방지 규칙 추가
+- DECK_BOARD 규칙 과도한 제약 완화
+- B타입 QA Standard 설계 완료
+- Apps Script 배포 완료
+- A타입/DECK_BOARD/PLYWOOD 테스트 완료
+
+## 다음 Sprint
+- T/X열 고정 폭 + 줄바꿈 유지
+- A타입 이미지 품질 추가 개선(필요 시)
+- 신규 제품군 DB 확장
+- 실제 QA 결과 기반 미세 보정
