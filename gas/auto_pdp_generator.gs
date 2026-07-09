@@ -610,6 +610,12 @@ function getHumanExpressionDictionary(productGroup) {
       summaryUse: function (useText) { return useText + '에 사용합니다.'; },
       preorder: '주문 전에는 단면 치수, 길이, 노출면 상태를 확인하는 것이 좋습니다.',
       secondaryUse: function (useText) { return useText + getUseParticle(useText) + '도 같이 봅니다.'; }
+    },
+    DECK_BOARD: {
+      summaryDefinition: function (name) { return name + getSubjectParticle(name) + ' 실외 바닥이나 테라스 시공에 사용하는 장척 목재 자재입니다.'; },
+      summaryUse: function (useText) { return useText + '에 사용합니다.'; },
+      preorder: '주문 전에는 수종, 폭, 두께, 길이, 표면 상태, 고정 방식과 시공 간격을 확인하는 것이 좋습니다.',
+      secondaryUse: function (useText) { return useText + getUseParticle(useText) + '도 현장 조건에 맞춰 봅니다.'; }
     }
   };
 
@@ -753,6 +759,7 @@ function getFAQCategoryType(data) {
   if (label.indexOf('석고') !== -1) return 'GYPSUM';
   if (label.indexOf('아이소핑크') !== -1 || label.indexOf('XPS') !== -1 || label.indexOf('압출법') !== -1 || label.indexOf('폴리스티렌') !== -1) return 'XPS';
   if (label.indexOf('PF') !== -1 || label.indexOf('피에프') !== -1 || label.indexOf('페놀') !== -1) return 'PF';
+  if (label.indexOf('데크재') !== -1 || label.toLowerCase().indexOf('deck') !== -1) return 'DECK_BOARD';
   if (label.indexOf('각재') !== -1 || label.indexOf('뉴송') !== -1) return 'WOOD';
   if (label.indexOf('합판') !== -1) return 'PLYWOOD';
   if (label.indexOf('MDF') !== -1) return 'MDF';
@@ -929,6 +936,20 @@ function buildProductGroupFAQItems(entity, notes) {
       {
         question: '노출면으로 사용할 각재는 무엇을 확인해야 하나요?',
         answer: '노출면으로 쓸 경우 표면 상태와 휨 여부를 먼저 확인하는 것이 좋습니다.'
+      }
+    ],
+    DECK_BOARD: [
+      {
+        question: '데크재는 어디에 사용하나요?',
+        answer: '테라스, 외부 바닥, 조경 데크처럼 사람이 밟는 바닥면 시공에 사용합니다.'
+      },
+      {
+        question: '데크재 주문 전 무엇을 확인해야 하나요?',
+        answer: '주문 전에는 수종, 폭, 두께, 길이, 표면 상태, 고정 방식과 시공 간격을 확인하는 것이 좋습니다.'
+      },
+      {
+        question: '데크재 시공 시 주의할 점은 무엇인가요?',
+        answer: '시공 시에는 피스 고정 위치, 배수 방향, 데크 간 간격과 절단면 처리를 함께 확인해야 합니다.'
       }
     ]
   };
@@ -1740,6 +1761,7 @@ INFOGRAPHIC_STRUCTURE_LIBRARY:
 - MINERAL_WOOL: 광물섬유 매트 구조로 표현한다.
 - PIR_URETHANE: 면재 / PIR 또는 우레탄 폼 코어 / 면재 구조로 표현한다.
 - REFLECTIVE_INSULATION: 반사 필름 / 공기층 / 완충층 구조로 표현한다.
+- DECK_BOARD: 노출 상판 / 길이 방향 목재 결 / 측면 단면 / 피스 고정 위치 / 데크 간격으로 표현한다.
 
 구조 템플릿 선택 규칙:
 - 제품군 판별 결과에 따라 반드시 하나의 구조 템플릿만 선택한다.
@@ -1761,6 +1783,7 @@ INFOGRAPHIC_STRUCTURE_LIBRARY:
 - 미네랄울 / 암면은 MINERAL_WOOL만 사용한다.
 - PIR / 우레탄폼은 PIR_URETHANE만 사용한다.
 - 열반사 단열재는 REFLECTIVE_INSULATION만 사용한다.
+- 데크재는 DECK_BOARD만 사용한다.
 
 제품군별 고정 아이콘 규칙:
 - 합판: 교차 적층 아이콘, 단판 레이어 아이콘, 접착층 아이콘.
@@ -1779,6 +1802,7 @@ INFOGRAPHIC_STRUCTURE_LIBRARY:
 - 미네랄울 / 암면: Mineral Fiber 아이콘, Board Form 아이콘, 밀착 시공 아이콘.
 - PIR / 우레탄폼: Facing 아이콘, Urethane/PIR Foam Core 아이콘, 이음부 아이콘.
 - 열반사 단열재: Reflective Film 아이콘, Air Layer 아이콘, Cushion Layer 아이콘.
+- 데크재: 노출 상판 아이콘, 길이 방향 목재 결 아이콘, 피스 고정/간격 아이콘.
 - 아이콘 형태, 크기, 선 굵기, 배치 비율은 제품군별 고정 스타일을 유지하고 임의 변경하지 않는다.
 
 INFOGRAPHIC_QUALITY_CHECKLIST:
@@ -1795,6 +1819,7 @@ INFOGRAPHIC_QUALITY_CHECKLIST:
 - EPS: 비드 구조, Closed Cell 금지.
 - 글라스울: 섬유 매트 구조, 발포 구조 금지.
 - 미네랄울: 광물섬유 구조, 글라스울 질감 혼용 금지.
+- 데크재: 노출 상판, 길이 방향 목재 결, 측면 단면, 피스 고정 위치, 데크 간격만 사용하고 단판 적층, MDF/PB 압축 코어, 석고 코어, 단열재 코어, 근거 없는 성능/내구성/방부 등급 수치 생성을 금지.
 
 제품군별 구조 규칙:
 - 합판(Plywood): 목재 단판(Veneer)을 여러 겹 쌓은 단판 적층(Veneer Layers) 구조. 구조도는 얇은 단판 레이어, 교차 적층 방향, 레이어 사이의 얇은 접착선(Glue Line) 중심. 접착선은 별도 두꺼운 접착층이나 젤 형태로 표현하지 않는다. 허용: 적층, Veneer, Layer, Glue Line. 금지: 라멜, 집성, 핑거조인트, 블록코어, 집성코어, OSB처럼 보이는 조각 코어.
@@ -1815,11 +1840,13 @@ INFOGRAPHIC_QUALITY_CHECKLIST:
 - 미네랄울 / 암면: 광물 섬유를 매트 또는 보드 형태로 성형한 단열재. 구조도는 Mineral Fiber, Fiber Mat, Board Form 중심. 허용: 광물섬유, 섬유 매트, 보드형 단열재. 금지: 발포 코어, 단판 적층, 라멜 집성.
 - 우레탄폼 / PIR 단열재: 우레탄 또는 PIR 발포 단열재 코어에 면재를 결합한 구조. 구조도는 Facing, Urethane/PIR Foam Core, Facing 중심. 허용: Foam Core, Facing, PIR Core. 금지: PF Core로 단정, Glass Wool Fiber, 단판 적층.
 - 열반사 단열재: 반사 필름과 공기층 또는 완충재를 결합한 구조. 구조도는 Reflective Film, Air Layer, Cushion Layer 중심. 허용: 반사층, 공기층, 알루미늄 필름. 금지: 발포 코어 단정, 단판 적층, 라멜 집성.
+- 데크재: 실외 바닥이나 테라스 시공에 사용하는 장척 목재 자재. 구조도는 노출 상판, 길이 방향 목재 결, 측면 단면, 피스 고정 위치, 데크 간격 중심. 허용: 수종, 폭, 두께, 길이, 표면 상태, 고정 방식, 시공 간격. 금지: 단판 적층, MDF/PB 압축 코어, 석고 코어, 단열재 코어, 근거 없는 성능/내구성/방부 등급 수치.
 
 구조 혼용 금지:
 - 집성판이면 단판 적층, 3~13겹, Veneer Layer, 교차 적층을 절대 사용하지 않는다.
 - 합판이면 라멜, 집성, 핑거조인트를 절대 사용하지 않는다.
 - 단열재는 제품명에 따라 PF보드, XPS, EPS, 글라스울, 미네랄울, 우레탄폼, 열반사 단열재를 구분하고 서로 혼용하지 않는다.
+- 데크재는 각재, 방부목, 합판, 집성판 구조로 임의 대체하지 않는다.
 
 구조도 일치 규칙:
 - 제목, 구조 설명, 단면 이미지, 레이어 구조, 아이콘, 수치 비교는 모두 동일한 제품 구조를 사용한다.
@@ -1883,6 +1910,52 @@ INFOGRAPHIC_QUALITY_CHECKLIST:
 }
 
 function buildTypeAPrompt(data) {
+  const compareTargetText = String(data.compareTarget || '').trim();
+  const compareParts = compareTargetText
+    .split(/\s+VS\s+/i)
+    .map(function (part) { return part.trim(); })
+    .filter(function (part) { return part; });
+  const isVsCompareMode = compareParts.length >= 2;
+  const leftCompareLabel = isVsCompareMode ? compareParts[0] : data.compareTarget;
+  const rightCompareLabel = isVsCompareMode ? compareParts.slice(1).join(' VS ') : data.productName;
+  const vsCompareInstruction = isVsCompareMode
+    ? `
+VS 비교 모드 공통 규칙:
+- compareTarget에 VS가 포함되어 있으므로 1단 비교 라벨은 VS 기준 좌우 대상을 사용한다.
+- 왼쪽 라벨은 "${leftCompareLabel}"로 표시한다.
+- 오른쪽 라벨은 "${rightCompareLabel}"로 표시한다.
+- 오른쪽 라벨에 상품명을 사용하지 않는다.
+- 비교는 구조, 시공 방식, 특징 차이만 표현한다.
+- 가격 비교, 성능 우열 비교, 내구성/수명/등급/인증 비교를 생성하지 않는다.
+- 좌우 구조가 서로 섞이지 않도록 Product Fidelity를 유지한다.
+`
+    : '';
+  const deckBoardStructureInstruction = data.productGroup === 'DECK_BOARD'
+    ? `
+DECK_BOARD A타입 3단 하단 구조 설명 규칙:
+- 3단은 시공 방식 비교가 아니라 실제 구조 분해도 역할만 한다.
+- 1단은 시공 방식 비교, 2단은 핵심 구조 키워드, 3단은 실제 구조 분해도로 역할을 분리한다.
+- 3단에서는 화살표(Line Callout)를 최소화한다.
+- 위치를 화살표로 설명하지 말고 실제 구조 요소를 분해해서 보여준다.
+- 부품 중심으로 구성한다: 노출 상판, 측면 홈, Hidden Deck Clip, 상부 피스, 하부 각재, 데크 간격.
+- 상부 피스 노출 시공 구조와 Hidden Deck Clip 구조는 반드시 별도 영역으로 분리한다.
+- 같은 데크재 한 구조물에 Hidden Deck Clip과 상부 피스가 동시에 적용된 것처럼 표현하지 않는다.
+- 시공 방식 비교는 1단에서만 수행하고 3단에서는 구조 이해만 담당한다.
+- 2단 키워드 카드에서 이미 설명한 길이 방향 목재 결 같은 항목은 3단에서 반복하지 않는다.
+- 번호(①~⑤) 중심 설명보다 확대 원(Zoom Callout) 또는 구조 분해 방식으로 부품을 직관적으로 보여준다.
+- 텍스트는 짧은 부품명만 사용하고 설명문은 넣지 않는다.
+- 실제 판매되는 구조만 표현하고 가상의 부품이나 연결구를 생성하지 않는다.
+`
+    : '';
+  const deckBoardProductFidelityInstruction = data.productGroup === 'DECK_BOARD'
+    ? `
+DECK_BOARD A타입 구조 혼용 금지 규칙:
+- 데크재 비교에서 각 영역은 선택된 비교 대상의 구조만 표현한다.
+- 상부 피스 노출 시공 영역에는 측면 홈, Hidden Deck Clip, 클립 부품을 생성하지 않는다.
+- 측면 홈가공 히든 클립 시공 영역에는 상판 위 피스 노출을 표현하지 않는다.
+- 한 이미지나 한 구조물 안에서 상부 피스 노출 시공과 Hidden Clip 시공을 혼용하지 않는다.
+`
+    : '';
   const sourceInstruction = data.source
     ? `- 출처는 작게 표시: "출처: ${data.source}"`
     : '';
@@ -1924,8 +1997,8 @@ ${buildInfographicStructureGuide(data)}
 
 1단: 비교
 - 좌우 비교 구조
-- 왼쪽 라벨: "${data.compareTarget}"
-- 오른쪽 라벨: "${data.productName}"
+- 왼쪽 라벨: "${leftCompareLabel}"
+- 오른쪽 라벨: "${rightCompareLabel}"
 - 제품명은 이 비교 라벨에서만 1회 허용
 - 비교 차이는 2~3개 짧은 키워드로 표현
 - 비교 문구는 입력값에 실제로 있는 차이만 사용
@@ -1966,7 +2039,7 @@ ${sourceInstruction}
 - 카페24 상세설명 안에 자연스럽게 들어가는 보조 이미지
 - 화려함보다 신뢰감과 가독성을 우선
 - 첫 번째 샘플의 시각 완성도와 세 번째 하이브리드 샘플의 정보 구조를 결합
-  `;
+  ` + vsCompareInstruction + deckBoardProductFidelityInstruction + deckBoardStructureInstruction;
 }
 
 function buildTypeBPrompt(data) {
@@ -2025,6 +2098,7 @@ ${buildInfographicStructureGuide(data)}
 - 핑거조인트 집성판: lamella zoom / finger joint zoom / adhesive joint zoom
 - 사이드핑거 집성판: side finger joint zoom / lamella zoom / adhesive joint zoom
 - 탑핑거 집성판: top finger joint zoom / lamella zoom / length joint zoom
+- 데크재: surface grain zoom / side profile zoom / fastening gap zoom
 - MDF: surface fiber zoom / compressed fiber core zoom / cut edge zoom
 - PB / 파티클보드: surface layer zoom / wood chip core zoom / fastening point zoom
 - 석고보드: paper face zoom / gypsum core zoom / board joint zoom

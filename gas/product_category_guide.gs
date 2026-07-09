@@ -204,6 +204,18 @@ const PRODUCT_CATEGORY_GUIDES = [
     priorityMetrics: ['반사율', '방사율', '두께']
   },
   {
+    name: '데크재',
+    keywords: ['데크재', 'deck', '멀바우', '모말라', '방킬라이', '이페', '캠파스', '큐링'],
+    keyValue: '실외 바닥용 목재 데크재',
+    structure: '실외 바닥이나 테라스 시공에 사용하는 장척 목재 자재',
+    emphasisCandidates: ['수종', '표면 상태', '고정 방식', '시공 간격'],
+    useCandidates: ['테라스 바닥 시공', '외부 데크 시공', '조경 바닥 마감'],
+    infographicStructure: '노출 상판, 길이 방향 목재 결, 측면 단면, 피스 고정 위치와 데크 간격을 보여주는 구조',
+    infographicKeywords: ['노출 상판', '길이 방향 목재 결', '측면 단면', '피스 고정 위치', '데크 간격'],
+    forbiddenKeywords: ['단판 적층', 'MDF 압축 코어', 'PB 우드칩 코어', '석고 코어', '단열재 코어', '방부 등급 수치 생성'],
+    priorityMetrics: ['수종', '폭', '두께', '길이', '표면 상태', '고정 방식', '시공 간격']
+  },
+  {
     name: '각재',
     keywords: ['각재', 'kd'],
     keyValue: '목재 각재 구조',
