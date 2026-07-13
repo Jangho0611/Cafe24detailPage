@@ -1918,6 +1918,86 @@ function buildTypeAPrompt(data) {
   const isVsCompareMode = compareParts.length >= 2;
   const leftCompareLabel = isVsCompareMode ? compareParts[0] : data.compareTarget;
   const rightCompareLabel = isVsCompareMode ? compareParts.slice(1).join(' VS ') : data.productName;
+  const productGroup = data.productGroup || getFAQCategoryType(data);
+  const compareTargetLower = compareTargetText.toLowerCase();
+  function hasAnyCompareKeyword(keywords) {
+    return keywords.some(function (keyword) {
+      return compareTargetLower.indexOf(String(keyword).toLowerCase()) !== -1;
+    });
+  }
+  const isPlywoodOriginCompare =
+    productGroup === 'PLYWOOD' &&
+    compareTargetText.indexOf('베트남산') !== -1 &&
+    compareTargetText.indexOf('동남아산') !== -1;
+  const hasDifferentStructureCompareTarget = hasAnyCompareKeyword([
+    'pf', '피에프', '페놀', 'xps', '아이소핑크', '압출법', 'eps', '스티로폼', '비드법',
+    '글라스울', '미네랄울', '암면', '우레탄', 'pir', 'pb', '파티클', '석고',
+    '시멘트보드', 'crc', '데크재', 'deck'
+  ]) || (productGroup !== 'PLYWOOD' && hasAnyCompareKeyword(['합판', 'plywood']))
+    || (productGroup !== 'MDF' && hasAnyCompareKeyword(['mdf', '엠디에프']));
+  const isSameGroupSoftCompare =
+    isVsCompareMode &&
+    !hasDifferentStructureCompareTarget &&
+    (
+      productGroup === 'MDF' ||
+      (
+        productGroup === 'PLYWOOD' &&
+        hasAnyCompareKeyword(['원산지', '산', '표면', '선별', '브랜드', '제조사'])
+      )
+    );
+  const shouldSkipTypeAStructureCompare = isPlywoodOriginCompare || isSameGroupSoftCompare;
+  const typeAGoalInstruction = shouldSkipTypeAStructureCompare
+    ? '- 비교 핵심 포인트까지만 시각화하고 3단은 생성하지 않는다'
+    : '- 비교 핵심 포인트와 좌우 구조 차이를 시각화';
+  const sourceInstruction = data.source
+    ? `- 출처는 작게 표시: "출처: ${data.source}"`
+    : '';
+  const secondSectionInstruction = shouldSkipTypeAStructureCompare
+    ? `
+2단: 비교 핵심 포인트
+- 좌우 대상의 핵심 차이 2~3개만 카드형으로 표시
+- "무엇이 다른가"만 짧은 키워드로 요약
+- 같은 의미의 항목 반복 금지
+- 구조가 같은 경우 접착선, 적층 방향, 공통 단면을 비교 항목으로 억지 생성하지 않는다.
+- PLYWOOD 원산지 비교는 단판 균일성, 표면 상태, 외관 편차 중심으로 표시한다.
+- 가격, 성능 우열, 내구성, 수명, 인증, 등급 비교 금지
+${sourceInstruction}
+- 근거 없는 차이 생성 금지
+- 현장 선택 기준, 구매 체크포인트, 추천 용도, 외관 확인, 마감 방향 결정, 제품별 상태 점검 문구 금지
+- HTML 구매 체크포인트와 유사한 문구 금지
+- 입력값에 실제 차이가 부족하면 섹션을 억지로 채우지 않는다.
+`
+    : `
+2단: 비교 핵심 포인트
+- 좌우 대상의 차이 3~4개만 카드형으로 표시
+- "무엇이 다른가"만 짧은 키워드로 요약
+- 구조, 시공 방식, 특징 차이만 사용
+- 가격, 성능 우열, 내구성, 수명, 인증, 등급 비교 금지
+- 3단 좌우 구조 비교에서 보여줄 정보와 반복하지 않는다.
+${sourceInstruction}
+- 근거 없는 차이 생성 금지
+- 입력값에 실제 차이가 부족하면 확인 가능한 구조, 시공 방식, 특징만 표시
+`;
+  const thirdSectionInstruction = shouldSkipTypeAStructureCompare
+    ? `
+3단 생성 금지:
+- 이 비교는 1단과 2단까지만 구성한다.
+- 3단 섹션, 3단 제목, 하단 추가 카드, 하단 체크포인트를 만들지 않는다.
+- 좌우 구조 비교, 현장 선택 기준, 구매 체크포인트, 추천 용도 섹션을 생성하지 않는다.
+- 외관 확인, 마감 방향 결정, 제품별 상태 점검 문구로 빈 영역을 채우지 않는다.
+- 합판 공통 구조 설명, 단판 적층도, 접착선 비교를 생성하지 않는다.
+- 정보가 부족하면 섹션을 억지로 채우지 않는다.
+`
+    : `
+3단: 좌우 구조 비교
+- 좌측 구조와 우측 구조를 동일한 시점에서 비교
+- 좌우는 동일한 위치, 동일한 비율, 동일한 확대 수준으로 배치
+- 차이가 나는 구조 요소만 강조
+- 제품 설명형 단면 구조도 금지
+- B타입의 단일 제품 구조 설명을 복사하지 않는다.
+- 2단 비교 핵심 포인트와 같은 정보 반복 금지
+- 긴 설명문 금지
+`;
   const vsCompareInstruction = isVsCompareMode
     ? `
 VS 비교 모드 공통 규칙:
@@ -1930,10 +2010,13 @@ VS 비교 모드 공통 규칙:
 - 좌우 구조가 서로 섞이지 않도록 Product Fidelity를 유지한다.
 - 비교는 차이를 보여주되 한쪽을 근거 없이 과도하게 낮추지 않는다.
 - 우열 비교가 필요한 경우 반드시 제품군 DB 또는 운영 기준에 근거해야 한다.
+- 비교 기준이 제품군 DB 또는 운영 기준에 정의되어 있으면 반드시 그 기준을 따른다.
+- 모델의 일반 지식이나 추론으로 비교 방향을 변경하지 않는다.
+- 정의된 비교 우선순위를 반대로 표현하지 않는다.
 - 근거가 없으면 객관적 구조, 외관, 시공 차이만 비교한다.
 `
     : '';
-  const deckBoardStructureInstruction = data.productGroup === 'DECK_BOARD'
+  const deckBoardStructureInstruction = productGroup === 'DECK_BOARD'
     ? `
 DECK_BOARD A타입 좌우 구조 비교 품질 규칙:
 - 3단은 제품 설명형 구조도가 아니라 좌측 구조와 우측 구조를 같은 시점에서 비교하는 영역이다.
@@ -1952,7 +2035,7 @@ DECK_BOARD A타입 좌우 구조 비교 품질 규칙:
 - 실제 판매되는 구조만 표현하고 가상의 부품이나 연결구를 생성하지 않는다.
 `
     : '';
-  const deckBoardProductFidelityInstruction = data.productGroup === 'DECK_BOARD'
+  const deckBoardProductFidelityInstruction = productGroup === 'DECK_BOARD'
     ? `
 DECK_BOARD A타입 구조 혼용 금지 규칙:
 - 데크재 비교에서 각 영역은 선택된 비교 대상의 구조만 표현한다.
@@ -1969,26 +2052,50 @@ DECK_BOARD A타입 구조 혼용 금지 규칙:
 `
     : '';
   const plywoodOriginCompareInstruction =
-    data.productGroup === 'PLYWOOD' &&
-    compareTargetText.indexOf('베트남산') !== -1 &&
-    compareTargetText.indexOf('동남아산') !== -1
+    isPlywoodOriginCompare
       ? `
-PLYWOOD 원산지 비교 운영 기준:
-- 합판 원산지 비교에서 품질 우열을 임의로 뒤집지 않는다.
-- 대산 운영 기준상 일반적으로 동남아산 합판이 베트남산보다 품질이 좋은 자재로 취급되는 경우가 많다.
-- "베트남산 VS 동남아산" 비교에서는 동남아산을 더 안정적인 품질, 균일한 단판, 표면 상태가 좋은 쪽으로 표현한다.
-- 단, 근거 없는 수치, 등급, 인증, 강도, 내수성 수치를 생성하지 않는다.
-- 베트남산을 과도하게 나쁘게 표현하지 않는다.
-- 베트남산은 기본 마감용, 일반 사용, 단판 편차 확인 중심으로 중립 표현한다.
-- 동남아산은 단판 균일성, 표면 상태, 마감 안정성 확인 중심으로 중립 표현한다.
-- "불량", "저급", "낮음", "품질 나쁨" 같은 부정 라벨을 사용하지 않는다.
-- 비교는 구매자가 확인해야 할 차이 중심으로 표현한다.
+PLYWOOD 원산지 비교 고정 데이터:
+- 이 규칙은 PLYWOOD 원산지 비교에만 적용한다.
+- 아래 좌우 고정 데이터의 라벨과 선택한 bullet 문구를 1단/2단 비교 문구에 그대로 사용한다.
+- 2단 비교 핵심 포인트는 고정 데이터 중 핵심 차이 2~3개만 사용한다.
+- 고정 데이터 문구 재작성 금지, 요약 금지, 확장 금지, 순서 변경 금지, 다른 문구 추가 금지.
+- VS 순서를 반드시 따른다.
+
+왼쪽 고정 데이터:
+- 라벨: "${leftCompareLabel}"
+${leftCompareLabel.indexOf('베트남산') !== -1
+  ? `- bullet 1: 일반 사용 중심
+- bullet 2: 단판 편차 확인
+- bullet 3: 표면 상태 확인
+- bullet 4: 제품별 외관 차이 확인`
+  : `- bullet 1: 단판 균일성이 비교적 안정적
+- bullet 2: 표면 상태가 비교적 안정적
+- bullet 3: 외관 편차가 적은 편
+- bullet 4: 마감용 선택 시 우선 검토`}
+
+오른쪽 고정 데이터:
+- 라벨: "${rightCompareLabel}"
+${rightCompareLabel.indexOf('베트남산') !== -1
+  ? `- bullet 1: 일반 사용 중심
+- bullet 2: 단판 편차 확인
+- bullet 3: 표면 상태 확인
+- bullet 4: 제품별 외관 차이 확인`
+  : `- bullet 1: 단판 균일성이 비교적 안정적
+- bullet 2: 표면 상태가 비교적 안정적
+- bullet 3: 외관 편차가 적은 편
+- bullet 4: 마감용 선택 시 우선 검토`}
+
+PLYWOOD 원산지 비교 금지 문구:
+- 라디아타파인
+- 프리미엄 수종
+- 균일 선별
+- 편차 최소화
+- 혼합 수종 위주
+- 일반 선별
+- 입력에 없는 수종명
+- 근거 없는 품질 우열 문구
 `
       : '';
-  const sourceInstruction = data.source
-    ? `- 출처는 작게 표시: "출처: ${data.source}"`
-    : '';
-
   return `
 건축자재 B2B 쇼핑몰 상세페이지용 한국어 인포그래픽 이미지를 생성하라.
 
@@ -1997,7 +2104,8 @@ PLYWOOD 원산지 비교 운영 기준:
 
 목표:
 - 상세설명 HTML 텍스트와 중복 금지
-- 비교요소, 비교 핵심 포인트, 좌우 구조 비교만 시각화
+- 비교요소, 비교 대상만 시각화
+${typeAGoalInstruction}
 - 한눈에 이해되는 단순한 B2B 자료 스타일
 - 한글 텍스트는 선명하고 정확하게 표시
 
@@ -2037,24 +2145,8 @@ ${buildInfographicStructureGuide(data)}
 - 왼쪽 비교 영역에 "품질 편차", "방출량 높음", "내수성 낮음", "일반 접착제" 같은 추정 단점 bullet 금지
 - 긴 설명문 금지
 
-2단: 비교 핵심 포인트
-- 좌우 대상의 차이 3~4개만 카드형으로 표시
-- "무엇이 다른가"만 짧은 키워드로 요약
-- 구조, 시공 방식, 특징 차이만 사용
-- 가격, 성능 우열, 내구성, 수명, 인증, 등급 비교 금지
-- 3단 좌우 구조 비교에서 보여줄 정보와 반복하지 않는다.
-${sourceInstruction}
-- 근거 없는 차이 생성 금지
-- 입력값에 실제 차이가 부족하면 확인 가능한 구조, 시공 방식, 특징만 표시
-
-3단: 좌우 구조 비교
-- 좌측 구조와 우측 구조를 동일한 시점에서 비교
-- 좌우는 동일한 위치, 동일한 비율, 동일한 확대 수준으로 배치
-- 차이가 나는 구조 요소만 강조
-- 제품 설명형 단면 구조도 금지
-- B타입의 단일 제품 구조 설명을 복사하지 않는다.
-- 2단 비교 핵심 포인트와 같은 정보 반복 금지
-- 긴 설명문 금지
+${secondSectionInstruction}
+${thirdSectionInstruction}
 
 절대 금지:
 - 규격 표시 금지
