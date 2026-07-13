@@ -358,7 +358,7 @@ function fillMissingProductInfoForActiveRow() {
 
   missingFields.forEach(function (field) {
     const currentValue = sheet.getRange(row, field.col).getValue();
-    const nextValue = content[field.key];
+    const nextValue = normalizeAutoFillGluedWoodTerms(content[field.key]);
     if (String(currentValue || '').trim() === '' && nextValue) {
       sheet.getRange(row, field.col).setValue(String(nextValue).trim());
     }
@@ -366,6 +366,15 @@ function fillMissingProductInfoForActiveRow() {
 
   sheet.getRange(row, COL.ERROR).setValue('');
   SpreadsheetApp.getActiveSpreadsheet().toast(row + '행 E, H~M 자동보완 완료');
+}
+
+function normalizeAutoFillGluedWoodTerms(value) {
+  return String(value || '')
+    .replace(/원목\s*(?:라멜|lamella)(?:을|를)?/gi, '폭 방향으로 접합한 목재를')
+    .replace(/(?:라멜|lamella)\s*집성/gi, '집성 목재')
+    .replace(/(?:라멜|lamella)/gi, '집성 목재')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
 }
 
 function buildAutoFillSpecPrompt(data) {
@@ -400,6 +409,8 @@ function buildAutoFillSpecPrompt(data) {
 
 작성 규칙:
 - A~D, F~G열 입력값만 근거로 작성한다.
+- 집성목/집성판에는 "라멜", "Lamella", "lamella"를 사용하지 않는다.
+- 집성목/집성판은 집성 목재, 폭 방향으로 접합한 목재, 집성 접합부, 목재 결 방향, 집성 구조 표현만 사용한다.
 - 제조사 공식 자료, 인증, 성능, 원산지는 추정하지 않는다.
 - grade는 등급이 아니라 E열 성능·인증 입력값이다.
 - 성능·인증은 추정하지 않는다.
@@ -1735,19 +1746,20 @@ function buildInfographicStructureGuide(data) {
 
 제품군별 고정 레이아웃 템플릿:
 - 합판: 비교 → 핵심 구조 → 적층 단면 → 비교 포인트.
-- 집성판: 비교 → 목재 무늬 비교 → 라멜 구조 → 접합 방식.
+- 집성판: 비교 → 목재 무늬 비교 → 목재 스트립 구조 → 집성 접합 방식.
 - MDF: 비교 → 섬유 압축 구조 → 단면 → 가공 특성.
 - PB / 파티클보드: 우드칩 구조 → 단면 → 체결 특성.
 - 석고보드: 석고코어 → 원지 구조 → 시공 포인트.
 - CRC / 시멘트보드 / 섬유시멘트보드: 섬유시멘트 구조 → 단면 → 절단/시공.
 - 단열재: 제품 비교 → 레이어 구조 → 열 흐름 → 시공 포인트.
+- 이보드: XPS 단열 코어 → 표면 질감 비교 → 결합 구조.
 - 제품군이 무엇이든 정보 우선순위는 구조 > 비교 > 수치 순서다.
 - 수치가 부족하면 수치 영역을 억지로 만들지 말고 구조, 재질, 비교, 아이콘으로 채운다.
 
 INFOGRAPHIC_STRUCTURE_LIBRARY:
-- PLYWOOD: 단판 적층(Veneer Layers) 단면. 얇은 단판 레이어 / 교차 방향 / 접착선(Glue Line)만 표현한다. 접착선은 독립된 두꺼운 층이 아니라 레이어 사이의 얇은 선으로 표현한다. 블록코어, 집성코어, 라멜 코어는 표현하지 않는다.
-- SOLID_PANEL: 솔리드 라멜 집성 단면. 폭 방향 라멜 접합만 표현하고 핑거조인트는 표현하지 않는다.
-- FINGER_JOINT_PANEL: 핑거조인트 라멜 집성 단면. 라멜 / 접합부 / 핑거조인트만 표현하고 합판식 단판 적층은 표현하지 않는다.
+- PLYWOOD: 단판 적층(Veneer Layers) 단면. 얇은 단판 레이어 / 교차 방향 / 접착선(Glue Line)만 표현한다. 접착선은 독립된 두꺼운 층이 아니라 레이어 사이의 얇은 선으로 표현한다. 블록코어, 집성코어, 집성 목재 코어는 표현하지 않는다.
+- SOLID_PANEL: 솔리드 목재 스트립 집성 단면. 폭 방향 목재 스트립 접합만 표현하고 핑거조인트는 표현하지 않는다.
+- FINGER_JOINT_PANEL: 핑거조인트 목재 스트립 집성 단면. 목재 스트립 / 집성 접합부 / 핑거조인트만 표현하고 합판식 단판 적층은 표현하지 않는다.
 - SIDE_FINGER_PANEL: 측면 핑거 접합 구조. 측면 접합부 중심으로 표현하고 상판 전체 톱니 패턴은 금지한다.
 - TOP_FINGER_PANEL: 상판 또는 길이 방향 핑거 접합 구조. 상판 면에서 핑거조인트가 보이는 구조로 표현한다.
 - MDF: 목재 섬유 압축 단면. 균일한 섬유 조직으로 표현한다.
@@ -1755,6 +1767,7 @@ INFOGRAPHIC_STRUCTURE_LIBRARY:
 - GYPSUM_BOARD: 원지 / 석고 코어 / 원지 구조로 표현한다.
 - CEMENT_BOARD: 시멘트 매트릭스 / 섬유 보강 / 압축 보드로 표현한다.
 - PF_BOARD: 면재 / PF 폼 코어 / 면재 구조로 표현한다.
+- EBOARD: 흰색 또는 연회색 표면 마감층 → 연회색 상부 PP 중공 구조판(약 3T) → 옅은 핑크 계열 XPS 코어 순서다. PP층은 표면 바로 아래 한쪽에만 두고 XPS 코어 하부에는 생성하지 않는다.
 - XPS: 폐쇄 셀 압출 발포 구조로 표현한다.
 - EPS: 비드 발포 입자 구조로 표현한다.
 - GLASS_WOOL: 유리섬유 매트 구조로 표현한다.
@@ -1777,6 +1790,7 @@ INFOGRAPHIC_STRUCTURE_LIBRARY:
 - 석고보드는 GYPSUM_BOARD만 사용한다.
 - CRC / 시멘트보드 / 섬유시멘트보드는 CEMENT_BOARD만 사용한다.
 - PF보드는 PF_BOARD만 사용한다.
+- 이보드는 EBOARD만 사용한다.
 - XPS는 XPS만 사용한다.
 - EPS는 EPS만 사용한다.
 - 글라스울은 GLASS_WOOL만 사용한다.
@@ -1787,15 +1801,16 @@ INFOGRAPHIC_STRUCTURE_LIBRARY:
 
 제품군별 고정 아이콘 규칙:
 - 합판: 교차 적층 아이콘, 단판 레이어 아이콘, 접착층 아이콘.
-- 솔리드 집성판 / 집성목 / 집성판: 라멜 아이콘, 목재 무늬 아이콘, 폭 접합선 아이콘.
-- 핑거조인트 집성판: 라멜 아이콘, 핑거조인트 아이콘, 접합부 아이콘.
-- 사이드핑거 집성판: 라멜 아이콘, 측면 핑거조인트 아이콘, 접합부 아이콘.
-- 탑핑거 집성판: 라멜 아이콘, 상판 핑거조인트 아이콘, 길이 방향 접합 아이콘.
+- 솔리드 집성판 / 집성목 / 집성판: 목재 스트립 아이콘, 목재 결 방향 아이콘, 폭 방향 집성 접합부 아이콘.
+- 핑거조인트 집성판: 목재 스트립 아이콘, 핑거조인트 아이콘, 집성 접합부 아이콘.
+- 사이드핑거 집성판: 목재 스트립 아이콘, 측면 핑거조인트 아이콘, 집성 접합부 아이콘.
+- 탑핑거 집성판: 목재 스트립 아이콘, 상판 핑거조인트 아이콘, 길이 방향 집성 접합부 아이콘.
 - MDF: 목재섬유 아이콘, 압축 코어 아이콘, 가공 아이콘.
 - PB / 파티클보드: Wood Chip 아이콘, Pressed Core 아이콘, 체결 위치 아이콘.
 - 석고보드: Paper 아이콘, Gypsum Core 아이콘, 이음부 아이콘.
 - CRC / 시멘트보드 / 섬유시멘트보드: Cement Matrix 아이콘, Fiber Reinforcement 아이콘, 절단면 아이콘.
 - PF보드: Facing 아이콘, PF Foam Core 아이콘, 이음부 아이콘.
+- 이보드: XPS 단열 코어 아이콘, 표면 마감층 아이콘, 결합 구조 아이콘.
 - XPS: Closed Cell 아이콘, 압출 폼 코어 아이콘, 이음부 아이콘.
 - EPS: Expanded Bead 아이콘, EPS Foam 아이콘, 비드 구조 아이콘.
 - 글라스울: Glass Fiber 아이콘, Fiber Mat 아이콘, 충진 상태 아이콘.
@@ -1806,15 +1821,16 @@ INFOGRAPHIC_STRUCTURE_LIBRARY:
 - 아이콘 형태, 크기, 선 굵기, 배치 비율은 제품군별 고정 스타일을 유지하고 임의 변경하지 않는다.
 
 INFOGRAPHIC_QUALITY_CHECKLIST:
-- 합판: 라멜 구조 금지, 집성판 구조 금지, 블록코어 금지, 집성코어 금지, 교차 적층 구조만 사용, Veneer Layer 사용, 단판 적층 표현, 접착층은 얇은 접착선(Glue Line)으로만 표현, 집성판 아이콘 사용 금지, 근거 없는 수치 생성 금지.
-- 솔리드 집성판: 핑거조인트 없음, 톱니형 접합 없음, 폭 방향 라멜 접합, 라멜 폭 자연스럽게 표현, 접착선 최소 표현, 단판 적층 금지, 근거 없는 수치 생성 금지.
+- 합판: 집성 목재 구조 금지, 집성판 구조 금지, 블록코어 금지, 집성코어 금지, 교차 적층 구조만 사용, Veneer Layer 사용, 단판 적층 표현, 접착층은 얇은 접착선(Glue Line)으로만 표현, 집성판 아이콘 사용 금지, 근거 없는 수치 생성 금지.
+- 솔리드 집성판: 핑거조인트 없음, 톱니형 접합 없음, 폭 방향 목재 스트립 접합, 목재 스트립 폭 자연스럽게 표현, 접착선 최소 표현, 단판 적층 금지, 근거 없는 수치 생성 금지.
 - 사이드핑거: 측면 접합부에만 핑거조인트, 상판 전체 톱니 표현 금지, 단판 적층 금지, 근거 없는 수치 생성 금지.
 - 탑핑거: 상판 또는 길이 방향 접합만 표현, 측면 전체 핑거 금지, 단판 적층 금지, 근거 없는 수치 생성 금지.
-- MDF: 섬유 압축 구조, 라멜 금지, Veneer Layer 금지, 근거 없는 수치 생성 금지.
+- MDF: 섬유 압축 구조, 집성 목재 구조 금지, Veneer Layer 금지, 근거 없는 수치 생성 금지.
 - PB: 우드칩 구조, 섬유 구조 금지, Veneer Layer 금지.
-- 석고보드: Paper / Gypsum / Paper, 단열재 구조 금지, 라멜 금지.
+- 석고보드: Paper / Gypsum / Paper, 단열재 구조 금지, 집성 목재 구조 금지.
 - CRC: 섬유시멘트 구조, 석고보드 구조 금지, 단열재 구조 금지.
-- PF: Facing / PF Foam Core / Facing, XPS 구조 금지, EPS 구조 금지, 글라스울 구조 금지.
+- PF: Facing / PF Foam Core / Facing, 근거 없는 면재 종류와 복합층 생성 금지, XPS 구조 금지, EPS 구조 금지, 글라스울 구조 금지.
+- 이보드: XPS 코어를 단면의 약 80~90%이자 가장 먼저 보이는 핵심 구조로 표현한다. PP층은 표면 바로 아래 상부에만 두고 하부 PP층과 PP → XPS → PP 샌드위치 구조를 금지한다. 도배용/페인트용은 동일 단면에서 표면 질감만 다르게 한다.
 - XPS: Closed Cell, PF 구조 금지, EPS 비드 구조 금지.
 - EPS: 비드 구조, Closed Cell 금지.
 - 글라스울: 섬유 매트 구조, 발포 구조 금지.
@@ -1822,31 +1838,50 @@ INFOGRAPHIC_QUALITY_CHECKLIST:
 - 데크재: 노출 상판, 길이 방향 목재 결, 측면 단면, 피스 고정 위치, 데크 간격만 사용하고 단판 적층, MDF/PB 압축 코어, 석고 코어, 단열재 코어, 근거 없는 성능/내구성/방부 등급 수치 생성을 금지.
 
 제품군별 구조 규칙:
-- 합판(Plywood): 목재 단판(Veneer)을 여러 겹 쌓은 단판 적층(Veneer Layers) 구조. 구조도는 얇은 단판 레이어, 교차 적층 방향, 레이어 사이의 얇은 접착선(Glue Line) 중심. 접착선은 별도 두꺼운 접착층이나 젤 형태로 표현하지 않는다. 허용: 적층, Veneer, Layer, Glue Line. 금지: 라멜, 집성, 핑거조인트, 블록코어, 집성코어, OSB처럼 보이는 조각 코어.
+- 합판(Plywood): 목재 단판(Veneer)을 여러 겹 쌓은 단판 적층(Veneer Layers) 구조. 구조도는 얇은 단판 레이어, 교차 적층 방향, 레이어 사이의 얇은 접착선(Glue Line) 중심. 접착선은 별도 두꺼운 접착층이나 젤 형태로 표현하지 않는다. 허용: 적층, Veneer, Layer, Glue Line. 금지: 집성 목재, 집성, 핑거조인트, 블록코어, 집성코어, OSB처럼 보이는 조각 코어.
 - 합판 라벨 규칙: "접착층"이라는 라벨을 쓰지 말고 반드시 "접착선(Glue Line)" 또는 "얇은 접착선"으로 표기한다.
-- 솔리드 집성판: 원목 라멜을 폭 방향으로 접합한 솔리드 패널 구조. 구조도는 라멜, 폭 접합, 접착 중심. 허용: 라멜, 폭 접합, 접착, 솔리드 패널. 금지: 핑거조인트, Finger Joint, FJ, 탑핑거, 사이드핑거, 톱니형 접합, 길이 방향 접합, 단판 적층, 3~13겹, Veneer Layer, 교차 적층.
+- 솔리드 집성판: 원목 목재 스트립을 폭 방향으로 접합한 솔리드 패널 구조. 구조도는 목재 스트립, 목재 결 방향, 폭 방향 집성 접합부 중심. 허용: 목재 스트립, 목재 결 방향, 집성 접합부, 솔리드 패널. 금지: 핑거조인트, Finger Joint, FJ, 탑핑거, 사이드핑거, 톱니형 접합, 길이 방향 접합, 단판 적층, 3~13겹, Veneer Layer, 교차 적층.
 - 사이드핑거 집성판: 제품명에 사이드핑거, 사이드 핑거, Side Finger가 명확히 포함될 때만 측면 접합부 중심으로 핑거조인트를 표현한다. 표면 전체에 과한 톱니 패턴을 만들지 않는다. 금지: 단판 적층, 3~13겹, Veneer Layer, 교차 적층.
 - 탑핑거 집성판: 제품명에 탑핑거, 탑 핑거, Top Finger가 명확히 포함될 때만 상판 면 또는 길이 방향 접합부에 핑거조인트를 표현한다. 합판식 레이어 단면으로 표현하지 않는다. 금지: 단판 적층, 3~13겹, Veneer Layer, 교차 적층.
-- 핑거조인트 집성판: 제품명에 핑거, FJ, Finger가 명확히 포함될 때만 핑거조인트 표현을 허용한다. 구조도는 라멜, 접합부, 접착 중심. 금지: 단판 적층, 3~13겹, Veneer Layer, 교차 적층.
-- 집성판 / 집성목: 제품명에 핑거, FJ, Finger가 없으면 핑거조인트를 생성하지 않는다. 원목 라멜을 폭 방향으로 접합한 집성 구조로 표현한다. 구조도는 라멜, 접착, 집성, 폭 접합 중심. 허용: Lamella, Edge Glued, Solid Panel. 금지: 핑거조인트, Finger Joint, FJ, 탑핑거, 사이드핑거, 톱니형 접합, 단판 적층, 3~13겹, Veneer Layer, 교차 적층.
-- MDF: 목재 섬유 압축 성형 구조. 구조도는 목재섬유, 고밀도 압축, 균일 구조 중심. 금지: 단판 적층, 라멜 집성.
-- PB / 파티클보드: 우드칩과 접착제를 압축 성형한 구조. 구조도는 Wood Chip, Resin, Pressed Core 중심. 금지: 단판 적층, 라멜 집성, 석고 코어.
-- 석고보드: 석고 코어 양면에 원지를 결합한 구조. 구조도는 원지, 석고 코어, 원지 중심. 금지: 단판 적층, 라멜 집성, 목재 섬유 압축.
-- CRC / 시멘트보드 / 섬유시멘트보드: 시멘트계 원료와 섬유질 원료를 압축 성형한 구조. 구조도는 Cement Matrix, Fiber Reinforcement, Pressed Board 중심. 금지: 단판 적층, 라멜 집성, 석고 코어.
-- PF보드 / 페놀폼 단열재: 페놀수지 발포 단열재 코어에 면재를 복합한 구조. 구조도는 Facing, PF Foam Core, Facing 중심. 금지: 단판 적층, 라멜 집성, 석고 코어.
-- XPS / 아이소핑크 / 압출법 단열재: 폴리스티렌 수지를 압출 발포한 폐쇄 셀 구조. 구조도는 Closed Cell Foam, Extruded Polystyrene, Uniform Foam Core 중심. 허용: 폐쇄 셀, 압출 발포, XPS Core. 금지: PF Core, Glass Wool Fiber, 단판 적층, 라멜 집성.
+- 핑거조인트 집성판: 제품명에 핑거, FJ, Finger가 명확히 포함될 때만 핑거조인트 표현을 허용한다. 구조도는 목재 스트립, 집성 접합부, 목재 결 방향 중심. 금지: 단판 적층, 3~13겹, Veneer Layer, 교차 적층.
+- 집성판 / 집성목: 제품명에 핑거, FJ, Finger가 없으면 핑거조인트를 생성하지 않는다. 원목 목재 스트립을 폭 방향으로 접합한 집성 목재 구조로 표현한다. 구조도는 목재 스트립, 집성 접합부, 목재 결 방향, 폭 방향 접합 중심. 허용: 집성 목재, 목재 스트립, 집성 접합부, 목재 결 방향, Edge Glued, Solid Panel. 금지: 핑거조인트, Finger Joint, FJ, 탑핑거, 사이드핑거, 톱니형 접합, 단판 적층, 3~13겹, Veneer Layer, 교차 적층.
+- MDF: 목재 섬유 압축 성형 구조. 구조도는 목재섬유, 고밀도 압축, 균일 구조 중심. 금지: 단판 적층, 집성 목재 구조.
+- PB / 파티클보드: 우드칩과 접착제를 압축 성형한 구조. 구조도는 Wood Chip, Resin, Pressed Core 중심. 금지: 단판 적층, 집성 목재 구조, 석고 코어.
+- 석고보드: 석고 코어 양면에 원지를 결합한 구조. 구조도는 원지, 석고 코어, 원지 중심. 금지: 단판 적층, 집성 목재 구조, 목재 섬유 압축.
+- CRC / 시멘트보드 / 섬유시멘트보드: 시멘트계 원료와 섬유질 원료를 압축 성형한 구조. 구조도는 Cement Matrix, Fiber Reinforcement, Pressed Board 중심. 금지: 단판 적층, 집성 목재 구조, 석고 코어.
+- PF보드 / 페놀폼 단열재: 기본 구조는 면재 / PF 폼 코어 / 면재다. 상품정보에 알루미늄, GF, 복합면재 근거가 있을 때만 해당 면재를 표현하고, 근거가 없으면 일반 면재 구조를 사용한다. 입력에 없는 면재나 복합층을 생성하지 않는다. 금지: XPS 구조, EPS 비드 구조, 글라스울 섬유 구조, 단판 적층, 집성 목재 구조, 석고 코어.
+- 이보드: 실제 구조는 흰색·연회색 표면 마감층 → 연회색 상부 PP 중공 구조판(약 3T) → 옅은 핑크 계열 XPS 코어로 고정한다. XPS 코어만 핑크 계열을 사용하고 표면 마감층은 핑크색으로 만들지 않는다. 금지: XPS 하부 PP층, PP → XPS → PP 샌드위치, EPS·PF·석고 코어.
+- XPS / 아이소핑크 / 압출법 단열재: 폴리스티렌 수지를 압출 발포한 폐쇄 셀 구조. 구조도는 Closed Cell Foam, Extruded Polystyrene, Uniform Foam Core 중심. 허용: 폐쇄 셀, 압출 발포, XPS Core. 금지: PF Core, Glass Wool Fiber, 단판 적층, 집성 목재 구조.
 - EPS / 스티로폼 / 비드법 단열재: 폴리스티렌 비드를 발포 성형한 단열재. 구조도는 Expanded Bead, EPS Foam, Bead Structure 중심. 허용: 비드 구조, 발포 입자, EPS Core. 금지: 압출 발포 구조, PF Core, Glass Wool Fiber, 단판 적층.
-- 글라스울: 유리섬유를 솜 형태로 집합한 섬유계 단열재. 구조도는 Glass Fiber, Fiber Mat, Air Layer 중심. 허용: 섬유 매트, 유리섬유, 흡음, 단열. 금지: 발포 코어, 단판 적층, 라멜 집성.
-- 미네랄울 / 암면: 광물 섬유를 매트 또는 보드 형태로 성형한 단열재. 구조도는 Mineral Fiber, Fiber Mat, Board Form 중심. 허용: 광물섬유, 섬유 매트, 보드형 단열재. 금지: 발포 코어, 단판 적층, 라멜 집성.
+- 글라스울: 유리섬유를 솜 형태로 집합한 섬유계 단열재. 구조도는 Glass Fiber, Fiber Mat, Air Layer 중심. 허용: 섬유 매트, 유리섬유, 흡음, 단열. 금지: 발포 코어, 단판 적층, 집성 목재 구조.
+- 미네랄울 / 암면: 광물 섬유를 매트 또는 보드 형태로 성형한 단열재. 구조도는 Mineral Fiber, Fiber Mat, Board Form 중심. 허용: 광물섬유, 섬유 매트, 보드형 단열재. 금지: 발포 코어, 단판 적층, 집성 목재 구조.
 - 우레탄폼 / PIR 단열재: 우레탄 또는 PIR 발포 단열재 코어에 면재를 결합한 구조. 구조도는 Facing, Urethane/PIR Foam Core, Facing 중심. 허용: Foam Core, Facing, PIR Core. 금지: PF Core로 단정, Glass Wool Fiber, 단판 적층.
-- 열반사 단열재: 반사 필름과 공기층 또는 완충재를 결합한 구조. 구조도는 Reflective Film, Air Layer, Cushion Layer 중심. 허용: 반사층, 공기층, 알루미늄 필름. 금지: 발포 코어 단정, 단판 적층, 라멜 집성.
+- 열반사 단열재: 반사 필름과 공기층 또는 완충재를 결합한 구조. 구조도는 Reflective Film, Air Layer, Cushion Layer 중심. 허용: 반사층, 공기층, 알루미늄 필름. 금지: 발포 코어 단정, 단판 적층, 집성 목재 구조.
 - 데크재: 실외 바닥이나 테라스 시공에 사용하는 장척 목재 자재. 구조도는 노출 상판, 길이 방향 목재 결, 측면 단면, 피스 고정 위치, 데크 간격 중심. 허용: 수종, 폭, 두께, 길이, 표면 상태, 고정 방식, 시공 간격. 금지: 단판 적층, MDF/PB 압축 코어, 석고 코어, 단열재 코어, 근거 없는 성능/내구성/방부 등급 수치.
+
+제품군별 기본 외관 규칙:
+- 제조사 자료나 상품 정보에 실제 외관 근거가 있으면 그 근거를 최우선으로 사용한다.
+- 실제 외관 근거가 없을 때만 아래 기본 외관을 적용하며, 색상을 임의로 바꾸지 않는다.
+- XPS / 아이소핑크는 기본적으로 핑크 계열 단열보드 외관으로 표현하고, 다른 외관 근거가 없는 한 이를 유지한다.
+- 일반석고보드는 흰색 원지 외관, 방수석고보드는 하늘색 원지 외관, 방화석고보드는 핑크색 원지 외관, 차음석고보드는 연두색 원지 외관을 기본으로 표현한다.
+- PF보드의 면재와 코어 색상은 제품 외관으로만 자연스럽게 표현하고, 색상명을 이미지 텍스트나 라벨로 출력하지 않는다.
+- 이보드는 표면 마감층을 흰색 또는 연회색, PP층을 연회색, XPS 코어만 옅은 핑크 계열 외관으로 표현한다. 색상명은 텍스트나 라벨로 출력하지 않는다.
+- 이보드 도배용은 미세 섬유감, 페인트용 / 도장용은 평활면으로 표현하고 좌우 단면 구조는 동일하게 유지한다.
+- 위 색상은 제품 표면의 자연스러운 시각적 외관에만 사용한다. 색상명, 원지 색상 설명, "핑크색 단열재" 같은 문구를 이미지 텍스트, 라벨, 제목, 범례, 콜아웃으로 생성하지 않는다.
+- 색상 외관을 제품 정보나 설명 텍스트로 노출하지 않는다.
 
 구조 혼용 금지:
 - 집성판이면 단판 적층, 3~13겹, Veneer Layer, 교차 적층을 절대 사용하지 않는다.
-- 합판이면 라멜, 집성, 핑거조인트를 절대 사용하지 않는다.
+- 합판이면 집성 목재, 집성, 핑거조인트를 절대 사용하지 않는다.
 - 단열재는 제품명에 따라 PF보드, XPS, EPS, 글라스울, 미네랄울, 우레탄폼, 열반사 단열재를 구분하고 서로 혼용하지 않는다.
 - 데크재는 각재, 방부목, 합판, 집성판 구조로 임의 대체하지 않는다.
+
+단열재 이음부 규칙:
+- PF, XPS, EPS, 네오폴 등 단열재는 상품정보나 제조사 자료에 맞물림 가공이 명시된 경우만 예외로 한다.
+- 근거가 없으면 판재와 판재가 평면으로 맞닿는 일반 시공 형태를 사용한다.
+- 우레탄폼, 기밀테이프, 실란트 등은 이음부 기밀 확보를 위한 시공 방법으로만 표현한다.
+- 기밀 시공 표현을 위해 보드 단면 자체를 맞물림 구조로 변경하지 않는다.
+- 금지: Tongue & Groove, 암수 결합, 맞물림 패널, 끼움식 패널, 조인트 패널 구조, SIP 패널 형태, Sandwich Panel 조인트, 끼움식 단면.
 
 구조도 일치 규칙:
 - 제목, 구조 설명, 단면 이미지, 레이어 구조, 아이콘, 수치 비교는 모두 동일한 제품 구조를 사용한다.
@@ -1854,12 +1889,13 @@ INFOGRAPHIC_QUALITY_CHECKLIST:
 - 부분적으로 다른 제품군 구조를 혼합하지 않는다.
 - 실제 단면과 최대한 유사하게 표현한다.
 - 합판은 교차 적층 단면으로 표현한다.
-- 집성판은 라멜과 최소한의 접착선 중심으로 표현한다.
+- 집성판은 목재 스트립, 목재 결 방향, 최소한의 집성 접합부 중심으로 표현한다.
 - 솔리드, 핑거조인트, 사이드핑거, 탑핑거는 모두 별도 구조로 표현한다.
 - MDF는 목재 섬유 압축 구조로 표현한다.
 - PB는 Chip 기반 압축 구조로 표현한다.
 - 석고보드는 Paper / Gypsum / Paper 구조로 표현한다.
 - PF보드는 Facing / PF Foam Core / Facing 구조로 표현한다.
+- 이보드는 Extruded Insulation Core 중심으로 표현하고 PP Hollow Board는 표면 바로 아래 상부의 얇은 단일 보조층으로만 둔다.
 
 사실성 우선:
 - 검색성과 디자인보다 실제 제품 구조와 일치하는 설명을 우선한다.
@@ -1871,10 +1907,10 @@ INFOGRAPHIC_QUALITY_CHECKLIST:
 - 강조 가능한 공식 수치 예시는 열전도율, 밀도, 함수율, 흡수율, 압축강도, 접착강도, 준불연 / 불연 / 난연 등급, KS / KC 인증, E0 / E1 등급, 방염 등급, 두께 옵션, 규격이다.
 - 위 공식 수치는 A~M열 또는 제조사 자료에 명확히 있을 때만 사용한다.
 - A~M열에 명확한 수치가 없는 경우 임의 숫자를 생성하지 않는다.
-- 함수율, 밀도, 접착율, 접착률, 라멜 수, 열전도율, 강도, 접착제 도포량 등은 근거가 있을 때만 표시한다.
+- 함수율, 밀도, 접착율, 접착률, 목재 스트립 수, 열전도율, 강도, 접착제 도포량 등은 근거가 있을 때만 표시한다.
 - 근거 없는 수치 섹션은 만들지 않는다.
 - A~M열에 명확한 수치가 없으면 수치 카드나 핵심 수치 섹션을 만들지 않는다.
-- 임의 라멜 수, 임의 접착률, 임의 접착제 도포량, 임의 함수율, 임의 밀도, 임의 열전도율, 임의 강도는 절대 생성하지 않는다.
+- 임의 목재 스트립 수, 임의 접착률, 임의 접착제 도포량, 임의 함수율, 임의 밀도, 임의 열전도율, 임의 강도는 절대 생성하지 않는다.
 - 출처 없는 "100%", 출처 없는 "10장", 출처 없는 "150g/m²", 출처 없는 "8~12%", 출처 없는 "30~50mm" 같은 임의 수치를 생성하지 않는다.
 - 공식 수치가 없으면 수치 카드 생성 금지, 임의 숫자 생성 금지를 지키고 구조 특징, 단면 구조, 비교 포인트, 작업 확인 포인트로 대체한다.
 - 수치가 부족하면 구조 특징, 단면 구조, 작업 확인 포인트, 비교 포인트 섹션으로 대체한다.
@@ -1920,6 +1956,12 @@ function buildTypeAPrompt(data) {
   const rightCompareLabel = isVsCompareMode ? compareParts.slice(1).join(' VS ') : data.productName;
   const productGroup = data.productGroup || getFAQCategoryType(data);
   const compareTargetLower = compareTargetText.toLowerCase();
+  const typeAProductLabel = String(data.category || '') + ' ' + String(data.productName || '');
+  const isEboardFinishCompare = (
+    typeAProductLabel.indexOf('이보드') !== -1 &&
+    compareTargetText.indexOf('도배용') !== -1 &&
+    (compareTargetText.indexOf('페인트용') !== -1 || compareTargetText.indexOf('도장용') !== -1)
+  );
   function hasAnyCompareKeyword(keywords) {
     return keywords.some(function (keyword) {
       return compareTargetLower.indexOf(String(keyword).toLowerCase()) !== -1;
@@ -1946,14 +1988,23 @@ function buildTypeAPrompt(data) {
       )
     );
   const shouldSkipTypeAStructureCompare = isPlywoodOriginCompare || isSameGroupSoftCompare;
-  const typeAGoalInstruction = shouldSkipTypeAStructureCompare
-    ? '- 비교 핵심 포인트까지만 시각화하고 3단은 생성하지 않는다'
-    : '- 비교 핵심 포인트와 좌우 구조 차이를 시각화';
+  const typeAGoalInstruction = isEboardFinishCompare
+    ? '- 이보드 도배용과 페인트용의 동일한 단면 구조를 유지하고 표면 질감 차이만 시각화'
+    : shouldSkipTypeAStructureCompare
+      ? '- 비교 핵심 포인트까지만 시각화하고 3단은 생성하지 않는다'
+      : '- 비교 핵심 포인트와 좌우 구조 차이를 시각화';
   const sourceInstruction = data.source
     ? `- 출처는 작게 표시: "출처: ${data.source}"`
     : '';
-  const secondSectionInstruction = shouldSkipTypeAStructureCompare
+  const secondSectionInstruction = isEboardFinishCompare
     ? `
+2단: 표면 질감 핵심 차이
+- 도배용은 미세 섬유감, 페인트용 / 도장용은 평활면으로 표현한다.
+- 실제 질감 차이는 2개 이하만 사용하고 구조 차이나 반복 설명을 만들지 않는다.
+- 정보가 부족하면 카드 수를 줄이고 빈 공간을 추가 설명으로 채우지 않는다.
+`
+    : shouldSkipTypeAStructureCompare
+      ? `
 2단: 비교 핵심 포인트
 - 좌우 대상의 핵심 차이 2~3개만 카드형으로 표시
 - "무엇이 다른가"만 짧은 키워드로 요약
@@ -1978,8 +2029,15 @@ ${sourceInstruction}
 - 근거 없는 차이 생성 금지
 - 입력값에 실제 차이가 부족하면 확인 가능한 구조, 시공 방식, 특징만 표시
 `;
-  const thirdSectionInstruction = shouldSkipTypeAStructureCompare
+  const thirdSectionInstruction = isEboardFinishCompare
     ? `
+3단: 동일 구조의 표면 비교
+- XPS 코어를 두께의 약 80~90%이자 가장 먼저 보이는 핵심 구조로 표현하고 좌우 단면은 동일하게 유지한다.
+- 표면 마감층은 흰색 또는 연회색 외관에서 질감만 다르게 하고 핑크색으로 만들지 않는다.
+- 약 3T PP층은 연회색 상부 단일층으로만 두고 XPS 하부 PP층과 샌드위치 구조는 금지한다. XPS 코어만 옅은 핑크 계열로 표현하며 색상명은 라벨로 출력하지 않는다.
+`
+    : shouldSkipTypeAStructureCompare
+      ? `
 3단 생성 금지:
 - 이 비교는 1단과 2단까지만 구성한다.
 - 3단 섹션, 3단 제목, 하단 추가 카드, 하단 체크포인트를 만들지 않는다.
@@ -2216,14 +2274,14 @@ ${buildInfographicStructureGuide(data)}
 - 제품군별 구조에 맞는 확대뷰만 사용한다.
 - 합판: veneer layer zoom / cross grain zoom / thin glue line zoom
 - 합판 확대뷰는 반드시 단판 적층(Veneer Layers)만 보여준다.
-- 합판 확대뷰에서 블록코어, 집성코어, 라멜 코어, OSB 조각 코어, 두꺼운 젤 형태 접착층을 만들지 않는다.
+- 합판 확대뷰에서 블록코어, 집성코어, 집성 목재 코어, OSB 조각 코어, 두꺼운 젤 형태 접착층을 만들지 않는다.
 - 합판 접착 표현은 독립된 두꺼운 층이 아니라 단판 사이 얇은 접착선(Glue Line)으로만 표현한다.
 - 합판 접착선은 흰색/노란색의 두꺼운 밴드, 거품, 젤, 충전재처럼 보이면 안 된다.
 - 합판 Type B 라벨에서 "접착층" 단어 금지, "접착선(Glue Line)"만 사용한다.
-- 솔리드 집성판, 집성목, 집성판: lamella zoom / wood grain zoom / edge joint zoom
-- 핑거조인트 집성판: lamella zoom / finger joint zoom / adhesive joint zoom
-- 사이드핑거 집성판: side finger joint zoom / lamella zoom / adhesive joint zoom
-- 탑핑거 집성판: top finger joint zoom / lamella zoom / length joint zoom
+- 솔리드 집성판, 집성목, 집성판: wood strip zoom / wood grain direction zoom / edge-glued joint zoom
+- 핑거조인트 집성판: wood strip zoom / finger joint zoom / glued joint zoom
+- 사이드핑거 집성판: side finger joint zoom / wood strip zoom / glued joint zoom
+- 탑핑거 집성판: top finger joint zoom / wood strip zoom / lengthwise joint zoom
 - 데크재: surface grain zoom / side profile zoom / fastening gap zoom
 - MDF: surface fiber zoom / compressed fiber core zoom / cut edge zoom
 - PB / 파티클보드: surface layer zoom / wood chip core zoom / fastening point zoom
@@ -2236,6 +2294,9 @@ ${buildInfographicStructureGuide(data)}
 - 미네랄울 / 암면: mineral fiber zoom / board edge zoom / tight joint zoom
 - PIR / 우레탄폼: facing zoom / urethane/PIR foam core zoom / joint treatment zoom
 - 열반사 단열재: reflective film zoom / air layer zoom / cushion layer zoom
+- 단열재의 board joint / joint treatment 확대뷰는 근거가 없으면 평면 맞댐 이음부로 표현한다.
+- 우레탄폼, 기밀테이프, 실란트는 시공 보조재로만 표현하고 보드 단면을 Tongue & Groove, 암수 결합, 맞물림 또는 끼움식 패널 구조로 변경하지 않는다.
+- 상품정보나 제조사 자료에 맞물림 가공이 명시된 단열재만 예외로 한다.
 - no product names in this section
 - no title bars in this section
 - each zoom window must show magnified details from the top structure only
@@ -2280,6 +2341,36 @@ ${buildInfographicStructureGuide(data)}
 }
 
 function buildTypeCPrompt(data) {
+  const typeCProductLabel = String(data && data.productName || '') + ' ' + String(data && data.category || '');
+  const isGluedWoodTypeC = (
+    typeCProductLabel.indexOf('집성목') !== -1 || typeCProductLabel.indexOf('집성판') !== -1
+  );
+  const typeCFirstTitle = isGluedWoodTypeC ? '외관' : '1단: 표면 질감 클로즈업';
+  const typeCSecondTitle = isGluedWoodTypeC ? '핵심 비교' : '2단: 표면 비교';
+  const typeCThirdTitle = isGluedWoodTypeC ? '선택 포인트' : '3단: 핵심 질감 키워드';
+  const typeCFirstInstruction = isGluedWoodTypeC
+    ? `- 제품 표면을 크게 보여주는 기존 이미지 중심 구성을 유지
+- 결, 색감, 표면 질감 중 입력 근거가 있는 시각 정보만 최대 2개 사용
+- 향은 시각 정보가 아니므로 제외
+- 결 / 무늬 / 결감, 색감 / 색상 톤, 표면 질감 / 촉감 / 표면감은 각각 같은 정보로 보고 한 번만 사용`
+    : `- "${data.keyValue}"을 중심으로 제품 표면 질감을 크게 보여준다.
+- 나뭇결, 엠보, 코팅감, 광택감, 무늬를 자연스럽게 표현
+- 라벨은 3개 이하`;
+  const typeCSecondInstruction = isGluedWoodTypeC
+    ? `- 외관 영역에서 사용한 결, 색감, 질감, 향은 반복하지 않는다.
+- 폭 방향 집성 방식, 목재 스트립 구성, 집성 접합부, 목재 결 방향, 수종 차이 중 입력 근거가 있는 내용만 최대 2개 사용
+- 집성 접합 / 폭 방향 접합 / 집성부는 같은 정보로 보고 한 번만 사용
+- 정보가 부족하면 항목 수를 줄이고 외관 유의어로 보충하지 않는다.`
+    : `- 비교 차이는 2~3개 짧은 키워드로 표현`;
+  const typeCThirdInstruction = isGluedWoodTypeC
+    ? `- 기존 카드 디자인을 유지하고 접합부 상태 확인, 재단 방향, 표면 상태, 마감 여부 중 입력 근거가 있는 항목만 최대 2개 사용
+- 기존의 단순한 아이콘 표현을 유지하고 새로운 카드나 레이아웃을 만들지 않는다.
+- 외관과 핵심 비교에서 사용한 정보는 반복하지 않는다.
+- 활용 예시, 추천 가구, 아동가구, 테이블 등 용도를 생성하지 않는다.
+- 정보가 부족하면 카드 수를 줄이고 유의어나 설명 문장으로 빈 공간을 채우지 않는다.`
+    : `- 3개 또는 4개 카드형 키워드 구성
+- "${data.keyValue}"과 "${data.emphasis}"에서 질감 관련 키워드만 추출하여 명사형으로 배치
+- 아이콘은 단순하게 표현`;
   return `
 건축자재 B2B 쇼핑몰 상세페이지용 한국어 인포그래픽 이미지를 생성하라.
 
@@ -2307,24 +2398,20 @@ function buildTypeCPrompt(data) {
 
 ${buildInfographicStructureGuide(data)}
 
-1단: 표면 질감 클로즈업
-- "${data.keyValue}"을 중심으로 제품 표면 질감을 크게 보여준다.
-- 나뭇결, 엠보, 코팅감, 광택감, 무늬를 자연스럽게 표현
-- 라벨은 3개 이하
+${typeCFirstTitle}
+${typeCFirstInstruction}
 - 긴 설명문 금지
 
-2단: 표면 비교
+${typeCSecondTitle}
 - 좌우 비교 구조
 - 왼쪽 라벨: "${data.compareTarget}"
 - 오른쪽 라벨: "${data.productName}"
 - 제품명은 이 비교 라벨에서만 1회 허용
-- 비교 차이는 2~3개 짧은 키워드로 표현
+${typeCSecondInstruction}
 - 긴 설명문 금지
 
-3단: 핵심 질감 키워드
-- 3개 또는 4개 카드형 키워드 구성
-- "${data.keyValue}"과 "${data.emphasis}"에서 질감 관련 키워드만 추출하여 명사형으로 배치
-- 아이콘은 단순하게 표현
+${typeCThirdTitle}
+${typeCThirdInstruction}
 - 긴 설명문 금지
 
 절대 금지:
