@@ -1,6 +1,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const crypto = require('crypto');
 const { google } = require('googleapis');
 const OpenAI = require('openai');
 const axios = require('axios');
@@ -11,6 +12,8 @@ dotenv.config({ path: path.join(__dirname, '.env') });
 const SHEET_NAME = '시트4';
 const MAX_ROWS_PER_RUN = 3;
 const DESKTOP_INFO_DIR = path.join(os.homedir(), 'Desktop', '인포');
+const AUDIT_DIR = path.join(DESKTOP_INFO_DIR, 'audit');
+const LOCK_STALE_MS = 30 * 60 * 1000;
 const CAFE24_BASE_URL =
   'https://ecimg.cafe24img.com/pg2383b21973322017/daesan3833/web/prod_detail/infographic';
 const DEFAULT_CONFIG_PATH = path.join(__dirname, 'image-config.json');
@@ -19,6 +22,7 @@ const IMAGE_CONFIG_PATH = process.env.IMAGE_CONFIG_PATH
   : DEFAULT_CONFIG_PATH;
 
 const COL = {
+  PRODUCT_NAME: 2,
   IMAGE_URL: 15,
   IMAGE_PROVIDER: 16,
   PROMPT: 20,
@@ -50,10 +54,21 @@ async function main() {
   const imageConfig = loadImageConfig();
   validateBaseEnv();
   ensureOutputDir();
+  const audit = createAuditLogger();
+  const targetRow = getTargetRowArg(process.argv.slice(2));
+
+  audit.write('run_started', {
+    startedAt: new Date().toISOString(),
+    pid: process.pid,
+    cwd: process.cwd(),
+    scriptPath: __filename,
+    scriptSha256: sha256(fs.readFileSync(__filename)),
+    targetRow,
+  });
 
   const sheets = await getSheetsClient();
   const sheetId = await getSheetId(sheets);
-  const rows = await getPromptCreatedRows(sheets);
+  const rows = await getPromptCreatedRows(sheets, targetRow);
 
   if (rows.length === 0) {
     console.log('처리할 행이 없습니다. U열 = PROMPT_CREATED 인 행이 없습니다.');
@@ -63,8 +78,36 @@ async function main() {
   const providers = createProviders(imageConfig);
 
   for (const row of rows.slice(0, MAX_ROWS_PER_RUN)) {
-    await processRow({ providers, imageConfig, sheets, sheetId, row });
+    await processRow({ providers, imageConfig, sheets, sheetId, row, audit });
   }
+
+  audit.write('run_finished', { finishedAt: new Date().toISOString() });
+}
+
+function getTargetRowArg(args) {
+  const index = args.indexOf('--row');
+  if (index === -1) return null;
+  const row = Number(args[index + 1]);
+  if (!Number.isInteger(row) || row < 2) {
+    throw new Error('--row 뒤에는 2 이상의 행 번호가 필요합니다.');
+  }
+  return row;
+}
+
+function sha256(value) {
+  return crypto.createHash('sha256').update(value).digest('hex');
+}
+
+function createAuditLogger() {
+  fs.mkdirSync(AUDIT_DIR, { recursive: true });
+  const runId = new Date().toISOString().replace(/[:.]/g, '-') + '.' + process.pid;
+  const filePath = path.join(AUDIT_DIR, `run-images.${runId}.jsonl`);
+  return {
+    filePath,
+    write(event, details) {
+      fs.appendFileSync(filePath, JSON.stringify({ event, ...details }) + '\n', 'utf8');
+    },
+  };
 }
 
 function loadImageConfig() {
@@ -129,8 +172,9 @@ function createProviders(imageConfig) {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     providers.gpt = {
       model: imageConfig.gpt_model,
-      generate: async (prompt) => {
+      generate: async (prompt, audit) => {
         const response = await callGptImageAPIWithRetry(openai, imageConfig.gpt_model, prompt);
+        auditOpenAIResponse(audit, response);
         return extractOpenAIImageBuffer(response);
       },
     };
@@ -179,7 +223,7 @@ async function getSheetId(sheets) {
   return sheet.properties.sheetId;
 }
 
-async function getPromptCreatedRows(sheets) {
+async function getPromptCreatedRows(sheets, targetRow) {
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId: process.env.GOOGLE_SHEET_ID,
     range: `${SHEET_NAME}!A:V`,
@@ -194,12 +238,15 @@ async function getPromptCreatedRows(sheets) {
     const prompt = row[COL.PROMPT - 1] || '';
     const status = row[COL.STATUS - 1] || '';
     const imageProvider = row[COL.IMAGE_PROVIDER - 1] || '';
+    const productName = row[COL.PRODUCT_NAME - 1] || '';
+    const isSelectedRow = targetRow === rowIndex;
 
-    if (status === STATUS.PROMPT_CREATED && prompt.trim()) {
+    if ((isSelectedRow || (!targetRow && status === STATUS.PROMPT_CREATED)) && prompt.trim()) {
       rows.push({
         rowIndex,
         prompt,
         imageProvider,
+        productName,
       });
     }
   }
@@ -207,35 +254,54 @@ async function getPromptCreatedRows(sheets) {
   return rows;
 }
 
-async function processRow({ providers, imageConfig, sheets, sheetId, row }) {
+async function processRow({ providers, imageConfig, sheets, sheetId, row, audit }) {
   const { rowIndex, prompt } = row;
   const localFile = path.join(DESKTOP_INFO_DIR, `${rowIndex}.png`);
   const imageUrl = `${CAFE24_BASE_URL}/${rowIndex}.png`;
+  const lock = acquireRowLock(rowIndex);
+
+  if (!lock) {
+    audit.write('row_skipped_locked', { rowIndex, skippedAt: new Date().toISOString() });
+    console.log(`건너뜀: row ${rowIndex}는 다른 프로세스가 처리 중입니다.`);
+    return;
+  }
 
   console.log(`처리 시작: row ${rowIndex}`);
+  audit.write('request_ready', {
+    rowIndex,
+    productName: row.productName,
+    provider: resolveRowProvider(row.imageProvider),
+    promptLength: prompt.length,
+    promptBytes: Buffer.byteLength(prompt, 'utf8'),
+    promptSha256: sha256(Buffer.from(prompt, 'utf8')),
+    promptFirst500: prompt.slice(0, 500),
+    promptLast500: prompt.slice(-500),
+  });
 
   try {
-    const generated = await generateImage({ providers, imageConfig, row });
-    await saveImage(localFile, generated);
+    const generated = await generateImage({ providers, imageConfig, row, audit });
+    const buffer = await materializeImageBuffer(generated);
+    const saved = saveImageAtomically(localFile, buffer);
+    audit.write('image_saved', { rowIndex, ...saved });
     await updateRowSuccess({ sheets, sheetId, rowIndex, imageUrl });
     console.log(`완료: row ${rowIndex} -> ${localFile}`);
   } catch (error) {
+    audit.write('row_failed', { rowIndex, message: normalizeErrorMessage(error) });
     await updateRowError({ sheets, sheetId, rowIndex, error });
     console.error(`실패: row ${rowIndex} -> ${error.message}`);
+  } finally {
+    releaseRowLock(lock);
   }
 }
 
-async function generateImage({ providers, imageConfig, row }) {
+async function generateImage({ providers, imageConfig, row, audit }) {
   const { prompt } = row;
-  console.log('=== 전달 프롬프터 ===');
-  console.log(prompt);
-  console.log('=== 프롬프터 끝 ===');
 
   const primaryProvider = resolveRowProvider(row.imageProvider);
   const fallbackProvider = getFallbackProvider(imageConfig, primaryProvider);
 
   try {
-    return await runProvider(providers, primaryProvider, prompt);
+    return await runProvider(providers, primaryProvider, prompt, audit);
   } catch (error) {
     if (!fallbackProvider) {
       throw error;
@@ -244,7 +310,7 @@ async function generateImage({ providers, imageConfig, row }) {
     console.warn(
       `1차 provider 실패: ${primaryProvider} -> ${error.message}\nfallback provider ${fallbackProvider} 로 재시도합니다.`
     );
-    return runProvider(providers, fallbackProvider, prompt);
+    return runProvider(providers, fallbackProvider, prompt, audit);
   }
 }
 
@@ -272,7 +338,7 @@ function getFallbackProvider(imageConfig, primaryProvider) {
   return fallbackProvider;
 }
 
-async function runProvider(providers, providerName, prompt) {
+async function runProvider(providers, providerName, prompt, audit) {
   const provider = providers[providerName];
 
   if (!provider) {
@@ -286,7 +352,7 @@ async function runProvider(providers, providerName, prompt) {
   }
 
   console.log(`이미지 provider: ${providerName} / model: ${provider.model}`);
-  return provider.generate(prompt);
+  return provider.generate(prompt, audit);
 }
 
 async function callGptImageAPIWithRetry(openai, model, prompt, maxRetry = 3) {
@@ -308,6 +374,21 @@ async function callGptImageAPIWithRetry(openai, model, prompt, maxRetry = 3) {
       throw error;
     }
   }
+}
+
+function auditOpenAIResponse(audit, response) {
+  const data = Array.isArray(response && response.data) ? response.data : [];
+  const first = data[0] || {};
+  audit.write('openai_response', {
+    receivedAt: new Date().toISOString(),
+    responseFields: Object.keys(response || {}),
+    created: response && response.created,
+    usage: response && response.usage,
+    revisedPrompt: first.revised_prompt || null,
+    dataLength: data.length,
+    hasB64Json: typeof first.b64_json === 'string' && first.b64_json.length > 0,
+    hasUrl: typeof first.url === 'string' && first.url.length > 0,
+  });
 }
 
 function extractOpenAIImageBuffer(response) {
@@ -389,10 +470,9 @@ function extractNanoBananaImageBuffer(response) {
   throw new Error('Nano Banana 이미지 응답이 비어 있습니다.');
 }
 
-async function saveImage(localFile, generated) {
+async function materializeImageBuffer(generated) {
   if (generated.type === 'buffer') {
-    fs.writeFileSync(localFile, generated.data);
-    return;
+    return generated.data;
   }
 
   if (generated.type === 'url') {
@@ -400,11 +480,69 @@ async function saveImage(localFile, generated) {
       responseType: 'arraybuffer',
       timeout: 60000,
     });
-    fs.writeFileSync(localFile, Buffer.from(response.data));
-    return;
+    return Buffer.from(response.data);
   }
 
   throw new Error(`지원하지 않는 이미지 저장 타입입니다: ${generated.type}`);
+}
+
+function saveImageAtomically(localFile, buffer) {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const tempFile = `${localFile.slice(0, -4)}.${timestamp}.${process.pid}.tmp.png`;
+  const bufferHash = sha256(buffer);
+
+  fs.writeFileSync(tempFile, buffer, { flag: 'wx' });
+  const tempBuffer = fs.readFileSync(tempFile);
+  const tempHash = sha256(tempBuffer);
+  if (bufferHash !== tempHash) {
+    fs.unlinkSync(tempFile);
+    throw new Error('임시 이미지 파일 해시가 저장 전 버퍼와 일치하지 않습니다.');
+  }
+
+  fs.renameSync(tempFile, localFile);
+  const fileBuffer = fs.readFileSync(localFile);
+  const stat = fs.statSync(localFile);
+  const fileHash = sha256(fileBuffer);
+
+  return {
+    bufferBytes: buffer.length,
+    bufferSha256: bufferHash,
+    tempFile,
+    tempBytes: tempBuffer.length,
+    tempSha256: tempHash,
+    filePath: localFile,
+    fileBytes: stat.size,
+    fileModifiedAt: stat.mtime.toISOString(),
+    fileSha256: fileHash,
+    hashesMatch: bufferHash === tempHash && tempHash === fileHash,
+  };
+}
+
+function acquireRowLock(rowIndex) {
+  const lockPath = path.join(DESKTOP_INFO_DIR, `.row-${rowIndex}.lock`);
+  const payload = JSON.stringify({
+    pid: process.pid,
+    startedAt: new Date().toISOString(),
+    scriptPath: __filename,
+  });
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      fs.writeFileSync(lockPath, payload, { flag: 'wx' });
+      return lockPath;
+    } catch (error) {
+      if (error.code !== 'EEXIST') throw error;
+      const stat = fs.statSync(lockPath);
+      if (Date.now() - stat.mtimeMs <= LOCK_STALE_MS) return null;
+      fs.unlinkSync(lockPath);
+    }
+  }
+
+  return null;
+}
+
+function releaseRowLock(lockPath) {
+  if (lockPath && fs.existsSync(lockPath)) fs.unlinkSync(lockPath);
 }
 
 async function updateRowSuccess({ sheets, sheetId, rowIndex, imageUrl }) {

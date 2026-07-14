@@ -60,6 +60,18 @@ const PRODUCT_CATEGORY_GUIDES = [
     priorityMetrics: ['함수율', '접착 방식']
   },
   {
+    name: '자작합판',
+    keywords: ['자작합판', '자작 합판', '자작나무합판', '자작나무 합판', 'birch plywood', 'birch ply'],
+    keyValue: '앞면·뒷면 표면 상태를 확인하는 자작합판',
+    structure: '얇은 목재 단판을 결 방향이 교차하도록 여러 겹 적층한 판재',
+    emphasisCandidates: ['앞·뒷면 등급', '패치·필러 상태', '노출면', '재단 방향'],
+    useCandidates: ['가구 제작', '캐비닛 제작', '인테리어 노출 패널 제작'],
+    infographicStructure: '얇은 단판의 여러 겹 교차 적층과 앞면·뒷면 표면을 보여주는 구조',
+    infographicKeywords: ['단판', '교차 적층', '앞면', '뒷면', '측면 적층 단면'],
+    forbiddenKeywords: ['접착제', '접착층', '접착부', 'Glue Line', '본드층', '접착선 확대', '등급별 강도 비교', '패치 개수 생성', '전층 자작 단정'],
+    priorityMetrics: ['앞·뒷면 표면 등급', '표면 상태', '두께', '규격']
+  },
+  {
     name: '합판',
     keywords: ['합판', 'plywood', '베니어', 'veneer'],
     keyValue: '단판 교차 적층 구조',
@@ -67,9 +79,9 @@ const PRODUCT_CATEGORY_GUIDES = [
     emphasisCandidates: ['재단 치수', '표면 상태', '마감 방향'],
     useCandidates: ['가구 심재', '벽체 바탕재', '인테리어 제작'],
     infographicStructure: '목재 단판(Veneer)을 교차 적층한 구조',
-    infographicKeywords: ['단판', '교차 적층', '접착층', 'Veneer', 'Layer'],
-    forbiddenKeywords: ['라멜', '집성', '핑거조인트'],
-    priorityMetrics: ['접착등급', '방출등급', '함수율']
+    infographicKeywords: ['단판', '교차 적층', '앞면', '뒷면', '측면 적층 단면', 'Veneer', 'Layer'],
+    forbiddenKeywords: ['라멜', '집성', '핑거조인트', '접착제', '접착층', '접착부', 'Glue Line', '본드층', '접착선 확대'],
+    priorityMetrics: ['앞·뒷면 표면 상태', '두께', '규격', '방출등급']
   },
   {
     name: 'MDF',

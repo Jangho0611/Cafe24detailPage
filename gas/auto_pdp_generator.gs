@@ -4,6 +4,7 @@
 
 const SHEET_ID = '1N11hwkpsc2T9ix4CBbqpkrZKko6RvRreSz4N8Ix2mME';
 const SHEET_NAME = '시트4';
+const IMAGE_VERSION = '20260714';
 
 const COL = {
   CATEGORY: 1,
@@ -128,7 +129,7 @@ function generateHTML(row) {
   }[data.type] || '제품 상세 정보';
 
   const infraImg = data.infographic
-    ? `<div class="ds-infographic"><img src="${data.infographic}" alt="${data.productName} ${sectionTitle}" style="max-width:100%;width:100%;height:auto;display:block;margin:0;"></div>`
+    ? `<div class="ds-infographic"><img src="${appendImageVersion(data.infographic)}" alt="${data.productName} ${sectionTitle}" style="max-width:100%;width:100%;height:auto;display:block;margin:0;"></div>`
     : '';
 
   const prompt = buildHTMLPrompt(data);
@@ -144,6 +145,8 @@ function generateHTML(row) {
     setError(sheet, row, 'JSON 파싱 실패: ' + e.message);
     return;
   }
+
+  content.define = buildProductIntroductionFromKnowledge(data, content.define);
 
   const css = `<style>
 .ds-wrap{max-width:790px;margin:0 auto;font-family:'Pretendard','Apple SD Gothic Neo','Noto Sans KR',sans-serif;line-height:1.75;color:#1C1C1C;}
@@ -188,8 +191,11 @@ function generateHTML(row) {
     .map(function (text) { return '    <p>' + text + '</p>'; })
     .join('\n');
 
+  const isBirchSurfaceGradeRow = entityData.productKnowledge && entityData.productKnowledge.isBirchPlywood &&
+    extractPlywoodSurfaceGrades(data.grade).length > 0;
+  const gradeLabel = isBirchSurfaceGradeRow ? '표면 등급' : '성능·인증';
   const gradeRowHtml = shouldDisplayGrade(data.grade)
-    ? `    <tr><th>성능·인증</th><td>${data.grade}</td></tr>`
+    ? `    <tr><th>${gradeLabel}</th><td>${data.grade}</td></tr>`
     : '';
   const faqItems = buildFAQItems(data, defaultNotes);
   const faqHtml = buildFAQHtml(faqItems);
@@ -356,6 +362,8 @@ function fillMissingProductInfoForActiveRow() {
     return;
   }
 
+  content = normalizePlywoodAutoFillContent(content, data);
+
   missingFields.forEach(function (field) {
     const currentValue = sheet.getRange(row, field.col).getValue();
     const nextValue = normalizeAutoFillGluedWoodTerms(content[field.key]);
@@ -366,6 +374,23 @@ function fillMissingProductInfoForActiveRow() {
 
   sheet.getRange(row, COL.ERROR).setValue('');
   SpreadsheetApp.getActiveSpreadsheet().toast(row + '행 E, H~M 자동보완 완료');
+}
+
+function appendImageVersion(url) {
+  const value = String(url || '').trim();
+  if (!value) return '';
+  return value + (value.indexOf('?') === -1 ? '?' : '&') + 'v=' + encodeURIComponent(getImageVersion());
+}
+
+function getImageVersion() {
+  try {
+    const range = SpreadsheetApp.openById(SHEET_ID).getRangeByName('IMAGE_VERSION');
+    const configuredVersion = range ? String(range.getDisplayValue() || '').trim() : '';
+    return configuredVersion || IMAGE_VERSION;
+  } catch (error) {
+    Logger.log('IMAGE_VERSION 설정값 읽기 실패, 기본값 사용: ' + error.message);
+    return IMAGE_VERSION;
+  }
 }
 
 function normalizeAutoFillGluedWoodTerms(value) {
@@ -379,6 +404,12 @@ function normalizeAutoFillGluedWoodTerms(value) {
 
 function buildAutoFillSpecPrompt(data) {
   const guide = buildProductCategoryGuide(data);
+  const knowledge = buildProductKnowledgeContext(data);
+  const forbiddenKeywords = knowledge.hasAdhesiveEvidence
+    ? guide.forbiddenKeywords.filter(function (keyword) {
+        return ['접착제', '접착층', '접착부', 'Glue Line', '본드층'].indexOf(keyword) === -1;
+      })
+    : guide.forbiddenKeywords;
   return `
 아래 A~D, F~G열 입력값만 근거로 상품 정보 입력값을 보완하라.
 응답은 JSON만 반환한다. 설명 문장, 마크다운, 코드블록은 출력하지 않는다.
@@ -405,7 +436,18 @@ function buildAutoFillSpecPrompt(data) {
 - infographicStructure 기준: ${guide.infographicStructure || '일치 기준 없음'}
 - infographicKeywords 기준: ${guide.infographicKeywords.join(', ') || '일치 기준 없음'}
 - priorityMetrics 기준: ${(guide.priorityMetrics || []).join(', ') || '일치 기준 없음'}
-- forbiddenKeywords: ${guide.forbiddenKeywords.join(', ') || '없음'}
+- forbiddenKeywords: ${forbiddenKeywords.join(', ') || '없음'}
+
+Product Knowledge Context:
+- productGroup: ${knowledge.productGroup}
+- productType: ${knowledge.productType}
+- manufacturer: ${knowledge.manufacturer || '확인 근거 없음'}
+- surfaceGrade: ${knowledge.surfaceGrade || '확인 근거 없음'}
+- faceGrade: ${knowledge.faceGrade || '확인 근거 없음'}
+- backGrade: ${knowledge.backGrade || '확인 근거 없음'}
+- hasAdhesiveEvidence: ${knowledge.hasAdhesiveEvidence}
+- isBirchPlywood: ${knowledge.isBirchPlywood}
+- isWaterResistantPlywood: ${knowledge.isWaterResistantPlywood}
 
 작성 규칙:
 - A~D, F~G열 입력값만 근거로 작성한다.
@@ -413,6 +455,7 @@ function buildAutoFillSpecPrompt(data) {
 - 집성목/집성판은 집성 목재, 폭 방향으로 접합한 목재, 집성 접합부, 목재 결 방향, 집성 구조 표현만 사용한다.
 - 제조사 공식 자료, 인증, 성능, 원산지는 추정하지 않는다.
 - grade는 등급이 아니라 E열 성능·인증 입력값이다.
+- E열 기존값은 참고 근거로만 사용하고 S/BB, B/BB, BB/BB, BB/CP, CP/BB, CP/CP 같은 표면 등급을 grade에 작성하지 않는다.
 - 성능·인증은 추정하지 않는다.
 - A~D, F~G 입력값에 성능, 인증, 처리 상태가 명시되어 있으면 해당 명시값을 짧게 작성한다.
 - 예: 제품명이나 분류에 KD, 방부, 준불연, 불연, 난연, 방염, E0/E1, KS, 내수, 방수, 차음, 흡음이 명시된 경우 해당 표현만 작성한다.
@@ -428,13 +471,26 @@ function buildAutoFillSpecPrompt(data) {
 - 짧은 명사구 또는 짧은 안내 표현으로 작성한다.
 - 제품 상세 HTML 문장이 아니라 시트 입력값으로 쓰기 좋은 형태로 작성한다.
 - 값이 불확실하면 단정하지 않는다.
+- 자작합판 복합 등급은 앞 표기를 앞면, 뒤 표기를 뒷면 표면 등급으로만 해석한다.
+- 자작합판 표면 등급을 구조 성능이나 강도 등급과 연결하지 않는다.
+- 현재 운영 상품/공급사 자작합판에 한해서만 B=최상급, S=상급, BB=중급, CP=하급 기준을 사용한다.
+- 위 기준을 모든 제조사나 다른 자작합판의 공통 등급 체계로 일반화하지 않는다.
+- 현재 운영 상품 기준의 표면 설명은 B=패치가 거의 없고 가장 깨끗한 표면, S=일부 패치 허용, BB=패치와 옹이 허용, CP=더 많은 표면 결함 허용이다.
+- 제조사 근거가 없으면 패치 개수·크기·직경과 수치를 생성하지 않는다.
+- 패치·필러는 해당 표면 등급의 허용 범위에 포함될 수 있으므로 실제 표면을 확인하는 항목으로만 작성한다.
+- 모든 자작합판을 전층 자작 단판으로 단정하지 않는다.
+- 합판류 기본 설명은 얇은 목재 단판의 여러 겹 적층, 앞·뒷면 표면, 측면 적층 단면 중심으로 작성한다.
+- hasAdhesiveEvidence가 false인 합판에는 접착제, 접착층, 접착부, Glue Line, 본드층, 접착 구조, 접착선 확대 표현을 작성하지 않는다.
+- hasAdhesiveEvidence가 true인 합판만 "내수성이 고려된 접착 성능" 수준의 표현을 허용한다.
+- 접착제 수지명, 완전 방수, 외부 영구 사용 가능 여부를 생성하지 않는다.
+${buildGeneratedContentRemedyGuard()}
 
 컬럼별 작성 규칙:
 - keyValue는 구매자가 한눈에 보는 핵심 포지션만 작성한다. 제품명을 반복하지 않는다.
 - keyValue는 상품을 분류·이해하기 위한 짧은 포지션 표현으로 작성하고, structure의 재료·층·제조 방식 설명을 그대로 반복하지 않는다.
 - keyValue 좋은 예: "다층 단판 판재", "시멘트계 바탕 보드", "균일 단면 가공 판재", "페놀폼 단열재".
 - structure는 재료·층·제조 방식만 설명한다.
-- structure 좋은 예: "원목 단판을 교차 적층한 판재", "목재 섬유를 고온고압으로 성형한 판재", "석고 코어 양면에 원지를 결합한 판재", "시멘트와 섬유질 원료를 압축 성형한 보드".
+- structure 좋은 예: "얇은 목재 단판을 여러 겹 적층한 판재", "목재 섬유를 고온고압으로 성형한 판재", "석고 코어 양면에 원지를 결합한 판재", "시멘트와 섬유질 원료를 압축 성형한 보드".
 - keyValue와 structure는 같은 문장이나 같은 의미로 반복하지 않는다.
 - keyValue가 제품의 핵심 포지션이면 structure는 그 포지션의 재료, 층 구성, 제조 방식을 설명한다.
 - keyValue와 structure 조합 예: keyValue "시멘트계 보드 / 벽체·천장 바탕재", structure "시멘트와 섬유질 원료를 압축 성형한 보드".
@@ -457,6 +513,7 @@ function buildAutoFillSpecPrompt(data) {
 규격: ${data.size}
 제조사: ${data.maker}
 비교대상: ${data.compareTarget}
+E열 기존 성능·인증 참고값: ${data.grade || ''}
   `;
 }
 
@@ -488,6 +545,235 @@ function getRowData(sheet, row) {
     infographic: sheet.getRange(row, COL.IMAGE_URL).getValue(),
     type: sheet.getRange(row, COL.TYPE).getValue()
   };
+}
+
+function parsePlywoodSurfaceGrade(data) {
+  const text = [
+    data && data.productName,
+    data && data.grade,
+    data && data.category
+  ].map(function (value) { return String(value || ''); }).join(' ');
+  const match = text.match(/(?:^|[^A-Z])(BB|CP|S|B)\s*\/\s*(BB|CP|S|B)(?=$|[^A-Z])/i);
+  if (!match) return null;
+
+  const faceGrade = String(match[1]).toUpperCase();
+  const backGrade = String(match[2]).toUpperCase();
+  const surfaceGrade = faceGrade + '/' + backGrade;
+  const supportedGrades = ['S/BB', 'B/BB', 'BB/BB', 'BB/CP', 'CP/BB', 'CP/CP'];
+  if (supportedGrades.indexOf(surfaceGrade) === -1) return null;
+
+  return {
+    surfaceGrade: surfaceGrade,
+    faceGrade: faceGrade,
+    backGrade: backGrade
+  };
+}
+
+function getCurrentSupplierBirchGradeDescription(grade) {
+  const descriptions = {
+    B: { level: '최상급', surface: '패치가 거의 없고 가장 깨끗한 표면' },
+    S: { level: '상급', surface: '일부 패치 허용' },
+    BB: { level: '중급', surface: '패치와 옹이 허용' },
+    CP: { level: '하급', surface: '더 많은 표면 결함 허용' }
+  };
+  return descriptions[String(grade || '').toUpperCase()] || { level: '', surface: '' };
+}
+
+function extractPlywoodSurfaceGrades(value) {
+  const text = String(value || '');
+  const supportedGrades = ['S/BB', 'B/BB', 'BB/BB', 'BB/CP', 'CP/BB', 'CP/CP'];
+  const matches = [];
+  const pattern = /(?:^|[^A-Z])(BB|CP|S|B)\s*\/\s*(BB|CP|S|B)(?=$|[^A-Z])/gi;
+  let match;
+  while ((match = pattern.exec(text)) !== null) {
+    const surfaceGrade = String(match[1]).toUpperCase() + '/' + String(match[2]).toUpperCase();
+    if (supportedGrades.indexOf(surfaceGrade) !== -1) matches.push(surfaceGrade);
+  }
+  return matches;
+}
+
+function buildPlywoodGradeComparisonContext(data, knowledge) {
+  const compareTarget = cleanEntityValue(data && data.compareTarget);
+  const grades = extractPlywoodSurfaceGrades(compareTarget);
+  const currentGrade = knowledge && knowledge.surfaceGrade || '';
+  const hasListSeparator = /[,，、;]/.test(compareTarget) || compareTarget.indexOf('여러 등급') !== -1;
+  const hasExplicitVs = /\s+VS\s+/i.test(compareTarget);
+  let targetGrade = '';
+
+  if (!hasListSeparator && currentGrade) {
+    if (grades.length === 1 && grades[0] !== currentGrade) {
+      targetGrade = grades[0];
+    } else if (hasExplicitVs && grades.length === 2) {
+      if (grades[0] === currentGrade && grades[1] !== currentGrade) targetGrade = grades[1];
+      if (grades[1] === currentGrade && grades[0] !== currentGrade) targetGrade = grades[0];
+    }
+  }
+
+  const targetParts = targetGrade.split('/');
+  return {
+    compareGrades: grades,
+    hasMultipleGrades: hasListSeparator || grades.length > (hasExplicitVs ? 2 : 1),
+    canCompareSurfaceGrade: targetGrade !== '',
+    targetSurfaceGrade: targetGrade,
+    targetFaceGrade: targetParts[0] || '',
+    targetBackGrade: targetParts[1] || ''
+  };
+}
+
+function buildProductKnowledgeContext(data) {
+  const values = [
+    data && data.category,
+    data && data.productName,
+    data && data.grade,
+    data && data.maker,
+    data && data.compareTarget,
+    data && data.keyValue,
+    data && data.source,
+    data && data.structure,
+    data && data.emphasis,
+    data && data.use1,
+    data && data.use2
+  ];
+  const label = values.map(function (value) { return String(value || ''); }).join(' ');
+  const lowerLabel = label.toLowerCase();
+  const productLabel = [data && data.category, data && data.productName]
+    .map(function (value) { return String(value || ''); })
+    .join(' ');
+  const lowerProductLabel = productLabel.toLowerCase();
+  const mdfEvidenceLabel = [
+    data && data.productName,
+    data && data.compareTarget,
+    data && data.keyValue,
+    data && data.structure,
+    data && data.emphasis
+  ].map(function (value) { return String(value || ''); }).join(' ').toLowerCase();
+  const isPlywood = lowerProductLabel.indexOf('합판') !== -1 || lowerProductLabel.indexOf('plywood') !== -1;
+  const isBirchPlywood = isPlywood && [
+    '자작합판', '자작 합판', '자작나무합판', '자작나무 합판', 'birch plywood', 'birch ply'
+  ].some(function (keyword) { return lowerProductLabel.indexOf(keyword) !== -1; });
+  const isWaterResistantPlywood = isPlywood && [
+    '내수합판', '내수 합판', '준내수합판', '준내수 합판', '방수합판', '방수 합판',
+    'wbp', 'exterior glue', 'exterior bonded', '접착등급', '접착 등급', '사용환경 등급'
+  ].some(function (keyword) { return lowerLabel.indexOf(keyword) !== -1; });
+  const grade = parsePlywoodSurfaceGrade(data);
+  const stockType = cleanEntityValue(data && data.stockType);
+  const availableSurfaceGrades = [];
+  [data && data.productName, data && data.grade].forEach(function (value) {
+    extractPlywoodSurfaceGrades(value).forEach(function (surfaceGrade) {
+      if (availableSurfaceGrades.indexOf(surfaceGrade) === -1) availableSurfaceGrades.push(surfaceGrade);
+    });
+  });
+  if (availableSurfaceGrades.length < 2) {
+    extractPlywoodSurfaceGrades(data && data.compareTarget).forEach(function (surfaceGrade) {
+      if (availableSurfaceGrades.indexOf(surfaceGrade) === -1) availableSurfaceGrades.push(surfaceGrade);
+    });
+  }
+  const birchGradeOrder = { B: 0, S: 1, BB: 2, CP: 3 };
+  availableSurfaceGrades.sort(function (left, right) {
+    const leftParts = left.split('/');
+    const rightParts = right.split('/');
+    return (birchGradeOrder[leftParts[0]] - birchGradeOrder[rightParts[0]]) ||
+      (birchGradeOrder[leftParts[1]] - birchGradeOrder[rightParts[1]]);
+  });
+  const context = {
+    productGroup: getFAQCategoryType(data),
+    productType: isBirchPlywood ? 'BIRCH_PLYWOOD' : (isPlywood ? 'PLYWOOD' : 'DEFAULT'),
+    manufacturer: cleanEntityValue(data && data.maker),
+    compareTarget: cleanEntityValue(data && data.compareTarget),
+    surfaceGrade: grade ? grade.surfaceGrade : '',
+    faceGrade: grade ? grade.faceGrade : '',
+    backGrade: grade ? grade.backGrade : '',
+    hasAdhesiveEvidence: isWaterResistantPlywood,
+    isBirchPlywood: isBirchPlywood,
+    isWaterResistantPlywood: isWaterResistantPlywood,
+    hasMdfInput: mdfEvidenceLabel.indexOf('mdf') !== -1 || mdfEvidenceLabel.indexOf('엠디에프') !== -1,
+    stockType: stockType,
+    availableSurfaceGrades: availableSurfaceGrades
+  };
+  context.faceGradeDescription = getCurrentSupplierBirchGradeDescription(context.faceGrade);
+  context.backGradeDescription = getCurrentSupplierBirchGradeDescription(context.backGrade);
+  const gradeComparison = buildPlywoodGradeComparisonContext(data, context);
+  context.compareGrades = gradeComparison.compareGrades;
+  context.hasMultipleCompareGrades = gradeComparison.hasMultipleGrades;
+  context.canCompareSurfaceGrade = isBirchPlywood && gradeComparison.canCompareSurfaceGrade;
+  context.targetSurfaceGrade = gradeComparison.targetSurfaceGrade;
+  context.targetFaceGrade = gradeComparison.targetFaceGrade;
+  context.targetBackGrade = gradeComparison.targetBackGrade;
+  context.targetFaceGradeDescription = getCurrentSupplierBirchGradeDescription(context.targetFaceGrade);
+  context.targetBackGradeDescription = getCurrentSupplierBirchGradeDescription(context.targetBackGrade);
+  const isBirchInventoryStockType = stockType === '재고' || stockType === '일부재고';
+  context.isBirchStockCompare = isBirchPlywood && isBirchInventoryStockType && context.surfaceGrade === 'S/BB' &&
+    cleanEntityValue(data && data.compareTarget).indexOf('미송합판') !== -1;
+  context.isBirchStockGuide = isBirchPlywood && isBirchInventoryStockType && context.surfaceGrade === 'S/BB' &&
+    !context.isBirchStockCompare;
+  context.isBirchOrderGradeGuide = isBirchPlywood && stockType === '주문재' && availableSurfaceGrades.length > 1;
+  return context;
+}
+
+function buildBirchOrderGradeCardGuide(grades) {
+  return (grades || []).map(function (surfaceGrade) {
+    const parts = surfaceGrade.split('/');
+    return '- ' + surfaceGrade + ' 카드: 앞면 ' + parts[0] + ' / 뒷면 ' + parts[1];
+  }).join('\n');
+}
+
+function removeUnsupportedPlywoodAdhesiveText(value, context) {
+  let text = String(value || '');
+  if (!context || context.productGroup !== 'PLYWOOD') return text.trim();
+
+  text = text
+    .replace(/완전\s*방수|물에\s*절대\s*강\w*|외부\s*영구\s*사용\w*/g, '')
+    .replace(/페놀(?:수지)?\s*접착제|요소(?:수지)?\s*접착제|멜라민(?:수지)?\s*접착제/gi, '접착 성능');
+
+  if (context.hasAdhesiveEvidence) {
+    text = text.replace(/접착\s*강도|접착\s*품질|접착\s*상태|접착\s*구조|접착층|접착부|접착제|본드층|Glue Line/gi, '내수성이 고려된 접착 성능');
+  } else {
+    text = text
+      .replace(/(?:얇은\s*)?접착선(?:\s*\(\s*Glue Line\s*\))?/gi, '')
+      .replace(/Glue Line/gi, '')
+      .replace(/수지\s*접착층|본드층|접착층\s*확대|접착선\s*확대|접착부\s*균일성|접착\s*강도|접착\s*품질|접착\s*상태|접착\s*구조|접착층|접착부|접착제/gi, '')
+      .replace(/\s*[,，、]\s*[,，、]+/g, ', ')
+      .replace(/^[\s,，、]+|[\s,，、]+$/g, '');
+  }
+
+  return text.replace(/\s{2,}/g, ' ').trim();
+}
+
+function getProductKnowledgeStructure(data, context) {
+  if (context && context.productGroup === 'PLYWOOD') {
+    return '얇은 목재 단판을 여러 겹 적층한 판재';
+  }
+  return cleanEntityValue(data && data.structure);
+}
+
+function normalizePlywoodAutoFillContent(content, data) {
+  const context = buildProductKnowledgeContext(data);
+  if (context.productGroup !== 'PLYWOOD') return content;
+
+  const next = Object.assign({}, content || {});
+  ['keyValue', 'structure', 'emphasis', 'use1', 'use2'].forEach(function (key) {
+    next[key] = removeUnsupportedPlywoodAdhesiveText(next[key], context);
+  });
+  next.structure = getProductKnowledgeStructure(data, context);
+
+  if (context.isBirchPlywood) {
+    next.keyValue = context.surfaceGrade
+      ? '앞면·뒷면 표면 등급이 표시되는 자작합판'
+      : '표면 상태를 확인하는 자작합판';
+    next.emphasis = context.surfaceGrade
+      ? context.faceGrade + ' 앞면과 ' + context.backGrade + ' 뒷면, 패치·필러 상태, 노출면과 규격 확인'
+      : '앞·뒷면 표면 상태, 노출면, 규격 확인';
+  }
+
+  if (!cleanEntityValue(data && data.source)) {
+    next.source = '';
+  }
+
+  if (parsePlywoodSurfaceGrade({ productName: next.grade })) {
+    next.grade = '확인 필요';
+  }
+
+  return next;
 }
 
 function cleanEntityValue(value) {
@@ -529,8 +815,9 @@ function inferEntityMaterial(data, productGroup) {
 
 function buildEntityData(data) {
   const productGroup = getFAQCategoryType(data);
+  const knowledge = buildProductKnowledgeContext(data);
   const uses = uniqueCleanTerms([data.use1, data.use2]);
-  const cautions = splitEntityTerms(data.emphasis);
+  const cautions = splitEntityTerms(removeCommerceRemedyGuidance(data.emphasis));
   const preorderChecks = [];
 
   if (cleanEntityValue(data.size)) preorderChecks.push('규격');
@@ -541,8 +828,11 @@ function buildEntityData(data) {
   return {
     productName: cleanEntityValue(data.productName),
     productGroup: productGroup,
+    productType: knowledge.productType,
+    productKnowledge: knowledge,
+    keyValue: cleanEntityValue(removeCommerceRemedyGuidance(data.keyValue)),
     material: inferEntityMaterial(data, productGroup),
-    structure: cleanEntityValue(data.structure),
+    structure: cleanEntityValue(removeCommerceRemedyGuidance(data.structure)),
     size: cleanEntityValue(data.size),
     thickness: cleanEntityValue(data.thickness),
     maker: cleanEntityValue(data.maker),
@@ -554,7 +844,9 @@ function buildEntityData(data) {
 }
 
 function cleanHumanWritingText(text) {
-  return limitAndUsage(String(text || '')
+  return limitAndUsage(removeCommerceRemedyGuidance(String(text || ''))
+    .replace(/적층\s*구조\s*[.]\s*판재입니다[.]/g, '적층 구조의 판재입니다.')
+    .replace(/구조\s*[.]\s*판재입니다[.]/g, '구조의 판재입니다.')
     .replace(/용도로 선택됩니다/g, '에 많이 사용합니다')
     .replace(/선택됩니다/g, '사용합니다')
     .replace(/활용됩니다/g, '사용합니다')
@@ -580,6 +872,34 @@ function cleanHumanWritingText(text) {
     .trim());
 }
 
+function removeCommerceRemedyGuidance(text) {
+  const remedyPattern = /(?:교환|반품|환불|보상|클레임|무상\s*교체|판매처\s*문의|상담\s*후)|(?:^|[^A-Za-z])A\/?S(?:$|[^A-Za-z])/i;
+  return String(text || '')
+    .split(/(\n+|[^.!?\n]*[.!?])/)
+    .filter(function (sentence) {
+      return !remedyPattern.test(sentence);
+    })
+    .join('')
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+function buildGeneratedContentRemedyGuard(outputType) {
+  if (outputType === 'image') {
+    return '\n- 교환·반품·환불·보상·문의 등 판매 후 조치 문구를 생성하지 않는다.\n';
+  }
+  return `
+판매 후 조치 문구 생성 금지:
+- 상품 콘텐츠에서 판매 후 권리구제, 판매자 대응, 금전 처리 또는 이의 접수를 권장·요청·문의하도록 유도하지 않는다.
+- 기준 미달이나 품질 불만을 이유로 판매처 조치를 권하는 문장 및 동일 의미의 유사 표현을 생성하지 않는다.
+- 확인 필요, 표면 상태, 패치·필러, 옹이, 색상 편차를 판매 후 조치 안내로 연결하지 않는다.
+- 패치·필러·옹이·색상 편차는 등급 허용 범위와 실제 제품 상태를 확인하는 중립 표현으로만 설명한다.
+- 상품 하자 여부나 소비자 권리를 축소하거나 법적 판매 정책을 새로 만들지 않는다.
+- 금지 문장을 삭제한 공간은 다른 문장으로 채우지 않는다.
+`;
+}
+
 function filterAISummaryText(text) {
   return cleanHumanWritingText(text);
 }
@@ -587,7 +907,7 @@ function filterAISummaryText(text) {
 function getHumanExpressionDictionary(productGroup) {
   const dictionaries = {
     PLYWOOD: {
-      summaryDefinition: function (name) { return name + getSubjectParticle(name) + ' 얇은 단판을 겹쳐 만든 판재입니다.'; },
+      summaryDefinition: function (name) { return name + getSubjectParticle(name) + ' 얇은 목재 단판을 여러 겹 적층한 판재입니다.'; },
       summaryUse: function (useText) { return useText + '에 많이 사용합니다.'; },
       preorder: '주문 전에는 두께, 규격, 마감 방향을 확인하는 것이 좋습니다.',
       secondaryUse: function (useText) { return useText + getUseParticle(useText) + '도 함께 봅니다.'; }
@@ -645,6 +965,16 @@ function buildAISummary(entity) {
   const name = cleanEntityValue(entity.productName) || '이 제품';
   const uses = entity.uses || [];
   const dictionary = getHumanExpressionDictionary(entity.productGroup);
+  const knowledge = entity.productKnowledge || {};
+
+  if (knowledge.isBirchPlywood) {
+    summary.push('자작합판은 얇은 목재 단판을 여러 겹 적층한 판재입니다.');
+    if (uses.length > 0) {
+      summary.push(buildNaturalUseList(uses) + '에 사용하는 판재입니다.');
+    }
+    summary.push('주문 전에는 규격과 노출면으로 사용할 면을 확인합니다.');
+    return summary.map(filterAISummaryText).filter(function (text) { return text !== ''; }).slice(0, 3);
+  }
 
   summary.push(buildAISummaryDefinition(entity));
 
@@ -809,7 +1139,7 @@ function buildFAQCheckAnswer(data) {
 function buildFAQProcessAnswer(data) {
   const categoryType = getFAQCategoryType(data);
   const answers = {
-    PLYWOOD: '재단 방향과 마감면을 먼저 정하고, 현장 치수에 맞춰 가공 조건을 확인하세요.',
+    PLYWOOD: '재단이 필요한 경우 규격과 작업 방향을 확인하세요.',
     MDF: '재단면과 표면 마감 상태를 확인하고, 도장이나 필름 작업 조건에 맞춰 진행하세요.',
     GYPSUM: '절단면 파손을 줄이도록 취급하고, 이음부와 고정 간격을 현장 조건에 맞춰 확인하세요.',
     PF: '단열층 손상과 연결 부위 틈을 줄이도록 재단하고, 마감 방법을 함께 확인하세요.',
@@ -875,9 +1205,362 @@ function buildFAQItems(data, notes) {
   ];
 }
 
+function buildProductSpecificFAQItems(entity) {
+  const productName = cleanEntityValue(entity && entity.productName);
+  const compareTarget = cleanEntityValue(entity && entity.compareProduct);
+  const knowledge = entity && entity.productKnowledge || {};
+  function items(firstQuestion, firstAnswer, secondQuestion, secondAnswer, thirdQuestion, thirdAnswer) {
+    return [
+      { question: firstQuestion, answer: firstAnswer },
+      { question: secondQuestion, answer: secondAnswer },
+      { question: thirdQuestion, answer: thirdAnswer }
+    ].map(function (item) {
+      return {
+        question: cleanHumanWritingText(item.question),
+        answer: cleanHumanWritingText(item.answer)
+      };
+    });
+  }
+
+  if (isUvCoatedBirchFinishCompare({ productName: productName, compareTarget: compareTarget })) {
+    return items(
+      'UV 하도와 UV 상도는 무엇이 다른가요?',
+      'UV 하도는 후속 도장이나 추가 마감을 위한 바탕 단계이고, UV 상도는 표면 보호를 위한 최종 마감 단계입니다.',
+      'UV 하도 제품은 언제 선택하나요?',
+      '후속 도장이나 추가 마감 작업을 계획한 경우 바탕 단계로 선택합니다.',
+      'UV 상도 제품은 추가 마감 없이 사용할 수 있나요?',
+      'UV 상도는 최종 UV 마감이 완료된 상태로 사용하는 제품입니다. 방수나 절대적인 내구성 보장을 뜻하지는 않습니다.'
+    );
+  }
+
+  if (/오징어합판|아로합판/.test(productName)) {
+    return items(
+      '오징어합판(아로합판)은 어디에 사용하나요?',
+      '라운드 카운터 벽면, 곡선 기둥 감싸기 등 곡면을 구현하는 작업에 사용합니다.',
+      '오징어합판은 왜 곡면 시공이 가능한가요?',
+      '얇은 단판을 휘어질 수 있는 방향으로 배열한 유연한 구조여서 곡면 형태에 맞춰 시공할 수 있습니다.',
+      '오징어합판은 일반합판과 무엇이 다른가요?',
+      '일반합판보다 특정 방향으로 휘어지는 구조에 초점을 둔 판재로, 곡면 벽체와 라운드 가구 제작에 사용합니다.'
+    );
+  }
+
+  if (knowledge.isBirchPlywood && knowledge.surfaceGrade) {
+    if (knowledge.isBirchOrderGradeGuide || (knowledge.availableSurfaceGrades || []).length > 1) {
+      return items(
+        'B/BB, BB/BB, CP/BB는 무엇을 뜻하나요?',
+        '슬래시 앞은 앞면, 뒤는 뒷면의 표면 등급을 뜻하며 각 표기는 앞면과 뒷면의 조합입니다.',
+        '자작합판 주문 등급별 표면 차이는 무엇인가요?',
+        '현재 상품·공급사 기준으로 B, S, BB, CP 순서의 표면 상태와 허용되는 패치·옹이·색상 편차가 다릅니다.',
+        '표면 등급이 합판의 강도 차이를 뜻하나요?',
+        '표면 등급은 외관과 허용 결함 기준이며 구조 강도와는 별도로 확인해야 합니다.'
+      );
+    }
+    return items(
+      knowledge.surfaceGrade + '는 무엇을 뜻하나요?',
+      knowledge.surfaceGrade + '는 현재 상품·공급사 기준으로 앞면 ' + knowledge.faceGrade + ', 뒷면 ' + knowledge.backGrade + '의 표면 등급 조합을 뜻합니다.',
+      '표면의 패치나 필러는 불량인가요?',
+      '패치와 필러는 표면 등급에서 허용될 수 있는 보수 흔적입니다. 실제 허용 범위는 상품·공급사 기준과 입고 상태를 함께 확인합니다.',
+      '표면 등급이 높으면 합판의 강도도 더 높은가요?',
+      '표면 등급은 외관과 허용 결함 기준이며 구조 강도와는 별도로 확인해야 합니다.'
+    );
+  }
+
+  if (/내수\s*합판/.test(productName)) {
+    return items(
+      '내수합판은 일반합판과 무엇이 다른가요?',
+      '내수합판은 습기가 있는 환경을 고려한 접착 성능을 적용한 합판입니다.',
+      '내수합판은 어떤 공간에 사용하나요?',
+      '주방 가구나 욕실 주변처럼 습기 노출을 고려해야 하는 공간에 사용합니다.',
+      '내수합판은 방수합판인가요?',
+      '내수 접착 성능을 고려한 제품이지만 물에 직접 노출되는 완전 방수 자재로 단정할 수는 없습니다.'
+    );
+  }
+
+  if (/일반합판/.test(productName)) {
+    return items(
+      '일반합판은 어디에 사용하나요?',
+      '가구 심재, 벽체와 천장 바탕재, 인테리어 제작 등에 사용합니다.',
+      '동남아산과 베트남산 일반합판은 어떤 차이가 있나요?',
+      '적층 구조는 같으며 제품별 단판 균일성, 표면 상태와 외관 편차에서 차이가 나타날 수 있습니다.',
+      '노출 마감용 일반합판은 무엇이 중요한가요?',
+      '노출할 면의 표면 상태와 외관 편차가 마감 목적에 맞는지 판단하는 것이 중요합니다.'
+    );
+  }
+
+  if (/미송합판/.test(productName)) {
+    return items(
+      '미송합판은 어떤 표면이 특징인가요?',
+      '자연스러운 목재 결과 색감이 드러나는 표면이 특징입니다.',
+      '미송합판 유절과 무절은 무엇이 다른가요?',
+      '유절은 옹이가 드러나는 자연스러운 표면이고, 무절은 큰 옹이를 줄인 비교적 깨끗한 표면입니다.',
+      '미송합판은 어떤 마감에 사용하나요?',
+      '목재 결과 표면을 살리는 벽체 패널, 가구 전면과 인테리어 알판 등에 사용합니다.'
+    );
+  }
+
+  if (/태고합판/.test(productName)) {
+    return items(
+      '태고합판은 어떤 합판인가요?',
+      '합판 표면에 필름을 적용해 거푸집 작업에 사용하는 판재입니다.',
+      '태고합판과 내수합판은 무엇이 다른가요?',
+      '태고합판은 표면 필름과 거푸집 용도가 핵심이고, 내수합판은 습기 환경을 고려한 접착 성능이 핵심입니다.',
+      '태고합판은 어디에 사용하나요?',
+      '건축 거푸집과 외부 가설 작업에 사용합니다.'
+    );
+  }
+
+  if (/코아합판/.test(productName)) {
+    return items(
+      '코아합판은 어떤 구조인가요?',
+      '중심 블록 코어 양면에 단판을 붙인 구조의 판재입니다.',
+      '코아합판은 일반합판과 무엇이 다른가요?',
+      '얇은 단판을 여러 겹 적층한 일반합판과 달리 중심부에 블록 코어가 있습니다.',
+      '코아합판은 어떤 제작에 사용하나요?',
+      '붙박이장 긴 선반이나 신발장 문짝처럼 넓고 긴 부재 제작에 사용합니다.'
+    );
+  }
+
+  if (/미장합판/.test(productName)) {
+    return items(
+      '미장합판은 어떤 합판인가요?',
+      '일반 합판 바탕에 천연 무늬목을 적용해 표면 질감을 살린 마감용 합판입니다.',
+      '미장합판은 일반합판과 무엇이 다른가요?',
+      '구조용 바탕에 주로 쓰는 일반합판과 달리 천연 무늬목 표면을 노출 마감에 활용합니다.',
+      '미장합판은 어디에 사용하나요?',
+      '인테리어 알판이나 벽체처럼 목재 표면을 드러내는 마감에 사용합니다.'
+    );
+  }
+
+  if (/코팅\s*합판/.test(productName)) {
+    return items(
+      '코팅합판은 어떤 판재인가요?',
+      '합판 표면에 마감 필름을 적용해 별도 표면 작업을 줄인 판재입니다.',
+      '백색 코팅합판과 MDF는 무엇이 다른가요?',
+      '백색 코팅합판은 합판 바탕에 마감 필름을 적용하고, MDF는 목재 섬유를 압축한 판재입니다.',
+      '백색 코팅합판은 어디에 사용하나요?',
+      '가구 내부 박스와 서랍 내부재처럼 백색 마감면이 필요한 곳에 사용합니다.'
+    );
+  }
+
+  if (/낙엽송\s*합판/.test(productName)) {
+    return items(
+      '낙엽송 엠보합판은 어떤 표면이 특징인가요?',
+      '낙엽송의 선명한 나뭇결을 브러싱해 입체감을 살린 표면이 특징입니다.',
+      '낙엽송합판과 미송합판은 무엇이 다른가요?',
+      '낙엽송 엠보합판은 입체적인 결 표현이 중심이고, 미송합판은 자연스러운 목재 결과 옹이 표현이 중심입니다.',
+      '낙엽송 엠보합판은 어디에 사용하나요?',
+      '아트월이나 상가 카운터 전면처럼 나뭇결을 강조하는 마감에 사용합니다.'
+    );
+  }
+
+  if (/^MDF$/i.test(productName)) {
+    return items(
+      'MDF는 무엇인가요?',
+      'MDF는 목재 섬유를 고르게 압축해 만든 판재입니다.',
+      'MDF와 PB는 무엇이 다른가요?',
+      'MDF는 목재 섬유를 압축한 균일한 판재이고, PB는 목재 칩을 압착한 판재입니다.',
+      'MDF는 도장·필름 작업에 어떻게 활용하나요?',
+      '균일한 표면과 가공성을 활용해 가구 도장이나 필름 래핑 바탕으로 사용합니다.'
+    );
+  }
+
+  if (/OSB/i.test(productName)) {
+    return items(
+      'OSB는 어떤 판재인가요?',
+      '직사각형 목재 스트랜드를 방향성 있게 배열해 성형한 판재입니다.',
+      'OSB 내장용과 외장용은 무엇이 다른가요?',
+      '사용 환경 구분이 다르므로 제품에 표시된 내장용·외장용 용도를 기준으로 선택합니다.',
+      '내장용 OSB는 어디에 사용하나요?',
+      '목조주택 벽체 바탕이나 목재 조각 질감을 살린 실내 벽면에 사용합니다.'
+    );
+  }
+
+  if (/CRC\s*보드/i.test(productName)) {
+    return items(
+      'CRC보드는 어떤 판재인가요?',
+      '시멘트계 바탕과 섬유 보강 구조를 사용하는 건식 판재입니다.',
+      'CRC보드와 석고보드는 무엇이 다른가요?',
+      'CRC보드는 시멘트계 판재이고 석고보드는 석고 코어를 원지로 감싼 판재로, 재료와 가공 특성이 다릅니다.',
+      'CRC보드는 어디에 사용하나요?',
+      '벽체와 칸막이, 천장 바탕 시공에 사용합니다.'
+    );
+  }
+
+  if (/이보드/.test(productName)) {
+    return items(
+      '이보드는 어떤 단열재인가요?',
+      '압출법 단열재 위에 PP 중공 구조판을 결합한 복합 단열 보드입니다.',
+      '이보드 도배용과 페인트용은 무엇이 다른가요?',
+      '후속 마감 방식에 맞춰 표면 사양이 구분되며 도배 또는 페인트 작업 목적에 맞게 선택합니다.',
+      '이보드는 어떤 작업에 사용하나요?',
+      '결로가 발생하기 쉬운 벽면이나 베란다 확장부의 내단열과 후속 마감 바탕에 사용합니다.'
+    );
+  }
+
+  if (/GCS\s*보드/i.test(productName)) {
+    return items(
+      'GCS보드는 어떤 제품인가요?',
+      '단열재 위에 시멘트계 보드를 결합한 복합 내단열 보드입니다.',
+      'GCS보드와 이보드는 무엇이 다른가요?',
+      'GCS보드는 시멘트계 표면 보드를, 이보드는 PP 중공 구조판을 결합한 제품으로 표면 구성과 마감 방식이 다릅니다.',
+      'GCS보드는 어떤 공간에 사용하나요?',
+      '복도나 대피공간 등 내단열과 보드 마감이 함께 필요한 공간에 사용합니다.'
+    );
+  }
+
+  if (/뉴송\s*각재/.test(productName)) {
+    return items(
+      '뉴송 각재는 어디에 사용하나요?',
+      '건축 가설재와 팔레트·포장재 등 하중을 받는 목재 부재로 사용합니다.',
+      '뉴송 각재와 소송 각재는 무엇이 다른가요?',
+      '수종에 따른 조직과 무게, 표면 상태가 다르므로 실제 사용 목적과 규격에 맞춰 구분합니다.',
+      '뉴송 각재는 어떤 작업에 적합한가요?',
+      '가설 구조나 중량물 패킹처럼 단면 규격과 지지 역할이 중요한 작업에 사용합니다.'
+    );
+  }
+
+  if (/구조재/.test(productName)) {
+    return items(
+      '마감용 구조재는 어떤 목재인가요?',
+      '4면 대패와 모서리 가공을 적용해 구조 역할과 노출 마감을 함께 고려한 목재입니다.',
+      '골조용과 마감용 구조재는 무엇이 다른가요?',
+      '마감용은 노출되는 표면과 모서리 가공을 함께 고려하고, 골조용은 구조 시공 목적이 중심입니다.',
+      '마감용 구조재는 어디에 사용하나요?',
+      '중목구조나 노출 천장 보처럼 구조재 표면이 보이는 위치에 사용합니다.'
+    );
+  }
+
+  if (/방부목/.test(productName)) {
+    return items(
+      '방부목은 일반 목재와 무엇이 다른가요?',
+      '외부의 수분과 해충 노출을 고려해 방부 처리를 적용한 목재입니다.',
+      '방부목과 합성목재는 무엇이 다른가요?',
+      '방부목은 처리한 천연 목재이고 합성목재는 목분과 수지 등을 조합한 재료로, 재료 구성과 표면 특성이 다릅니다.',
+      '방부목은 어디에 사용하나요?',
+      '외부 데크 바닥과 야외 울타리처럼 외기에 노출되는 목재 시공에 사용합니다.'
+    );
+  }
+
+  if (/집성판|집성목/.test(productName)) {
+    return items(
+      '집성판은 어떻게 만든 목재인가요?',
+      '여러 목재 부재를 폭 방향으로 접합해 넓은 판재로 만든 목재입니다.',
+      '원목과 집성판은 무엇이 다른가요?',
+      '원목은 하나의 목재에서 얻은 재료이고 집성판은 여러 목재 부재를 접합해 필요한 폭으로 만든 판재입니다.',
+      '집성판은 어떤 제작에 사용하나요?',
+      '가구, 선반, 테이블 상판, 계단재와 인테리어 마감 제작에 사용합니다.'
+    );
+  }
+
+  if (/방수\s*석고보드/.test(productName)) {
+    return items(
+      '방수석고보드는 일반석고보드와 무엇이 다른가요?',
+      '석고 코어와 표면에 습기 대응 처리를 적용해 일반석고보드보다 습한 공간을 고려한 제품입니다.',
+      '방수석고보드는 어떤 공간에 사용하나요?',
+      '욕실 벽체의 타일 바탕이나 주방 싱크대 배면처럼 습기 노출을 고려하는 곳에 사용합니다.',
+      '방수석고보드는 완전 방수 자재인가요?',
+      '습기 대응용 석고보드이며 지속적인 침수에 사용하는 완전 방수 자재로 단정할 수는 없습니다.'
+    );
+  }
+
+  if (/방화\s*석고보드/.test(productName)) {
+    return items(
+      '방화석고보드는 일반석고보드와 무엇이 다른가요?',
+      '고온 환경에서 형상 유지를 돕는 보강 구조와 내화 재료를 적용한 석고보드입니다.',
+      '방화석고보드는 어디에 사용하나요?',
+      '방화 구획 벽체, 엘리베이터 홀과 세대 간 경계벽 등 방화 성능이 요구되는 구조에 사용합니다.',
+      '방화석고보드만 사용하면 방화벽이 완성되나요?',
+      '방화 성능은 보드 한 장만이 아니라 벽체 구성, 두께, 겹 수, 고정과 이음부 시공 조건을 함께 확인해야 합니다.'
+    );
+  }
+
+  if (/차음\s*석고보드/.test(productName)) {
+    return items(
+      '차음석고보드는 어떤 제품인가요?',
+      '일반석고보드보다 밀도가 높은 석고 코어를 적용해 차음 벽체 구성에 사용하는 보드입니다.',
+      '차음석고보드와 일반석고보드는 무엇이 다른가요?',
+      '차음석고보드는 소음 전달을 줄이는 벽체 구성을 고려한 고밀도 제품이고 일반석고보드는 일반 벽체와 천장 바탕용입니다.',
+      '차음석고보드는 어디에 사용하나요?',
+      '세대 간 경계벽이나 회의실 칸막이처럼 소음 전달을 고려하는 벽체에 사용합니다.'
+    );
+  }
+
+  if (/석고텍스/.test(productName)) {
+    return items(
+      '석고텍스는 어떤 천장재인가요?',
+      '전면 패턴과 뒷면 고정용 구조를 갖춰 천장 마감면으로 사용하는 석고계 텍스입니다.',
+      '석고텍스와 석고보드는 무엇이 다른가요?',
+      '석고텍스는 노출 천장 마감용이고 석고보드는 벽체와 천장의 바탕 시공에 주로 사용합니다.',
+      '석고텍스는 어디에 사용하나요?',
+      '사무실, 학교와 학원 등의 천장 마감에 사용합니다.'
+    );
+  }
+
+  if (/일반\s*석고보드/.test(productName)) {
+    return items(
+      '일반석고보드는 어디에 사용하나요?',
+      '사무실 벽체와 아파트 천장 등 건식 벽체·천장 바탕에 사용합니다.',
+      '일반석고보드와 방수석고보드는 무엇이 다른가요?',
+      '일반석고보드는 건조한 실내 바탕용이고 방수석고보드는 습기 노출을 고려한 처리를 적용한 제품입니다.',
+      '일반석고보드를 습기가 있는 공간에 사용해도 되나요?',
+      '일반석고보드는 건조한 실내가 기본이며 습기 노출이 예상되면 해당 환경에 맞는 석고보드를 선택합니다.'
+    );
+  }
+
+  if (/PF\s*보드/i.test(productName)) {
+    return items(
+      'PF보드는 어떤 단열재인가요?',
+      '페놀수지 발포층에 면재를 더한 보드형 단열재입니다.',
+      'PF보드와 XPS는 무엇이 다른가요?',
+      'PF보드는 페놀수지 발포 코어를, XPS는 압출 성형한 독립기포 폴리스티렌 구조를 사용하는 단열재입니다.',
+      'PF보드는 어떤 단열 시공에 사용하나요?',
+      '외벽과 바닥, 기초 단열처럼 보드 규격과 접합부 처리를 함께 고려하는 시공에 사용합니다.'
+    );
+  }
+
+  if (/아이소핑크|XPS/i.test(productName)) {
+    return items(
+      '아이소핑크(XPS)는 어떤 단열재인가요?',
+      '독립기포 구조를 가진 압출법 폴리스티렌 보온판입니다.',
+      'XPS와 EPS는 무엇이 다른가요?',
+      'XPS는 압출 성형한 연속 독립기포 구조이고 EPS는 발포 비드를 성형한 구조로 제조 방식과 내부 조직이 다릅니다.',
+      '아이소핑크는 어디에 사용하나요?',
+      '바닥 난방 하부나 지하층 외벽처럼 단열과 하중 조건을 함께 고려하는 위치에 사용합니다.'
+    );
+  }
+
+  if (/그라스울|글라스울/.test(productName)) {
+    return items(
+      '글라스울은 어떤 단열재인가요?',
+      '유리 원료를 섬유화해 매트 형태로 만든 흡음·단열재입니다.',
+      '글라스울과 스카이비바는 무엇이 다른가요?',
+      '두 제품은 원료와 섬유 구조, 밀도와 적용 부위가 다를 수 있으므로 각 제품의 명시된 사양을 기준으로 비교합니다.',
+      '글라스울은 어디에 사용하나요?',
+      '경량철골 칸막이 내부나 샌드위치 패널 심재처럼 빈 공간을 채우는 단열·흡음 용도에 사용합니다.'
+    );
+  }
+
+  if (/열반사\s*단열재/.test(productName)) {
+    return items(
+      '열반사 단열재는 어떤 제품인가요?',
+      '알루미늄 호일과 발포 폴리에틸렌층을 조합해 복사열 반사를 고려한 얇은 단열재입니다.',
+      '열반사 단열재는 보드형 단열재와 무엇이 다른가요?',
+      '두꺼운 발포 코어로 열전달을 줄이는 보드형 단열재와 달리 얇은 반사층과 공기층 조건을 활용합니다.',
+      '열반사 단열재는 어디에 사용하나요?',
+      '리모델링 외벽 틈새나 구조 코너처럼 시공 공간이 제한된 위치에 사용합니다.'
+    );
+  }
+
+  return [];
+}
+
 function buildProductGroupFAQItems(entity, notes) {
   const productGroup = entity && entity.productGroup;
   const productName = cleanEntityValue(entity && entity.productName) || '이 제품';
+  const knowledge = entity && entity.productKnowledge || {};
+  const productSpecificItems = buildProductSpecificFAQItems(entity);
+  if (productSpecificItems.length > 0) return productSpecificItems;
+
   const itemsByGroup = {
     PLYWOOD: [
       {
@@ -965,6 +1648,16 @@ function buildProductGroupFAQItems(entity, notes) {
     ]
   };
 
+  if (productGroup === 'PLYWOOD' && !knowledge.hasMdfInput) {
+    itemsByGroup.PLYWOOD = itemsByGroup.PLYWOOD.filter(function (item) {
+      return item.question.indexOf('MDF') === -1;
+    });
+    itemsByGroup.PLYWOOD.push({
+      question: '재단 전에 무엇을 확인해야 하나요?',
+      answer: '앞·뒷면 표면 상태와 노출면을 확인하고, 재단이 필요한 경우 규격과 작업 방향을 확인하세요.'
+    });
+  }
+
   return (itemsByGroup[productGroup] || []).map(function (item) {
     return {
       question: cleanHumanWritingText(item.question),
@@ -1003,6 +1696,7 @@ ${itemHtml}
 }
 
 function buildSchemaHtml(data, defineText, faqItems) {
+  const productKnowledge = buildProductKnowledgeContext(data);
   const productSchema = {
     '@context': 'https://schema.org',
     '@type': 'Product',
@@ -1042,7 +1736,7 @@ function buildSchemaHtml(data, defineText, faqItems) {
   if (shouldDisplayGrade(data.grade)) {
     additionalProperty.push({
       '@type': 'PropertyValue',
-      name: '성능·인증',
+      name: productKnowledge.isBirchPlywood && extractPlywoodSurfaceGrades(data.grade).length > 0 ? '표면 등급' : '성능·인증',
       value: String(data.grade).trim()
     });
   }
@@ -1402,14 +2096,23 @@ function shouldDisplayGrade(value) {
 }
 
 function buildHTMLNoteFacts(data) {
-  return [
-    data.structure ? '구조: ' + data.structure : '',
-    data.keyValue ? '핵심 구조 표현: ' + data.keyValue : '',
+  const knowledge = buildProductKnowledgeContext(data);
+  const facts = [];
+  if (knowledge.isBirchPlywood) {
+    facts.push('제품 지식: 얇은 목재 단판을 여러 겹 적층한 자작합판');
+    if (knowledge.surfaceGrade) {
+      facts.push('표면 등급: 앞면 ' + knowledge.faceGrade + ', 뒷면 ' + knowledge.backGrade);
+    }
+    facts.push('확인사항: 앞·뒷면 표면 상태, 노출면, 패치·필러 상태, 규격');
+  }
+  return facts.concat([
+    getProductKnowledgeStructure(data, knowledge) ? '구조: ' + removeCommerceRemedyGuidance(getProductKnowledgeStructure(data, knowledge)) : '',
+    data.keyValue ? '핵심 구조 표현: ' + removeCommerceRemedyGuidance(removeUnsupportedPlywoodAdhesiveText(data.keyValue, knowledge)) : '',
     data.use1 ? '현장 사용 정보: ' + data.use1 : '',
     data.use2 ? '현장 사용 정보: ' + data.use2 : '',
-    data.emphasis ? '입력 강조 정보: ' + data.emphasis : '',
+    data.emphasis ? '입력 강조 정보: ' + removeCommerceRemedyGuidance(removeUnsupportedPlywoodAdhesiveText(data.emphasis, knowledge)) : '',
     data.source ? '제조사 자료 출처: ' + data.source : ''
-  ].filter(function (text) { return text && String(text).trim() !== ''; });
+  ]).filter(function (text) { return text && String(text).trim() !== ''; });
 }
 
 function cleanNoteSource(text) {
@@ -1637,10 +2340,18 @@ function hasOverlappingNoteTopic(notes, note) {
 
 function buildDefaultNotes(data) {
   const notes = [];
-  const cleanStructure = cleanNoteSource(data.structure);
+  const knowledge = buildProductKnowledgeContext(data);
+  const cleanStructure = cleanNoteSource(getProductKnowledgeStructure(data, knowledge));
   const cleanUse1 = cleanNoteSource(data.use1);
   const cleanUse2 = cleanNoteSource(data.use2);
-  const cleanEmphasis = cleanNoteSource(data.emphasis);
+  const cleanEmphasis = cleanNoteSource(removeUnsupportedPlywoodAdhesiveText(data.emphasis, knowledge));
+
+  if (knowledge.isBirchPlywood) {
+    notes.push('노출 마감은 사용할 면의 실제 표면 상태를 먼저 확인합니다.');
+    notes.push('패치·필러는 해당 등급에서 허용되는 보수 흔적일 수 있으며 실제 표면 상태를 함께 확인합니다.');
+    notes.push('재단이 필요한 경우에는 사용할 규격과 재단 치수를 먼저 확인합니다.');
+    return notes;
+  }
 
   if (cleanStructure) {
     notes.push(buildStructureNote(cleanStructure, data));
@@ -1722,14 +2433,93 @@ function setError(sheet, row, message) {
 }
 
 function buildInfographicPrompt(data) {
-  if (data.type === 'A') return buildTypeAPrompt(data);
-  if (data.type === 'B') return buildTypeBPrompt(data);
-  if (data.type === 'C') return buildTypeCPrompt(data);
-  return null;
+  let prompt = null;
+  if (data.type === 'A') prompt = buildTypeAPrompt(data);
+  if (data.type === 'B') prompt = buildTypeBPrompt(data);
+  if (data.type === 'C') prompt = buildTypeCPrompt(data);
+  const outputType = buildProductKnowledgeContext(data).productGroup === 'PLYWOOD' ? 'image' : '';
+  return prompt ? prompt + buildGeneratedContentRemedyGuard(outputType) : null;
+}
+
+function isUvCoatedBirchFinishCompare(data) {
+  const productName = String(data && data.productName || '');
+  const compareTarget = String(data && data.compareTarget || '');
+  return /UV\s*코팅\s*자작(?:나무)?합판/i.test(productName) &&
+    /UV/i.test(compareTarget) &&
+    compareTarget.indexOf('상도') !== -1 &&
+    compareTarget.indexOf('하도') !== -1;
 }
 
 function buildInfographicStructureGuide(data) {
   const guide = buildProductCategoryGuide(data);
+  const knowledge = buildProductKnowledgeContext(data);
+  if (isUvCoatedBirchFinishCompare(data)) {
+    return `
+UV 코팅 자작합판 전용 가이드:
+- 제품 정체성은 자작합판 원판에 UV 코팅 공정을 적용한 판재이다.
+- 공정 순서는 "원판 → 샌딩 → UV 하도 → UV 상도"로 고정한다.
+- UV 하도는 최종 마감 전의 바탕 단계, UV 상도는 표면 보호를 위한 최종 마감 단계로 구분한다.
+- 하도와 상도를 광택 차이만으로 비교하지 않고 공정 단계, 마감 완료 여부, 후속 작업 필요 여부를 시각화한다.
+- S/BB·B/BB 등 표면 등급, 앞면·뒷면 등급 카드, 일반 합판 단면 확대, 접착층 확대를 생성하지 않는다.
+- 상도를 두꺼운 투명막처럼 과장하거나 하도를 미완성 불량품처럼 표현하지 않는다.
+- 방수·완전 방수·긁힘 방지·스크래치 완전 차단·오염 방지·내구성 보장·구조 강도 우위 표현을 생성하지 않는다.
+`;
+  }
+  const forbiddenKeywords = knowledge.hasAdhesiveEvidence
+    ? guide.forbiddenKeywords.filter(function (keyword) {
+        return ['접착제', '접착층', '접착부', 'Glue Line', '본드층'].indexOf(keyword) === -1;
+      })
+    : guide.forbiddenKeywords;
+  if (knowledge.productGroup === 'PLYWOOD') {
+    const adhesiveRule = knowledge.hasAdhesiveEvidence
+      ? '- 내수·준내수 또는 공식 접착등급 근거가 있으므로 "내수성이 고려된 접착 성능" 수준만 보조 설명할 수 있다. 완전 방수, 수지명, 외부 영구 사용은 생성하지 않는다.'
+      : '- 접착 성능 근거가 없으므로 접착제·접착층·접착부·Glue Line·본드층·접착선의 생성·비교·확대뷰를 금지한다.';
+    const isKnotlessPineCompare = knowledge.isBirchStockCompare &&
+      /미송합판\s*\(\s*무절\s*\)/.test(String(data.compareTarget || ''));
+    const birchOperationRule = knowledge.isBirchStockCompare
+      ? `- 이 재고 상품은 자작합판 S/BB와 실제 compareTarget인 미송합판을 비교한다.
+- 자작합판 카드 안에 앞면 S·뒷면 BB 정보를 보조 표시하고 임의 자작합판 등급 비교는 생성하지 않는다.
+${isKnotlessPineCompare
+  ? '- 미송합판(무절)은 큰 옹이 없이 자연스러운 미송 결·약한 색상 변화를 유지하고, 자작합판 S보다 덜 균일하지만 일반 미송합판보다 깨끗하게 표현한다.'
+  : '- 미송합판은 실제 입력 범위에서 미송 단판 적층, 목재 결·옹이, 다른 표면 색감·무늬만 표현한다.'}`
+      : knowledge.isBirchStockGuide
+      ? `- 이 재고 상품은 S/BB 단일 설명형으로 구성하고 VS를 생성하지 않는다.
+- S 앞면은 BB 뒷면보다 깨끗하게, BB는 CP 수준으로 과장하지 말고 표현한다.
+- 노출면은 S면을 우선 확인하며 실제 표면 상태는 입고 제품 기준으로 확인한다.`
+      : knowledge.isBirchOrderGradeGuide
+        ? `- 이 주문재 상품은 복수 등급 안내형으로 구성하고 등급 목록을 한쪽 VS 대상으로 묶지 않는다.
+- 각 복합 등급을 독립 카드로 나누고 앞면·뒷면을 각각 표시한다.
+${buildBirchOrderGradeCardGuide(knowledge.availableSurfaceGrades)}
+- 같은 BB면은 모든 카드에서 동일한 표면 품질로 표현한다.`
+        : '';
+    const birchSurfaceRule = knowledge.isBirchOrderGradeGuide
+      ? `- 현재 상품/공급사 기준은 B > S > BB > CP이며 다른 제조사의 공통 기준으로 일반화하지 않는다.
+- 시각 기준: B는 가장 깨끗하고 균일한 표면, S는 B보다 일부 패치·작은 옹이·색상 편차 허용, BB는 S보다 패치·작은 옹이·필러 흔적·색상 편차가 한눈에 더 보이는 일반 표면, CP는 BB보다 표면 보수·옹이·색상 편차가 더 보이는 표면이다.
+- CP도 구조적 파손처럼 표현하지 않는다.`
+      : `- 현재 상품/공급사 기준으로 감지된 앞면·뒷면 등급만 설명하고 다른 등급 목록을 생성하지 않는다.`;
+    const birchRule = knowledge.isBirchPlywood
+      ? `- 복합 표면 등급 "${knowledge.surfaceGrade || '확인 근거 없음'}"은 슬래시 앞을 앞면, 뒤를 뒷면 등급으로만 해석한다.
+${birchSurfaceRule}
+- 표면 등급을 강도·내구성·구조 성능과 연결하지 않으며 패치 개수·크기·직경을 추정하지 않는다.
+${birchOperationRule}`
+      : '';
+    return `
+합판 전용 구조 가이드:
+- 제품명: ${data.productName}
+- 비교 대상: ${data.compareTarget || '없음'}
+- 실제 구조: ${getProductKnowledgeStructure(data, knowledge)}
+- 얇은 목재 단판을 여러 겹 적층한 판재로 표현한다.
+- 앞면, 뒷면, 측면 적층 단면만 시각화한다.
+- 확대뷰는 단판 레이어와 앞·뒷면 표면 중 현재 레이아웃에 필요한 항목만 사용한다.
+- 단판 방향 화살표, 층별 방향 비교, 결 방향 카드·아이콘을 생성하지 않는다.
+${birchRule}
+${adhesiveRule}
+- 현재 합판 외 제품 이미지·구조·아이콘과 생활습관·건강 등 무관한 인포그래픽을 생성하지 않는다. Product Fidelity를 유지한다.
+- 입력에 없는 수종·등급·강도·내구성·성능·인증·수치·구조와 우열 비교를 생성하지 않는다.
+- 색상명은 이미지 라벨로 출력하지 않는다.
+- 최종 확인: 현재 상품, 레이아웃, 고정 문구, 구조가 모두 일치하지 않으면 잘못된 요소를 제거한다.
+`;
+  }
   return `
 제품군 기준 DB 우선 적용:
 - 아래 일치 제품군 DB를 가장 우선한다.
@@ -1742,7 +2532,12 @@ function buildInfographicStructureGuide(data) {
 - use 후보: ${guide.useCandidates.join(', ') || '일치 기준 없음'}
 - infographicStructure 기준: ${guide.infographicStructure || '일치 기준 없음'}
 - infographicKeywords 기준: ${guide.infographicKeywords.join(', ') || '일치 기준 없음'}
-- forbiddenKeywords: ${guide.forbiddenKeywords.join(', ') || '없음'}
+- forbiddenKeywords: ${forbiddenKeywords.join(', ') || '없음'}
+- productType: ${knowledge.productType}
+- surfaceGrade: ${knowledge.surfaceGrade || '확인 근거 없음'}
+- faceGrade: ${knowledge.faceGrade || '확인 근거 없음'}
+- backGrade: ${knowledge.backGrade || '확인 근거 없음'}
+- hasAdhesiveEvidence: ${knowledge.hasAdhesiveEvidence}
 
 제품군별 고정 레이아웃 템플릿:
 - 합판: 비교 → 핵심 구조 → 적층 단면 → 비교 포인트.
@@ -1757,7 +2552,7 @@ function buildInfographicStructureGuide(data) {
 - 수치가 부족하면 수치 영역을 억지로 만들지 말고 구조, 재질, 비교, 아이콘으로 채운다.
 
 INFOGRAPHIC_STRUCTURE_LIBRARY:
-- PLYWOOD: 단판 적층(Veneer Layers) 단면. 얇은 단판 레이어 / 교차 방향 / 접착선(Glue Line)만 표현한다. 접착선은 독립된 두꺼운 층이 아니라 레이어 사이의 얇은 선으로 표현한다. 블록코어, 집성코어, 집성 목재 코어는 표현하지 않는다.
+- PLYWOOD: 단판 적층(Veneer Layers) 단면. 얇은 단판 레이어 / 교차 방향 / 앞면 / 뒷면 / 측면 적층 단면만 표현한다. 블록코어, 집성코어, 집성 목재 코어는 표현하지 않는다.
 - SOLID_PANEL: 솔리드 목재 스트립 집성 단면. 폭 방향 목재 스트립 접합만 표현하고 핑거조인트는 표현하지 않는다.
 - FINGER_JOINT_PANEL: 핑거조인트 목재 스트립 집성 단면. 목재 스트립 / 집성 접합부 / 핑거조인트만 표현하고 합판식 단판 적층은 표현하지 않는다.
 - SIDE_FINGER_PANEL: 측면 핑거 접합 구조. 측면 접합부 중심으로 표현하고 상판 전체 톱니 패턴은 금지한다.
@@ -1800,7 +2595,7 @@ INFOGRAPHIC_STRUCTURE_LIBRARY:
 - 데크재는 DECK_BOARD만 사용한다.
 
 제품군별 고정 아이콘 규칙:
-- 합판: 교차 적층 아이콘, 단판 레이어 아이콘, 접착층 아이콘.
+- 합판: 교차 적층 아이콘, 단판 레이어 아이콘, 앞면·뒷면 아이콘.
 - 솔리드 집성판 / 집성목 / 집성판: 목재 스트립 아이콘, 목재 결 방향 아이콘, 폭 방향 집성 접합부 아이콘.
 - 핑거조인트 집성판: 목재 스트립 아이콘, 핑거조인트 아이콘, 집성 접합부 아이콘.
 - 사이드핑거 집성판: 목재 스트립 아이콘, 측면 핑거조인트 아이콘, 집성 접합부 아이콘.
@@ -1821,7 +2616,7 @@ INFOGRAPHIC_STRUCTURE_LIBRARY:
 - 아이콘 형태, 크기, 선 굵기, 배치 비율은 제품군별 고정 스타일을 유지하고 임의 변경하지 않는다.
 
 INFOGRAPHIC_QUALITY_CHECKLIST:
-- 합판: 집성 목재 구조 금지, 집성판 구조 금지, 블록코어 금지, 집성코어 금지, 교차 적층 구조만 사용, Veneer Layer 사용, 단판 적층 표현, 접착층은 얇은 접착선(Glue Line)으로만 표현, 집성판 아이콘 사용 금지, 근거 없는 수치 생성 금지.
+- 합판: 집성 목재 구조 금지, 집성판 구조 금지, 블록코어 금지, 집성코어 금지, 교차 적층 구조만 사용, Veneer Layer 사용, 단판 적층 표현, 앞면·뒷면과 측면 적층 단면 사용, 접착제·접착층·접착부·Glue Line·본드층·접착선 확대 금지, 집성판 아이콘 사용 금지, 근거 없는 수치 생성 금지.
 - 솔리드 집성판: 핑거조인트 없음, 톱니형 접합 없음, 폭 방향 목재 스트립 접합, 목재 스트립 폭 자연스럽게 표현, 접착선 최소 표현, 단판 적층 금지, 근거 없는 수치 생성 금지.
 - 사이드핑거: 측면 접합부에만 핑거조인트, 상판 전체 톱니 표현 금지, 단판 적층 금지, 근거 없는 수치 생성 금지.
 - 탑핑거: 상판 또는 길이 방향 접합만 표현, 측면 전체 핑거 금지, 단판 적층 금지, 근거 없는 수치 생성 금지.
@@ -1838,8 +2633,11 @@ INFOGRAPHIC_QUALITY_CHECKLIST:
 - 데크재: 노출 상판, 길이 방향 목재 결, 측면 단면, 피스 고정 위치, 데크 간격만 사용하고 단판 적층, MDF/PB 압축 코어, 석고 코어, 단열재 코어, 근거 없는 성능/내구성/방부 등급 수치 생성을 금지.
 
 제품군별 구조 규칙:
-- 합판(Plywood): 목재 단판(Veneer)을 여러 겹 쌓은 단판 적층(Veneer Layers) 구조. 구조도는 얇은 단판 레이어, 교차 적층 방향, 레이어 사이의 얇은 접착선(Glue Line) 중심. 접착선은 별도 두꺼운 접착층이나 젤 형태로 표현하지 않는다. 허용: 적층, Veneer, Layer, Glue Line. 금지: 집성 목재, 집성, 핑거조인트, 블록코어, 집성코어, OSB처럼 보이는 조각 코어.
-- 합판 라벨 규칙: "접착층"이라는 라벨을 쓰지 말고 반드시 "접착선(Glue Line)" 또는 "얇은 접착선"으로 표기한다.
+- 합판(Plywood): 얇은 목재 단판(Veneer)을 여러 겹 교차 적층한 구조. 구조도는 얇은 단판 레이어, 교차 적층 방향, 앞면, 뒷면, 측면 적층 단면 중심. 허용: 적층, Veneer, Layer, 앞면, 뒷면, 측면 단면. 금지: 접착제, 접착층, 접착부, Glue Line, 본드층, 접착 구조, 접착선 확대, 집성 목재, 집성, 핑거조인트, 블록코어, 집성코어, OSB처럼 보이는 조각 코어.
+- 자작합판에 복합 표면 등급이 있으면 앞면 등급과 뒷면 등급을 표면 라벨로만 표현할 수 있다. 표면 등급을 강도·구조 성능·접착 성능과 연결하지 않는다.
+- 자작합판 등급 설명은 현재 운영 상품/공급사 기준 B=최상급, S=상급, BB=중급, CP=하급만 사용하며 모든 제조사의 공통 규칙으로 일반화하지 않는다.
+- 패치 개수·크기·직경·수치와 전층 자작 구조는 근거 없이 생성하지 않는다.
+- 내수·준내수 또는 공식 접착등급 근거가 있는 합판만 "내수성이 고려된 접착 성능" 수준의 보조 설명을 허용한다. 수지명, 완전 방수, 외부 영구 사용 표현은 금지한다.
 - 솔리드 집성판: 원목 목재 스트립을 폭 방향으로 접합한 솔리드 패널 구조. 구조도는 목재 스트립, 목재 결 방향, 폭 방향 집성 접합부 중심. 허용: 목재 스트립, 목재 결 방향, 집성 접합부, 솔리드 패널. 금지: 핑거조인트, Finger Joint, FJ, 탑핑거, 사이드핑거, 톱니형 접합, 길이 방향 접합, 단판 적층, 3~13겹, Veneer Layer, 교차 적층.
 - 사이드핑거 집성판: 제품명에 사이드핑거, 사이드 핑거, Side Finger가 명확히 포함될 때만 측면 접합부 중심으로 핑거조인트를 표현한다. 표면 전체에 과한 톱니 패턴을 만들지 않는다. 금지: 단판 적층, 3~13겹, Veneer Layer, 교차 적층.
 - 탑핑거 집성판: 제품명에 탑핑거, 탑 핑거, Top Finger가 명확히 포함될 때만 상판 면 또는 길이 방향 접합부에 핑거조인트를 표현한다. 합판식 레이어 단면으로 표현하지 않는다. 금지: 단판 적층, 3~13겹, Veneer Layer, 교차 적층.
@@ -1939,10 +2737,26 @@ INFOGRAPHIC_QUALITY_CHECKLIST:
 [제품군 판단 참고]
 분류: ${data.category}
 제품명: ${data.productName}
-핵심표현: ${data.keyValue}
-구조: ${data.structure}
-강조포인트: ${data.emphasis}
+핵심표현: ${removeCommerceRemedyGuidance(removeUnsupportedPlywoodAdhesiveText(data.keyValue, knowledge))}
+구조: ${removeCommerceRemedyGuidance(getProductKnowledgeStructure(data, knowledge))}
+강조포인트: ${removeCommerceRemedyGuidance(removeUnsupportedPlywoodAdhesiveText(data.emphasis, knowledge))}
   `;
+}
+
+function buildProductIntroductionFromKnowledge(data, fallback) {
+  const knowledge = buildProductKnowledgeContext(data);
+  if (knowledge.productGroup !== 'PLYWOOD') return cleanHumanWritingText(fallback);
+
+  let definition = '얇은 목재 단판을 여러 겹 적층한 판재입니다.';
+  if (knowledge.isBirchPlywood && knowledge.surfaceGrade) {
+    return cleanHumanWritingText('자작합판은 앞면과 뒷면의 표면 등급을 조합해 사용 목적에 맞게 선택합니다.<br><br>현재 상품은 ' + knowledge.surfaceGrade + ' 등급이며, 이 설명은 현재 상품·공급사 기준입니다. 앞면 ' + knowledge.faceGrade + '와 뒷면 ' + knowledge.backGrade + '의 표면 구성을 적용한 제품입니다.<br><br>앞면과 뒷면의 표면 상태가 달라 노출할 면을 먼저 정하고 사용합니다.');
+  }
+
+  const uses = uniqueCleanTerms([data && data.use1, data && data.use2]);
+  const secondSentence = uses.length > 0
+    ? buildNaturalUseList(uses) + '에 사용됩니다.'
+    : '노출 마감 전 앞·뒷면 표면 상태를 확인합니다.';
+  return cleanHumanWritingText(definition + ' ' + secondSentence);
 }
 
 function buildTypeAPrompt(data) {
@@ -1951,10 +2765,36 @@ function buildTypeAPrompt(data) {
     .split(/\s+VS\s+/i)
     .map(function (part) { return part.trim(); })
     .filter(function (part) { return part; });
-  const isVsCompareMode = compareParts.length >= 2;
-  const leftCompareLabel = isVsCompareMode ? compareParts[0] : data.compareTarget;
-  const rightCompareLabel = isVsCompareMode ? compareParts.slice(1).join(' VS ') : data.productName;
+  let isVsCompareMode = compareParts.length >= 2;
+  let leftCompareLabel = isVsCompareMode ? compareParts[0] : data.compareTarget;
+  let rightCompareLabel = isVsCompareMode ? compareParts.slice(1).join(' VS ') : data.productName;
   const productGroup = data.productGroup || getFAQCategoryType(data);
+  const knowledge = buildProductKnowledgeContext(data);
+  const isUvBirchFinishCompare = isUvCoatedBirchFinishCompare(data);
+  const plywoodImageFidelityGuard = '';
+  const isBirchStockPineCompare = knowledge.isBirchStockCompare;
+  const isKnotlessPineCompare = isBirchStockPineCompare && /미송합판\s*\(\s*무절\s*\)/.test(compareTargetText);
+  const pineSurfaceInstruction = isKnotlessPineCompare
+    ? `- 미송합판(무절) 카드 보조 정보: 큰 옹이는 생성하지 않고 작은 점상 흔적만 제한적으로 허용한다.
+- 자연스러운 미송 결과 약한 색상 변화는 유지한다.
+- 표면 균일도는 자작합판 S보다 낮고 일반 미송합판보다 깨끗하게 표현한다.
+- 자작합판과 동일한 텍스처 또는 인공적으로 지나치게 매끈한 표면을 생성하지 않는다.
+- 일반 미송합판의 옹이 많은 표면 규칙을 적용하지 않는다.`
+    : '- 미송합판 카드 보조 정보: 미송 단판 적층 구조, 자연스러운 목재 결과 옹이, 자작합판과 다른 표면 색감·무늬';
+  const isBirchGradeMode = knowledge.isBirchPlywood && knowledge.surfaceGrade && !isBirchStockPineCompare;
+  const isBirchStockGuide = isBirchGradeMode && knowledge.isBirchStockGuide;
+  const isBirchOrderGradeGuide = isBirchGradeMode && knowledge.isBirchOrderGradeGuide;
+  const canCompareBirchGrade = isBirchGradeMode && knowledge.canCompareSurfaceGrade && !isBirchStockGuide && !isBirchOrderGradeGuide;
+  if (canCompareBirchGrade) {
+    isVsCompareMode = true;
+    leftCompareLabel = knowledge.surfaceGrade;
+    rightCompareLabel = knowledge.targetSurfaceGrade;
+  }
+  if (isBirchStockPineCompare) {
+    isVsCompareMode = true;
+    leftCompareLabel = '자작합판 S/BB';
+    rightCompareLabel = isKnotlessPineCompare ? '미송합판(무절)' : '미송합판';
+  }
   const compareTargetLower = compareTargetText.toLowerCase();
   const typeAProductLabel = String(data.category || '') + ' ' + String(data.productName || '');
   const isEboardFinishCompare = (
@@ -1971,6 +2811,23 @@ function buildTypeAPrompt(data) {
     productGroup === 'PLYWOOD' &&
     compareTargetText.indexOf('베트남산') !== -1 &&
     compareTargetText.indexOf('동남아산') !== -1;
+  const waterResistantEvidenceText = [
+    data.category, data.productName, data.grade, data.maker, data.compareTarget,
+    data.keyValue, data.source, data.structure, data.emphasis, data.use1, data.use2
+  ].join(' ');
+  const isKsWaterResistantPlywoodCompare =
+    productGroup === 'PLYWOOD' &&
+    knowledge.isWaterResistantPlywood &&
+    knowledge.hasAdhesiveEvidence === true &&
+    /일반\s*합판/.test(compareTargetText) &&
+    /(?:^|[^A-Z])KS(?:[^A-Z]|$)/i.test(waterResistantEvidenceText);
+  const repeatedGlueCompareBan = productGroup === 'PLYWOOD'
+    ? ''
+    : '- 구조가 같은 경우 접착선, 적층 방향, 공통 단면을 비교 항목으로 억지 생성하지 않는다.';
+  const repeatedGlueThirdBan = productGroup === 'PLYWOOD'
+    ? ''
+    : '- 합판 공통 구조 설명, 단판 적층도, 접착선 비교를 생성하지 않는다.';
+  const repeatedHtmlBan = productGroup === 'PLYWOOD' ? '' : '- 상세설명 HTML 문장 반복 금지';
   const hasDifferentStructureCompareTarget = hasAnyCompareKeyword([
     'pf', '피에프', '페놀', 'xps', '아이소핑크', '압출법', 'eps', '스티로폼', '비드법',
     '글라스울', '미네랄울', '암면', '우레탄', 'pir', 'pb', '파티클', '석고',
@@ -1988,15 +2845,138 @@ function buildTypeAPrompt(data) {
       )
     );
   const shouldSkipTypeAStructureCompare = isPlywoodOriginCompare || isSameGroupSoftCompare;
-  const typeAGoalInstruction = isEboardFinishCompare
+  const typeAGoalInstruction = isUvBirchFinishCompare
+    ? '- UV 코팅 자작합판의 하도와 상도를 등급이 아닌 공정 단계와 사용 목적 차이로 시각화'
+    : isBirchStockPineCompare
+    ? '- 자작합판 S/BB와 미송합판의 실제 표면·무늬 차이를 좌우 비교'
+    : isBirchGradeMode
+    ? isBirchOrderGradeGuide
+      ? '- 주문재의 복수 등급을 독립 카드로 나누어 앞면·뒷면 표면 차이를 안내'
+      : canCompareBirchGrade
+      ? '- 현재 자작합판 복합 등급과 단일 비교 등급의 앞면·뒷면 표면 등급만 분리해 비교'
+      : '- 다른 등급과 비교하지 않고 현재 자작합판 복합 등급의 앞면·뒷면 의미만 설명'
+    : isEboardFinishCompare
     ? '- 이보드 도배용과 페인트용의 동일한 단면 구조를 유지하고 표면 질감 차이만 시각화'
     : shouldSkipTypeAStructureCompare
       ? '- 비교 핵심 포인트까지만 시각화하고 3단은 생성하지 않는다'
       : '- 비교 핵심 포인트와 좌우 구조 차이를 시각화';
+  const firstSectionInstruction = isUvBirchFinishCompare
+    ? `
+1단: UV 코팅 공정 흐름
+- "원판 → 샌딩 → UV 하도 → UV 상도"를 왼쪽에서 오른쪽 순서로 표시한다.
+- 각 단계를 독립된 공정 카드로 연결하고 자작합판 원판에서 최종 UV 마감까지의 진행이 한눈에 보이게 한다.
+- 단면 구조, 앞면·뒷면 등급, 복합 등급 카드를 넣지 않는다.
+`
+    : isBirchStockPineCompare
+    ? `
+1단: 제품 비교
+- 왼쪽 라벨: "자작합판 S/BB"
+- 오른쪽 라벨: "${rightCompareLabel}"
+- 두 라벨 사이에 VS만 표시하고 별도 대제목은 생성하지 않는다.
+- 자작합판 카드 보조 정보: 얇은 단판 여러 겹 적층, 앞면 S / 뒷면 BB, 밝고 비교적 균일한 표면
+${pineSurfaceInstruction}
+- 자작합판의 BB면은 S면보다 패치·작은 옹이·필러 흔적·색상 편차가 한눈에 더 보이게 표현하되 CP 수준으로 과장하지 않는다.
+- 실제 입력에 없는 미송합판 수종 세부정보·성능은 생성하지 않는다.
+`
+    : isBirchGradeMode
+    ? isBirchOrderGradeGuide
+      ? `
+1단: 주문 가능 복합 등급 카드
+${buildBirchOrderGradeCardGuide(knowledge.availableSurfaceGrades)}
+- 각 카드는 독립 항목이며 앞면과 뒷면을 분리해 표시한다.
+- 등급 목록 전체를 한쪽 비교 대상이나 하나의 문자열로 표시하지 않는다.
+- VS와 좌우 제품 비교 레이아웃을 생성하지 않는다.
+`
+      : canCompareBirchGrade
+      ? `
+1단: 복합 표면 등급 비교
+- 왼쪽 라벨: "${knowledge.surfaceGrade}"
+- 왼쪽 앞면: "${knowledge.faceGrade}"
+- 왼쪽 뒷면: "${knowledge.backGrade}"
+- 오른쪽 라벨: "${knowledge.targetSurfaceGrade}"
+- 오른쪽 앞면: "${knowledge.targetFaceGrade}"
+- 오른쪽 뒷면: "${knowledge.targetBackGrade}"
+- 등급 설명은 현재 상품/공급사 기준으로만 한정한다.
+- 왼쪽 앞면 설명: "${knowledge.faceGradeDescription.level} · ${knowledge.faceGradeDescription.surface}"
+- 오른쪽 앞면 설명: "${knowledge.targetFaceGradeDescription.level} · ${knowledge.targetFaceGradeDescription.surface}"
+- 입력된 두 복합 등급 표기를 그대로 유지하고 앞면과 뒷면을 각각 분리해 표시한다.
+- 표면 등급 차이와 뒷면 등급 동일 여부만 표현한다.
+- 강도, 내구성, 구조 성능, 접착 성능 우열로 확대하지 않는다.
+`
+      : `
+1단: 현재 복합 표면 등급 설명
+- 비교 레이아웃과 VS를 생성하지 않는다.
+- 현재 상품 등급 "${knowledge.surfaceGrade}"만 표시한다.
+- 앞면: "${knowledge.faceGrade}"
+- 뒷면: "${knowledge.backGrade}"
+- 슬래시 앞은 앞면, 뒤는 뒷면의 표면 등급임을 설명한다.
+- 현재 상품/공급사 기준 앞면 설명: "${knowledge.faceGradeDescription.level} · ${knowledge.faceGradeDescription.surface}"
+- 현재 상품/공급사 기준 뒷면 설명: "${knowledge.backGradeDescription.level} · ${knowledge.backGradeDescription.surface}"
+- 이 기준을 모든 제조사 자작합판의 공통 규칙으로 일반화하지 않는다.
+- 실제 패치·필러·표면 상태는 입고 제품과 제조사 기준을 확인하도록 안내한다.
+- compareTarget의 여러 등급 목록을 이미지에 표시하지 않는다.
+`
+    : `
+1단: 비교
+- 좌우 비교 구조
+- 왼쪽 라벨: "${leftCompareLabel}"
+- 오른쪽 라벨: "${rightCompareLabel}"
+- 제품명은 이 비교 라벨에서만 1회 허용
+- 비교 차이는 2~3개 짧은 키워드로 표현
+- 비교 문구는 입력값에 실제로 있는 차이만 사용
+- 비교 대상에 "미적용", "높음", "낮음", "관리 기준 낮음" 같은 부정 단정 금지
+- 근거가 부족하면 비교 대상의 단점을 쓰지 말고 오른쪽 제품의 확인 가능한 특징만 표시
+- compareTarget 이름만 있고 비교 대상의 별도 스펙 근거가 없으면 왼쪽 영역은 제품명 또는 중립 이미지로만 표시
+- 왼쪽 비교 영역에 "품질 편차", "방출량 높음", "내수성 낮음", "일반 접착제" 같은 추정 단점 bullet 금지
+- 긴 설명문 금지
+`;
   const sourceInstruction = data.source
     ? `- 출처는 작게 표시: "출처: ${data.source}"`
     : '';
-  const secondSectionInstruction = isEboardFinishCompare
+  const secondSectionInstruction = isUvBirchFinishCompare
+    ? `
+2단: UV 하도 ↔ UV 상도
+- 왼쪽 "UV 하도": 최종 마감 전 단계, 후속 도장 또는 추가 마감용 바탕면, 표면 균일화 목적, 무광 또는 낮은 광택 느낌.
+- 오른쪽 "UV 상도": 최종 UV 마감 완료 단계, 표면 보호를 위한 마감, 바로 사용하는 완성 마감 상태, 하도보다 마감된 표면 느낌.
+- 광택만 다르게 표현하지 않고 마감 완료 여부, 후속 작업 필요 여부, 표면 보호 마감 여부를 함께 구분한다.
+- 하도를 미완성 불량품처럼 표현하거나 상도를 두꺼운 투명막처럼 과장하지 않는다.
+`
+    : isBirchStockPineCompare
+    ? `
+2단: 표면 비교 포인트
+- 표면 색감, 무늬와 옹이 표현, 앞·뒷면 표면 등급 유무, 노출 마감 선택 포인트만 비교한다.
+- 자작합판은 노출 마감 시 앞면 S의 실제 상태를 확인하는 보조 정보만 표시한다.
+- 자작합판의 절대 우수, 강도·내구성 우열, 임의 등급 비교를 생성하지 않는다.
+`
+    : isBirchGradeMode
+    ? isBirchOrderGradeGuide
+      ? `
+2단: 등급별 표면 차이
+- 현재 상품/공급사 기준 B > S > BB > CP 순서로 표면 차이만 시각화한다.
+- B는 가장 깨끗하고 균일하게, S는 일부 패치·작은 옹이·색상 편차가 보이게 표현한다.
+- BB는 S보다 패치·작은 옹이·필러 흔적·색상 편차가 한눈에 더 보이되 CP 수준으로 과장하지 않는다.
+- CP는 BB보다 표면 보수·옹이·색상 편차가 더 보이되 구조적 파손처럼 표현하지 않는다.
+- 같은 BB면은 모든 카드에서 동일한 질감·패치·옹이·색상 편차 수준으로 고정한다.
+`
+      : canCompareBirchGrade
+      ? `
+2단: 앞면·뒷면 확인
+- 왼쪽과 오른쪽의 앞면 등급 차이를 그대로 표시한다.
+- 뒷면 등급이 같으면 "뒷면 등급 동일", 다르면 각 뒷면 등급만 표시한다.
+- 노출면 선택 시 실제 표면 상태를 확인하도록 안내한다.
+- 현재 상품/공급사 기준의 최상급·상급·중급·하급 표기만 허용하고 우수·열위 표현은 금지한다.
+- 다른 등급의 패치·필러 상태와 허용 수량을 추정하지 않는다.
+`
+      : `
+2단: 현재 등급 확인 포인트
+- "${knowledge.surfaceGrade}"의 앞면 "${knowledge.faceGrade}"와 뒷면 "${knowledge.backGrade}"만 설명한다.
+- 앞면과 뒷면의 표면 품질 조합이라는 점을 표시한다.
+- S/BB 재고 상품은 S면이 BB면보다 깨끗하게 보이도록 하고 노출면은 S면을 우선 확인하도록 안내한다.
+- BB면은 S보다 패치·옹이·색상 편차가 더 보이되 CP 수준으로 과장하지 않는다.
+- 실제 표면 상태는 입고 제품 기준으로 확인하도록 안내한다.
+- 다른 자작합판 등급을 생성하거나 비교하지 않는다.
+`
+    : isEboardFinishCompare
     ? `
 2단: 표면 질감 핵심 차이
 - 도배용은 미세 섬유감, 페인트용 / 도장용은 평활면으로 표현한다.
@@ -2009,8 +2989,8 @@ function buildTypeAPrompt(data) {
 - 좌우 대상의 핵심 차이 2~3개만 카드형으로 표시
 - "무엇이 다른가"만 짧은 키워드로 요약
 - 같은 의미의 항목 반복 금지
-- 구조가 같은 경우 접착선, 적층 방향, 공통 단면을 비교 항목으로 억지 생성하지 않는다.
-- PLYWOOD 원산지 비교는 단판 균일성, 표면 상태, 외관 편차 중심으로 표시한다.
+${repeatedGlueCompareBan}
+- 이 합판 비교는 단판 균일성, 표면 상태, 외관 편차 중심으로 표시한다.
 - 가격, 성능 우열, 내구성, 수명, 인증, 등급 비교 금지
 ${sourceInstruction}
 - 근거 없는 차이 생성 금지
@@ -2029,7 +3009,44 @@ ${sourceInstruction}
 - 근거 없는 차이 생성 금지
 - 입력값에 실제 차이가 부족하면 확인 가능한 구조, 시공 방식, 특징만 표시
 `;
-  const thirdSectionInstruction = isEboardFinishCompare
+  const thirdSectionInstruction = isUvBirchFinishCompare
+    ? `
+3단: 사용 목적 차이
+- UV 하도: 후속 도장·추가 마감 작업을 위한 바탕 단계.
+- UV 상도: 별도 추가 마감 없이 사용하는 최종 마감 단계.
+- 단면 구조를 반복하지 않고 공정 역할과 사용 목적만 간결하게 표시한다.
+- 방수, 내구성 보장, 스크래치 완전 차단, 구조 강도 우위 표현을 생성하지 않는다.
+`
+    : isKsWaterResistantPlywoodCompare
+    ? `
+3단: 내수합판의 차이
+- 단면 확대를 반복하지 않고 접착 성능 차이, 사용 환경 차이, 선택 이유만 강조한다.
+- 일반합판: 일반 실내용 접착 성능, 건조한 실내 중심으로 사용한다.
+- 내수합판: KS 기준 내수 접착 성능을 적용하고 습기가 있는 공간까지 고려한 제품이다.
+- 내수합판은 내수 성능을 고려한 접착제를 사용한 구조로 설명한다.
+- 방수합판, 완전 방수, 물에 젖어도 문제없음, 침수 시 변형 없음, 구조 강도가 더 높음, 외부 사용 가능 단정 표현을 생성하지 않는다.
+- 접착층을 과도하게 확대하거나 두껍게 표현하지 않는다.
+`
+    : isBirchStockPineCompare
+    ? `
+3단 생성 금지:
+- 비교는 위 두 영역으로만 구성하고 접착층·접착선 확대나 추가 구조 비교를 생성하지 않는다.
+`
+    : isBirchGradeMode
+    ? isBirchOrderGradeGuide
+      ? `
+하단 안내:
+- 표면 등급은 외관 기준이며 구조 강도와 별개임을 표시한다.
+- 주문 시 앞면·뒷면 등급 조합을 확인하도록 안내한다.
+- 실제 표면 상태는 입고 제품 기준으로 확인한다고 표시한다.
+`
+      : `
+3단 생성 금지:
+- 자작합판 등급 안내는 1단과 2단까지만 구성한다.
+- 현재 비교 대상 외 등급 순위표, 여러 등급 목록, 구조 성능 비교, 강도 비교를 생성하지 않는다.
+- 패치 개수 비교와 제조사 근거 없는 표면 상태 비교를 생성하지 않는다.
+`
+    : isEboardFinishCompare
     ? `
 3단: 동일 구조의 표면 비교
 - XPS 코어를 두께의 약 80~90%이자 가장 먼저 보이는 핵심 구조로 표현하고 좌우 단면은 동일하게 유지한다.
@@ -2043,7 +3060,7 @@ ${sourceInstruction}
 - 3단 섹션, 3단 제목, 하단 추가 카드, 하단 체크포인트를 만들지 않는다.
 - 좌우 구조 비교, 현장 선택 기준, 구매 체크포인트, 추천 용도 섹션을 생성하지 않는다.
 - 외관 확인, 마감 방향 결정, 제품별 상태 점검 문구로 빈 영역을 채우지 않는다.
-- 합판 공통 구조 설명, 단판 적층도, 접착선 비교를 생성하지 않는다.
+${repeatedGlueThirdBan}
 - 정보가 부족하면 섹션을 억지로 채우지 않는다.
 `
     : `
@@ -2056,7 +3073,46 @@ ${sourceInstruction}
 - 2단 비교 핵심 포인트와 같은 정보 반복 금지
 - 긴 설명문 금지
 `;
-  const vsCompareInstruction = isVsCompareMode
+  const vsCompareInstruction = isUvBirchFinishCompare
+    ? `
+UV 하도·상도 공정 비교 규칙:
+- compareTarget은 UV 하도와 UV 상도의 공정 비교 근거로만 사용한다.
+- 표시 순서는 실제 공정에 맞춰 UV 하도에서 UV 상도로 고정한다.
+- 두 단계를 표면 등급이나 제품 성능 우열로 비교하지 않는다.
+- 일반 자작합판 등급 카드와 합판 단면 비교를 재사용하지 않는다.
+`
+    : isBirchStockPineCompare
+    ? `
+자작합판 S/BB와 미송합판 비교 규칙:
+- 실제 compareTarget인 미송합판 비교를 자작합판 등급 비교보다 우선한다.
+- S/BB는 자작합판 카드 내부의 앞면 S·뒷면 BB 보조 정보로만 사용한다.
+- 다른 자작합판 복합 등급과의 임의 비교를 생성하지 않는다.
+`
+    : isBirchGradeMode
+    ? isBirchOrderGradeGuide
+      ? `
+자작합판 주문재 복수 등급 안내 규칙:
+- 복수 등급을 각각 독립 카드로 표시하고 VS를 생성하지 않는다.
+- 각 카드의 슬래시 앞은 앞면, 뒤는 뒷면 등급으로 표시한다.
+- 같은 BB면은 카드가 달라도 동일한 표면 품질 기준을 사용한다.
+- 등급 차이는 표면 품질에만 한정하고 강도·내구성·구조 성능 차이로 확대하지 않는다.
+`
+      : canCompareBirchGrade
+      ? `
+자작합판 단일 복합 등급 비교 규칙:
+- 비교는 "${knowledge.surfaceGrade}"와 "${knowledge.targetSurfaceGrade}" 두 등급만 사용한다.
+- 왼쪽은 앞면 ${knowledge.faceGrade}, 뒷면 ${knowledge.backGrade}로 표시한다.
+- 오른쪽은 앞면 ${knowledge.targetFaceGrade}, 뒷면 ${knowledge.targetBackGrade}로 표시한다.
+- 표면 등급 표기 외 다른 등급 특성은 제조사 근거 없이 생성하지 않는다.
+- 여러 등급 목록과 현재 비교 대상 밖의 등급 순위를 생성하지 않고 강도·내구성·구조 성능 우열로 확대하지 않는다.
+`
+      : `
+자작합판 현재 등급 설명 규칙:
+- compareTarget은 단일 복합 등급 비교 조건을 충족하지 않으므로 비교 대상으로 사용하지 않는다.
+- "${knowledge.surfaceGrade}" 자체의 앞면·뒷면 의미만 설명한다.
+- VS, 좌우 비교, 등급 목록, 우열 표현을 생성하지 않는다.
+`
+    : isVsCompareMode && !isPlywoodOriginCompare
     ? `
 VS 비교 모드 공통 규칙:
 - compareTarget에 VS가 포함되어 있으므로 1단 비교 라벨은 VS 기준 좌우 대상을 사용한다.
@@ -2112,38 +3168,46 @@ DECK_BOARD A타입 구조 혼용 금지 규칙:
   const plywoodOriginCompareInstruction =
     isPlywoodOriginCompare
       ? `
-PLYWOOD 원산지 비교 고정 데이터:
-- 이 규칙은 PLYWOOD 원산지 비교에만 적용한다.
+PLYWOOD 비교 고정 데이터 (내부 지시):
+- 이 규칙은 동남아산과 베트남산 비교에만 적용한다.
+- 별도 상단 대제목과 상품명 전체 제목을 생성하지 않는다.
+- "비교 안내" 문구도 제목으로 생성하지 않는다.
+- 상단은 좌우 원산지 라벨과 VS만 표시한다.
 - 아래 좌우 고정 데이터의 라벨과 선택한 bullet 문구를 1단/2단 비교 문구에 그대로 사용한다.
 - 2단 비교 핵심 포인트는 고정 데이터 중 핵심 차이 2~3개만 사용한다.
 - 고정 데이터 문구 재작성 금지, 요약 금지, 확장 금지, 순서 변경 금지, 다른 문구 추가 금지.
 - VS 순서를 반드시 따른다.
+- 동남아산과 베트남산의 적층 구조와 단면 구조는 동일하게 유지한다.
+- 구조 차이를 만들지 않고 표면 톤·결 변화·표면 질감·외관 편차만 다르게 표현한다.
+- 동남아산 표면은 밝고 비교적 균일한 톤, 완만한 결 변화, 비교적 일정한 질감, 외관 편차가 적은 느낌으로 표현한다.
+- 베트남산 표면은 동남아산보다 색상 편차가 조금 더 보이고 결 변화가 조금 더 다양하며 제품별 표면·외관 편차가 조금 더 느껴지게 표현한다.
+- 좌우 표면을 복사한 것처럼 동일하게 만들지 않고, 베트남산을 불량이나 저품질처럼 과장하지 않는다.
 
 왼쪽 고정 데이터:
 - 라벨: "${leftCompareLabel}"
 ${leftCompareLabel.indexOf('베트남산') !== -1
-  ? `- bullet 1: 일반 사용 중심
-- bullet 2: 단판 편차 확인
-- bullet 3: 표면 상태 확인
-- bullet 4: 제품별 외관 차이 확인`
+  ? `- bullet 1: 일반 사용 중심으로 선택되는 편
+- bullet 2: 제품별 단판 편차가 있을 수 있음
+- bullet 3: 제품별 표면 상태의 차이가 있을 수 있음
+- bullet 4: 제품별 외관 편차가 나타날 수 있음`
   : `- bullet 1: 단판 균일성이 비교적 안정적
 - bullet 2: 표면 상태가 비교적 안정적
 - bullet 3: 외관 편차가 적은 편
-- bullet 4: 마감용 선택 시 우선 검토`}
+- bullet 4: 마감용으로 검토되는 편`}
 
 오른쪽 고정 데이터:
 - 라벨: "${rightCompareLabel}"
 ${rightCompareLabel.indexOf('베트남산') !== -1
-  ? `- bullet 1: 일반 사용 중심
-- bullet 2: 단판 편차 확인
-- bullet 3: 표면 상태 확인
-- bullet 4: 제품별 외관 차이 확인`
+  ? `- bullet 1: 일반 사용 중심으로 선택되는 편
+- bullet 2: 제품별 단판 편차가 있을 수 있음
+- bullet 3: 제품별 표면 상태의 차이가 있을 수 있음
+- bullet 4: 제품별 외관 편차가 나타날 수 있음`
   : `- bullet 1: 단판 균일성이 비교적 안정적
 - bullet 2: 표면 상태가 비교적 안정적
 - bullet 3: 외관 편차가 적은 편
-- bullet 4: 마감용 선택 시 우선 검토`}
+- bullet 4: 마감용으로 검토되는 편`}
 
-PLYWOOD 원산지 비교 금지 문구:
+PLYWOOD 비교 금지 문구:
 - 라디아타파인
 - 프리미엄 수종
 - 균일 선별
@@ -2188,20 +3252,11 @@ ${typeAGoalInstruction}
 - 그라디언트와 과한 그림자는 사용하지 않음
 - 장식보다 정보 전달 우선
 
+${plywoodImageFidelityGuard}
+
 ${buildInfographicStructureGuide(data)}
 
-1단: 비교
-- 좌우 비교 구조
-- 왼쪽 라벨: "${leftCompareLabel}"
-- 오른쪽 라벨: "${rightCompareLabel}"
-- 제품명은 이 비교 라벨에서만 1회 허용
-- 비교 차이는 2~3개 짧은 키워드로 표현
-- 비교 문구는 입력값에 실제로 있는 차이만 사용
-- 비교 대상에 "미적용", "높음", "낮음", "관리 기준 낮음" 같은 부정 단정 금지
-- 근거가 부족하면 비교 대상의 단점을 쓰지 말고 오른쪽 제품의 확인 가능한 특징만 표시
-- compareTarget 이름만 있고 비교 대상의 별도 스펙 근거가 없으면 왼쪽 영역은 제품명 또는 중립 이미지로만 표시
-- 왼쪽 비교 영역에 "품질 편차", "방출량 높음", "내수성 낮음", "일반 접착제" 같은 추정 단점 bullet 금지
-- 긴 설명문 금지
+${firstSectionInstruction}
 
 ${secondSectionInstruction}
 ${thirdSectionInstruction}
@@ -2209,11 +3264,11 @@ ${thirdSectionInstruction}
 절대 금지:
 - 규격 표시 금지
 - 두께 표시 금지
-- 등급 표시 금지
+- 자작합판 복합 표면 등급 외 등급 표시 금지
 - 제조사 표시 금지
 - 용도 표시 금지
 - 제품명을 제목이나 설명문으로 반복 금지
-- 상세설명 HTML 문장 반복 금지
+${repeatedHtmlBan}
 - SECTION, S1, S2, S3 같은 라벨 금지
 - 영어 라벨 금지
 - 광고 배너 느낌 금지
@@ -2227,6 +3282,133 @@ ${thirdSectionInstruction}
 }
 
 function buildTypeBPrompt(data) {
+  const knowledge = buildProductKnowledgeContext(data);
+  const isUvBirchFinishCompare = isUvCoatedBirchFinishCompare(data);
+  const isPlywoodTypeB = knowledge.productGroup === 'PLYWOOD';
+  const typeBRepeatedHtmlBan = isPlywoodTypeB ? '' : '- 상세설명 HTML 문장 반복 금지';
+  const typeBDetailInstruction = isPlywoodTypeB
+    ? `- 동일한 합판 단면에서 최대 3개의 확대뷰만 사용한다.
+- 단판 레이어와 앞면·뒷면 표면 중 실제로 표시할 정보만 확대한다.
+- 블록형 또는 조각형 내부 구조를 만들지 않는다.
+- 자작합판 복합 등급이 있으면 앞면과 뒷면 등급을 표면 라벨로 표시한다.
+- 확대뷰는 위 단면과 같은 제품에서 연결된 부분만 보여준다.
+- 제품명·표 제목·긴 설명문을 확대 영역에 넣지 않는다.`
+    : `- exactly three zoom windows of the same product structure
+- 제품군별 구조에 맞는 확대뷰만 사용한다.
+- 합판: veneer layer zoom / cross grain zoom / face and back surface zoom
+- 합판 확대뷰는 반드시 단판 적층(Veneer Layers)만 보여준다.
+- 합판 확대뷰에서 블록코어, 집성코어, 집성 목재 코어, OSB 조각 코어를 만들지 않는다.
+- 합판 확대뷰와 라벨에서 접착제, 접착층, 접착부, Glue Line, 본드층, 접착 구조, 접착선을 만들지 않는다.
+- 자작합판 복합 표면 등급이 있으면 앞면과 뒷면 확대뷰에 해당 표면 등급을 표시할 수 있다.
+- 자작합판의 표면 등급을 강도나 구조 성능과 연결하지 않고 패치 개수를 생성하지 않는다.
+- 솔리드 집성판, 집성목, 집성판: wood strip zoom / wood grain direction zoom / edge-glued joint zoom
+- 핑거조인트 집성판: wood strip zoom / finger joint zoom / glued joint zoom
+- 사이드핑거 집성판: side finger joint zoom / wood strip zoom / glued joint zoom
+- 탑핑거 집성판: top finger joint zoom / wood strip zoom / lengthwise joint zoom
+- 데크재: surface grain zoom / side profile zoom / fastening gap zoom
+- MDF: surface fiber zoom / compressed fiber core zoom / cut edge zoom
+- PB / 파티클보드: surface layer zoom / wood chip core zoom / fastening point zoom
+- 석고보드: paper face zoom / gypsum core zoom / board joint zoom
+- CRC / 시멘트보드 / 섬유시멘트보드: cement matrix zoom / fiber reinforcement zoom / cut edge zoom
+- PF보드: facing zoom / PF foam core zoom / joint treatment zoom
+- XPS: closed cell zoom / uniform foam core zoom / board joint zoom
+- EPS: expanded bead zoom / EPS foam core zoom / board joint zoom
+- 글라스울: glass fiber zoom / fiber mat zoom / filled cavity zoom
+- 미네랄울 / 암면: mineral fiber zoom / board edge zoom / tight joint zoom
+- PIR / 우레탄폼: facing zoom / urethane/PIR foam core zoom / joint treatment zoom
+- 열반사 단열재: reflective film zoom / air layer zoom / cushion layer zoom
+- 단열재의 board joint / joint treatment 확대뷰는 근거가 없으면 평면 맞댐 이음부로 표현한다.
+- 우레탄폼, 기밀테이프, 실란트는 시공 보조재로만 표현하고 보드 단면을 Tongue & Groove, 암수 결합, 맞물림 또는 끼움식 패널 구조로 변경하지 않는다.
+- 상품정보나 제조사 자료에 맞물림 가공이 명시된 단열재만 예외로 한다.
+- no product names in this section
+- no title bars in this section
+- each zoom window must show magnified details from the top structure only
+- 동일 제품 구조 확대뷰 3개
+- 선택한 제품군에 존재하는 실제 구조 요소만 확대
+- 좌우 카드/제품명/표 제목 없이 확대 이미지 중심`;
+  const isBirchStockGuide = knowledge.isBirchStockGuide;
+  const isBirchOrderGradeGuide = knowledge.isBirchOrderGradeGuide;
+  const typeBGoalInstruction = isUvBirchFinishCompare
+    ? '- UV 코팅 자작합판의 공정 흐름과 하도·상도의 역할 및 사용 목적 차이를 시각화'
+    : isBirchOrderGradeGuide
+    ? '- 주문 가능한 복합 등급을 독립 카드로 나누고 앞면·뒷면의 표면 차이만 시각화'
+    : isBirchStockGuide
+      ? '- 재고 상품 S/BB의 앞면 S와 뒷면 BB를 단일 상품 설명형으로 시각화'
+      : '- 단면 구조, 구조 상세 확대, 핵심 구조 키워드만 시각화';
+  const typeBFirstSection = isUvBirchFinishCompare
+    ? `1단: UV 코팅 공정 흐름
+- "원판 → 샌딩 → UV 하도 → UV 상도"를 순서대로 연결한다.
+- 자작합판 원판에서 최종 UV 마감까지 공정 단계가 한눈에 보이게 한다.
+- 합판 단면 확대와 앞면·뒷면 등급 카드를 생성하지 않는다.`
+    : isBirchOrderGradeGuide
+    ? `1단: 주문 가능 복합 등급 카드
+${buildBirchOrderGradeCardGuide(knowledge.availableSurfaceGrades)}
+- 각 카드는 독립 항목으로 두고 앞면과 뒷면을 분리한다.
+- 여러 등급을 한쪽 VS 대상이나 하나의 문자열로 묶지 않는다.`
+    : isBirchStockGuide
+      ? `1단: S/BB 재고 상품
+- 앞면: S
+- 뒷면: BB
+- 슬래시 앞은 앞면, 뒤는 뒷면 표면 등급임을 표시한다.
+- 현재 상품/공급사 기준으로만 설명하고 VS를 생성하지 않는다.`
+      : `1단: 단면 구조 메인
+- "${getProductKnowledgeStructure(data, knowledge)}"을 기반으로 큰 단면 도해 또는 분해도를 생성
+- 레이어, 코어, 표면층, 접합부 등 실제 존재하는 구조 포인트만 시각화
+- 라벨은 3개 이하
+- 긴 설명문 금지`;
+  const typeBSecondSection = isUvBirchFinishCompare
+    ? `2단: UV 하도와 UV 상도의 표면·공정 차이
+- UV 하도: 최종 마감 전 바탕 단계, 후속 도장 또는 추가 마감용, 표면 균일화 목적, 무광 또는 낮은 광택 느낌.
+- UV 상도: 최종 UV 마감 완료 단계, 표면 보호를 위한 마감, 바로 사용하는 완성 마감 상태.
+- 광택만 다르게 표현하지 않고 마감 완료 여부와 후속 작업 필요 여부를 구분한다.
+- 상도를 두꺼운 투명막처럼 과장하거나 하도를 불량품처럼 표현하지 않는다.`
+    : isBirchOrderGradeGuide
+    ? `2단: 등급별 표면 차이
+- 현재 상품/공급사 기준 B > S > BB > CP 순서로 표면 차이만 표현한다.
+- B는 가장 깨끗하고 균일하게, S는 일부 패치·작은 옹이·색상 편차가 보이게 표현한다.
+- BB는 S보다 패치·작은 옹이·필러 흔적·색상 편차가 한눈에 더 보이되 CP 수준으로 과장하지 않는다.
+- CP는 BB보다 표면 보수·옹이·색상 편차가 더 보이되 구조적 파손처럼 표현하지 않는다.
+- 같은 BB면은 모든 카드에서 동일한 표면 품질로 고정한다.`
+    : isBirchStockGuide
+      ? `2단: 앞면·뒷면 표면
+- S 앞면은 BB 뒷면보다 깨끗하고 패치·옹이가 적게 보이도록 표현한다.
+- BB 뒷면은 S보다 패치·옹이·색상 편차가 더 보이되 CP 수준으로 과장하지 않는다.
+- 노출면은 S면을 우선 확인하고 실제 표면 상태는 입고 제품 기준으로 확인한다.
+- 패치 개수·크기·직경을 숫자로 생성하지 않는다.`
+      : `2단: 구조 상세 확대 영역
+${typeBDetailInstruction}`;
+  const typeBThirdSection = isUvBirchFinishCompare
+    ? `3단: 사용 목적 차이
+- UV 하도: 후속 도장·추가 마감 작업을 위한 바탕 단계.
+- UV 상도: 별도 추가 마감 없이 사용하는 최종 마감 단계.
+- 방수, 긁힘 방지, 내구성 보장, 구조 강도 우위 표현과 단면 구조 반복을 금지한다.`
+    : isBirchOrderGradeGuide
+    ? `하단 안내:
+- 표면 등급은 외관 기준이며 구조 강도와 별개임을 표시한다.
+- 주문 시 앞면·뒷면 등급 조합을 확인하도록 안내한다.
+- 실제 표면 상태는 입고 제품 기준으로 확인한다고 표시한다.`
+    : isBirchStockGuide
+    ? `3단 생성 금지:
+- 등급 안내는 위 두 영역으로만 구성하고 빈 공간을 다른 문장으로 채우지 않는다.
+- 강도·내구성·구조 성능 비교와 임의 등급을 생성하지 않는다.`
+    : `3단: 핵심 구조 키워드
+- 3개 또는 4개 카드형 키워드 구성
+- "${removeUnsupportedPlywoodAdhesiveText(data.keyValue, knowledge)}"과 "${getProductKnowledgeStructure(data, knowledge)}"에서 구조 키워드만 추출
+- 단일 제품의 구조 키워드 카드만 사용
+- 아이콘은 단순하게
+- 긴 설명문 금지`;
+  const typeBSingleStructureGuard = isUvBirchFinishCompare
+    ? `- UV 하도와 상도의 공정 역할만 표현하고 합판 단면·앞뒷면·등급 카드를 생성하지 않는다.
+- S/BB·B/BB 등 표면 등급 비교와 일반 자작합판 등급 규칙을 적용하지 않는다.`
+    : isBirchOrderGradeGuide || isBirchStockGuide
+    ? '- 하나의 자작합판 상품 안에서 등급 표면만 안내하고 다른 제품이나 소재를 생성하지 않는다.'
+    : `- 단일 제품의 단면 구조만 표현
+- 하단은 단일 제품의 구조 키워드 카드만 사용
+- Create infographic for ONE product only.
+- Do not display any alternative material.
+- The infographic must describe only one product.
+- Middle section must contain enlarged structure detail views of the same product.
+- Do not split the layout into left and right product sections.`;
   return `
 건축자재 B2B 쇼핑몰 상세페이지용 한국어 인포그래픽 이미지를 생성하라.
 
@@ -2235,7 +3417,7 @@ function buildTypeBPrompt(data) {
 
 목표:
 - 상세설명 HTML 텍스트와 중복 금지
-- 단면 구조, 구조 상세 확대, 핵심 구조 키워드만 시각화
+${typeBGoalInstruction}
 - 한눈에 단면 구조가 이해되는 B2B 자료 스타일
 - 한글 텍스트는 선명하고 정확하게 표시
 
@@ -2263,71 +3445,23 @@ function buildTypeBPrompt(data) {
 
 ${buildInfographicStructureGuide(data)}
 
-1단: 단면 구조 메인
-- "${data.structure}"을 기반으로 큰 단면 도해 또는 분해도를 생성
-- 레이어, 코어, 표면층, 접합부 등 실제 존재하는 구조 포인트만 시각화
-- 라벨은 3개 이하
-- 긴 설명문 금지
+${typeBFirstSection}
 
-2단: 구조 상세 확대 영역
-- exactly three zoom windows of the same product structure
-- 제품군별 구조에 맞는 확대뷰만 사용한다.
-- 합판: veneer layer zoom / cross grain zoom / thin glue line zoom
-- 합판 확대뷰는 반드시 단판 적층(Veneer Layers)만 보여준다.
-- 합판 확대뷰에서 블록코어, 집성코어, 집성 목재 코어, OSB 조각 코어, 두꺼운 젤 형태 접착층을 만들지 않는다.
-- 합판 접착 표현은 독립된 두꺼운 층이 아니라 단판 사이 얇은 접착선(Glue Line)으로만 표현한다.
-- 합판 접착선은 흰색/노란색의 두꺼운 밴드, 거품, 젤, 충전재처럼 보이면 안 된다.
-- 합판 Type B 라벨에서 "접착층" 단어 금지, "접착선(Glue Line)"만 사용한다.
-- 솔리드 집성판, 집성목, 집성판: wood strip zoom / wood grain direction zoom / edge-glued joint zoom
-- 핑거조인트 집성판: wood strip zoom / finger joint zoom / glued joint zoom
-- 사이드핑거 집성판: side finger joint zoom / wood strip zoom / glued joint zoom
-- 탑핑거 집성판: top finger joint zoom / wood strip zoom / lengthwise joint zoom
-- 데크재: surface grain zoom / side profile zoom / fastening gap zoom
-- MDF: surface fiber zoom / compressed fiber core zoom / cut edge zoom
-- PB / 파티클보드: surface layer zoom / wood chip core zoom / fastening point zoom
-- 석고보드: paper face zoom / gypsum core zoom / board joint zoom
-- CRC / 시멘트보드 / 섬유시멘트보드: cement matrix zoom / fiber reinforcement zoom / cut edge zoom
-- PF보드: facing zoom / PF foam core zoom / joint treatment zoom
-- XPS: closed cell zoom / uniform foam core zoom / board joint zoom
-- EPS: expanded bead zoom / EPS foam core zoom / board joint zoom
-- 글라스울: glass fiber zoom / fiber mat zoom / filled cavity zoom
-- 미네랄울 / 암면: mineral fiber zoom / board edge zoom / tight joint zoom
-- PIR / 우레탄폼: facing zoom / urethane/PIR foam core zoom / joint treatment zoom
-- 열반사 단열재: reflective film zoom / air layer zoom / cushion layer zoom
-- 단열재의 board joint / joint treatment 확대뷰는 근거가 없으면 평면 맞댐 이음부로 표현한다.
-- 우레탄폼, 기밀테이프, 실란트는 시공 보조재로만 표현하고 보드 단면을 Tongue & Groove, 암수 결합, 맞물림 또는 끼움식 패널 구조로 변경하지 않는다.
-- 상품정보나 제조사 자료에 맞물림 가공이 명시된 단열재만 예외로 한다.
-- no product names in this section
-- no title bars in this section
-- each zoom window must show magnified details from the top structure only
-- 동일 제품 구조 확대뷰 3개
-- 선택한 제품군에 존재하는 실제 구조 요소만 확대
-- 좌우 카드/제품명/표 제목 없이 확대 이미지 중심
+${typeBSecondSection}
 
-3단: 핵심 구조 키워드
-- 3개 또는 4개 카드형 키워드 구성
-- "${data.keyValue}"과 "${data.structure}"에서 구조 키워드만 추출
-- 단일 제품의 구조 키워드 카드만 사용
-- 아이콘은 단순하게
-- 긴 설명문 금지
+${typeBThirdSection}
 
 절대 금지:
 - 두 제품을 나란히 배치 금지
 - 화면을 좌우로 분할하는 레이아웃 금지
-- 단일 제품의 단면 구조만 표현
-- 하단은 단일 제품의 구조 키워드 카드만 사용
-- Create infographic for ONE product only.
-- Do not display any alternative material.
-- The infographic must describe only one product.
-- Middle section must contain enlarged structure detail views of the same product.
-- Do not split the layout into left and right product sections.
+${typeBSingleStructureGuard}
 - 규격 표시 금지
 - 두께 표시 금지
-- 등급 표시 금지
+- 자작합판 복합 표면 등급 외 등급 표시 금지
 - 제조사 표시 금지
 - 용도 표시 금지
 - 제품명을 제목이나 설명문으로 반복 금지
-- 상세설명 HTML 문장 반복 금지
+${typeBRepeatedHtmlBan}
 - SECTION, S1, S2, S3 같은 라벨 금지
 - 영어 라벨 금지
 - 광고 배너 느낌 금지
@@ -2341,6 +3475,7 @@ ${buildInfographicStructureGuide(data)}
 }
 
 function buildTypeCPrompt(data) {
+  const knowledge = buildProductKnowledgeContext(data);
   const typeCProductLabel = String(data && data.productName || '') + ' ' + String(data && data.category || '');
   const isGluedWoodTypeC = (
     typeCProductLabel.indexOf('집성목') !== -1 || typeCProductLabel.indexOf('집성판') !== -1
@@ -2353,7 +3488,7 @@ function buildTypeCPrompt(data) {
 - 결, 색감, 표면 질감 중 입력 근거가 있는 시각 정보만 최대 2개 사용
 - 향은 시각 정보가 아니므로 제외
 - 결 / 무늬 / 결감, 색감 / 색상 톤, 표면 질감 / 촉감 / 표면감은 각각 같은 정보로 보고 한 번만 사용`
-    : `- "${data.keyValue}"을 중심으로 제품 표면 질감을 크게 보여준다.
+    : `- "${removeUnsupportedPlywoodAdhesiveText(data.keyValue, knowledge)}"을 중심으로 제품 표면 질감을 크게 보여준다.
 - 나뭇결, 엠보, 코팅감, 광택감, 무늬를 자연스럽게 표현
 - 라벨은 3개 이하`;
   const typeCSecondInstruction = isGluedWoodTypeC
@@ -2369,7 +3504,7 @@ function buildTypeCPrompt(data) {
 - 활용 예시, 추천 가구, 아동가구, 테이블 등 용도를 생성하지 않는다.
 - 정보가 부족하면 카드 수를 줄이고 유의어나 설명 문장으로 빈 공간을 채우지 않는다.`
     : `- 3개 또는 4개 카드형 키워드 구성
-- "${data.keyValue}"과 "${data.emphasis}"에서 질감 관련 키워드만 추출하여 명사형으로 배치
+- "${removeUnsupportedPlywoodAdhesiveText(data.keyValue, knowledge)}"과 "${removeUnsupportedPlywoodAdhesiveText(data.emphasis, knowledge)}"에서 질감 관련 키워드만 추출하여 명사형으로 배치
 - 아이콘은 단순하게 표현`;
   return `
 건축자재 B2B 쇼핑몰 상세페이지용 한국어 인포그래픽 이미지를 생성하라.
@@ -2415,7 +3550,7 @@ ${typeCThirdInstruction}
 - 긴 설명문 금지
 
 절대 금지:
-- 규격(mm), 두께(T), 등급(E1 등), 제조사, 용도 표시 금지
+- 규격(mm), 두께(T), 자작합판 복합 표면 등급 외 등급(E1 등), 제조사, 용도 표시 금지
 - 제품명을 제목이나 설명문으로 반복 금지
 - 상세설명 HTML 문장 반복 금지
 - 영어 라벨 금지
@@ -2431,6 +3566,10 @@ function buildHTMLPrompt(data) {
     C: '표면 질감 비교'
   }[data.type] || '제품 상세 정보';
   const noteFacts = buildHTMLNoteFacts(data);
+  const knowledge = buildProductKnowledgeContext(data);
+  const safeKeyValue = removeCommerceRemedyGuidance(removeUnsupportedPlywoodAdhesiveText(data.keyValue, knowledge));
+  const safeStructure = removeCommerceRemedyGuidance(getProductKnowledgeStructure(data, knowledge));
+  const safeEmphasis = removeCommerceRemedyGuidance(removeUnsupportedPlywoodAdhesiveText(data.emphasis, knowledge));
 
   const infraImg = data.infographic
     ? `<div class="ds-infographic"><img src="${data.infographic}" alt="${data.productName} ${sectionTitle}" style="max-width:100%;width:100%;height:auto;display:block;margin:0;"></div>`
@@ -2478,11 +3617,20 @@ define 작성 규칙:
 - 제품명 반복, AI 문체, 광고 문구, 과장 표현을 금지한다.
 - "제품명은", "제품명는"처럼 제품명으로 시작하지 않는다.
 - 주로, 빈번히, 많이, 널리, 인기가, 추천, 고성능, 최고급, 프리미엄, 우수한, 뛰어난, 최적, 효율적, 가성비 표현을 사용하지 않는다.
-- define 예시1: 원목 단판을 교차 적층한 다층 구조의 합판입니다. 인테리어 가구 심재와 벽체 바탕재에 사용됩니다.
+- define 예시1: 얇은 목재 단판을 여러 겹 적층한 합판입니다. 인테리어 가구 심재와 벽체 바탕재에 사용됩니다.
 - define 예시2: 목재 섬유를 고온고압으로 성형한 판재입니다. 가구 제작과 인테리어 마감 작업에 사용됩니다.
 - define 예시3: 천연 석고를 압축 성형한 판재입니다. 벽체와 천장 시공에 사용됩니다.
 - define 예시4: PF보드는 페놀수지 발포 단열재입니다. 외벽과 천장 단열 시공에 사용됩니다.
 - define 생성 후 금지 표현이 포함되어 있으면 다시 작성한다.
+- Product Knowledge Context가 있는 경우 시트의 일반 표현보다 해당 Context를 우선한다.
+- 자작합판은 얇은 목재 단판의 여러 겹 적층, 앞·뒷면 표면 등급, 노출면 중심으로 작성한다.
+- 자작합판 복합 표면 등급은 구조 성능이나 강도와 연결하지 않는다.
+- 현재 운영 상품/공급사 자작합판에 한해서만 B=최상급, S=상급, BB=중급, CP=하급 표면 기준을 사용한다.
+- 모든 제조사에 등급 기준을 일반화하지 않고 패치 개수·크기·직경·수치와 전층 자작 구조를 근거 없이 생성하지 않는다.
+- 일반 합판류에는 접착제, 접착층, 접착부, Glue Line, 본드층, 접착 구조를 작성하지 않는다.
+- 접착 성능 근거가 있는 합판만 "내수성이 고려된 접착 성능" 수준으로 작성할 수 있다.
+${buildGeneratedContentRemedyGuard()}
+- 수지명, 완전 방수, 외부 영구 사용 표현을 작성하지 않는다.
 
 인포그래픽 아래 ds-reason 작성 규칙:
 - reason은 제품 설명 영역이 아니라 제품 정보 정리 영역이다.
@@ -2577,12 +3725,20 @@ define 작성 규칙:
 두께: ${data.thickness}
 등급: ${data.grade}
 제조사: ${data.maker}
-핵심표현: ${data.keyValue}
+핵심표현: ${safeKeyValue}
 출처: ${data.source}
-구조: ${data.structure}
-강조포인트: ${data.emphasis}
+구조: ${safeStructure}
+강조포인트: ${safeEmphasis}
 용도1: ${data.use1}
 용도2: ${data.use2}
+
+[Product Knowledge Context]
+productGroup: ${knowledge.productGroup}
+productType: ${knowledge.productType}
+surfaceGrade: ${knowledge.surfaceGrade || '확인 근거 없음'}
+faceGrade: ${knowledge.faceGrade || '확인 근거 없음'}
+backGrade: ${knowledge.backGrade || '확인 근거 없음'}
+hasAdhesiveEvidence: ${knowledge.hasAdhesiveEvidence}
 
 [Apps Script가 먼저 정리한 참고 정보]
 ${noteFacts.map(function (note) { return '- ' + note; }).join('\n')}
