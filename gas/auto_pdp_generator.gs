@@ -655,6 +655,10 @@ function buildProductKnowledgeContext(data) {
     '내수합판', '내수 합판', '준내수합판', '준내수 합판', '방수합판', '방수 합판',
     'wbp', 'exterior glue', 'exterior bonded', '접착등급', '접착 등급', '사용환경 등급'
   ].some(function (keyword) { return lowerLabel.indexOf(keyword) !== -1; });
+  const isEboard = isEboardProduct(data);
+  const isGcsBoard = isGcsBoardProduct(data);
+  const resolvedProductGroup = isEboard || isGcsBoard ? 'COMPOSITE_BOARD' : getFAQCategoryType(data);
+  const resolvedProductType = isEboard ? 'EBOARD' : (isGcsBoard ? 'GCS_BOARD' : (isBirchPlywood ? 'BIRCH_PLYWOOD' : (isPlywood ? 'PLYWOOD' : 'DEFAULT')));
   const grade = parsePlywoodSurfaceGrade(data);
   const stockType = cleanEntityValue(data && data.stockType);
   const availableSurfaceGrades = [];
@@ -676,8 +680,8 @@ function buildProductKnowledgeContext(data) {
       (birchGradeOrder[leftParts[1]] - birchGradeOrder[rightParts[1]]);
   });
   const context = {
-    productGroup: getFAQCategoryType(data),
-    productType: isBirchPlywood ? 'BIRCH_PLYWOOD' : (isPlywood ? 'PLYWOOD' : 'DEFAULT'),
+    productGroup: resolvedProductGroup,
+    productType: resolvedProductType,
     manufacturer: cleanEntityValue(data && data.maker),
     compareTarget: cleanEntityValue(data && data.compareTarget),
     surfaceGrade: grade ? grade.surfaceGrade : '',
@@ -740,6 +744,12 @@ function removeUnsupportedPlywoodAdhesiveText(value, context) {
 }
 
 function getProductKnowledgeStructure(data, context) {
+  if (isEboardProduct(data)) {
+    return 'PP 중공 구조판과 단열재를 결합한 복합보드';
+  }
+  if (isGcsBoardProduct(data)) {
+    return '준불연 단열재와 시멘트계 면재를 결합한 복합보드';
+  }
   if (context && context.productGroup === 'PLYWOOD') {
     return '얇은 목재 단판을 여러 겹 적층한 판재';
   }
@@ -2450,9 +2460,47 @@ function isUvCoatedBirchFinishCompare(data) {
     compareTarget.indexOf('하도') !== -1;
 }
 
+function isGcsBoardProduct(data) {
+  return /GCS\s*보드/i.test(String(data && data.productName || ''));
+}
+
+function isEboardProduct(data) {
+  return /(?:^|\s|단열재)\s*(?:이보드|e-?board)(?:\s|$)/i.test(String(data && data.productName || ''));
+}
+
 function buildInfographicStructureGuide(data) {
   const guide = buildProductCategoryGuide(data);
   const knowledge = buildProductKnowledgeContext(data);
+  if (isEboardProduct(data)) {
+    return `
+이보드 전용 구조 가이드:
+- 이보드는 PP 중공 구조판과 XPS 단열재가 서로 붙어 있는 하나의 완성된 복합보드 외관을 우선 표현한다.
+- PP 중공 구조판은 흰색 또는 밝은 회백색, XPS 단열재는 실제 판매 제품 기준 연한 분홍색으로 표현한다.
+- 파란색·하늘색·녹색 XPS와 분홍색 PP 구조판을 생성하지 않는다.
+- 구성 요소 색상은 제품 식별 정보이므로 일반적인 단열재 색상으로 임의 변경하거나 서로 혼합하지 않는다.
+- PP 중공 구조판은 얇게, XPS 단열재는 상대적으로 더 두껍게 표현하되 입력에 없는 두께 수치는 생성하지 않는다.
+- 구성 요소를 서로 떨어뜨린 폭발도·분해도·부품 카탈로그 형태를 생성하지 않는다.
+- PP 구조판과 XPS를 서로 독립된 여러 층의 적층 구조처럼 분해하거나 과장하지 않는다.
+- 실제 제조 단면을 추측한 절단도보다 PP 중공 구조판, XPS 단열재, 결합 구조의 역할을 보여주는 개념도를 사용한다.
+- 도배용과 페인트용은 후속 표면 마감 방식의 차이만 표현하고 내부 제조 단면 차이를 생성하지 않는다.
+- 별도 표면층·접착층, PP → XPS → PP 샌드위치, 고정된 3층 단면과 입력에 없는 두께 비율을 생성하지 않는다.
+`;
+  }
+  if (isGcsBoardProduct(data)) {
+    return `
+GCS보드 전용 구조 가이드:
+- GCS보드는 Glass Fiber Cement Sheet와 PIR(경질우레탄) 단열 심재가 서로 붙어 있는 하나의 완성된 준불연 복합보드 외관으로 표현한다.
+- Glass Fiber Cement Sheet는 회색 시멘트 질감, PIR 단열 심재는 연한 크림색 또는 미색으로 표현한다.
+- PIR 심재를 분홍색 XPS처럼 표현하거나 GFC 면재를 흰색 플라스틱처럼 표현하지 않는다.
+- 구성 요소 색상은 제품 식별 정보이므로 GFC와 PIR의 색상·재질을 혼합하거나 임의 변경하지 않는다.
+- 구성 요소를 서로 떨어뜨린 폭발도·분해도·부품 카탈로그 형태를 생성하지 않는다.
+- 양면 시멘트판과 중앙 심재로 고정된 샌드위치 패널 구조를 추측해 그리지 않는다.
+- 실제 제조 단면도 대신 GFC 면재, PIR 단열 심재, 결합 구조의 역할을 보여주는 개념도를 사용한다.
+- 면재 개수, 상부·하부 배치, 층 순서, 두께 비율과 접착층 위치를 단정하지 않는다.
+- 이보드의 PP 중공 구조판과 XPS 구조를 GCS보드에 혼합하지 않는다.
+- 완전 불연, 화재 안전, 방수, 구조 강도 우위와 입력에 없는 성능 수치를 생성하지 않는다.
+`;
+  }
   if (isUvCoatedBirchFinishCompare(data)) {
     return `
 UV 코팅 자작합판 전용 가이드:
@@ -2770,6 +2818,7 @@ function buildTypeAPrompt(data) {
   let rightCompareLabel = isVsCompareMode ? compareParts.slice(1).join(' VS ') : data.productName;
   const productGroup = data.productGroup || getFAQCategoryType(data);
   const knowledge = buildProductKnowledgeContext(data);
+  const isGcsBoard = isGcsBoardProduct(data);
   const isUvBirchFinishCompare = isUvCoatedBirchFinishCompare(data);
   const plywoodImageFidelityGuard = '';
   const isBirchStockPineCompare = knowledge.isBirchStockCompare;
@@ -2845,7 +2894,9 @@ function buildTypeAPrompt(data) {
       )
     );
   const shouldSkipTypeAStructureCompare = isPlywoodOriginCompare || isSameGroupSoftCompare;
-  const typeAGoalInstruction = isUvBirchFinishCompare
+  const typeAGoalInstruction = isGcsBoard
+    ? '- 이보드의 PP 중공 구조판·XPS와 GCS보드의 GFC 면재·PIR 심재를 실제 단면 추측 없이 구성 요소와 역할 중심으로 비교'
+    : isUvBirchFinishCompare
     ? '- UV 코팅 자작합판의 하도와 상도를 등급이 아닌 공정 단계와 사용 목적 차이로 시각화'
     : isBirchStockPineCompare
     ? '- 자작합판 S/BB와 미송합판의 실제 표면·무늬 차이를 좌우 비교'
@@ -2856,11 +2907,23 @@ function buildTypeAPrompt(data) {
       ? '- 현재 자작합판 복합 등급과 단일 비교 등급의 앞면·뒷면 표면 등급만 분리해 비교'
       : '- 다른 등급과 비교하지 않고 현재 자작합판 복합 등급의 앞면·뒷면 의미만 설명'
     : isEboardFinishCompare
-    ? '- 이보드 도배용과 페인트용의 동일한 단면 구조를 유지하고 표면 질감 차이만 시각화'
+    ? '- 이보드 도배용과 페인트용의 복합보드 개념은 유지하고 후속 표면 마감 차이만 시각화'
     : shouldSkipTypeAStructureCompare
       ? '- 비교 핵심 포인트까지만 시각화하고 3단은 생성하지 않는다'
       : '- 비교 핵심 포인트와 좌우 구조 차이를 시각화';
-  const firstSectionInstruction = isUvBirchFinishCompare
+  const firstSectionInstruction = isGcsBoard
+    ? `
+1단: 완제품 외관 비교
+- 왼쪽 이보드: 얇은 흰색·밝은 회백색 PP 중공 구조판과 상대적으로 두꺼운 연한 분홍색 XPS 단열재가 붙어 있는 하나의 완성된 복합보드로 표시한다.
+- 오른쪽 GCS보드: 회색 시멘트계 면재와 연한 크림색·미색 PIR 심재가 붙어 있는 하나의 완성된 복합보드로 표시한다.
+- 이보드의 PP는 흰색·밝은 회백색, XPS는 연한 분홍색으로 고정한다. 파란색·하늘색·녹색 XPS와 분홍색 PP를 금지한다.
+- GCS의 GFC 면재는 회색 시멘트 질감, PIR 심재는 연한 크림색·미색으로 고정한다. 분홍색 PIR와 흰색 플라스틱 질감의 GFC를 금지한다.
+- 구성 요소의 역할 설명은 1단에 넣지 않고 2단에서만 표시한다.
+- 구성 요소를 각각 따로 배치한 부품 카탈로그, 폭발도와 분해도를 금지한다.
+- 실제 제조 단면, 면재 개수, 층 순서와 두께 비율을 추측하지 않는다.
+- 이보드와 GCS보드의 구성 요소를 서로 혼합하지 않는다.
+`
+    : isUvBirchFinishCompare
     ? `
 1단: UV 코팅 공정 흐름
 - "원판 → 샌딩 → UV 하도 → UV 상도"를 왼쪽에서 오른쪽 순서로 표시한다.
@@ -2933,7 +2996,15 @@ ${buildBirchOrderGradeCardGuide(knowledge.availableSurfaceGrades)}
   const sourceInstruction = data.source
     ? `- 출처는 작게 표시: "출처: ${data.source}"`
     : '';
-  const secondSectionInstruction = isUvBirchFinishCompare
+  const secondSectionInstruction = isGcsBoard
+    ? `
+2단: 구성 요소 역할 비교
+- 이보드: PP 중공 구조판은 마감 바탕 역할, XPS 단열재는 단열 역할.
+- GCS보드: Glass Fiber Cement Sheet는 표면 보호와 마감 바탕 역할, PIR 단열 심재는 단열 역할.
+- 좌우 모두 고정된 적층도, 샌드위치 단면이나 폭발도로 만들지 않는다.
+- 접착 결합층을 별도 부품처럼 생성하거나 근거 없는 단열·강도·화재 성능 우위를 만들지 않는다.
+`
+    : isUvBirchFinishCompare
     ? `
 2단: UV 하도 ↔ UV 상도
 - 왼쪽 "UV 하도": 최종 마감 전 단계, 후속 도장 또는 추가 마감용 바탕면, 표면 균일화 목적, 무광 또는 낮은 광택 느낌.
@@ -3009,7 +3080,15 @@ ${sourceInstruction}
 - 근거 없는 차이 생성 금지
 - 입력값에 실제 차이가 부족하면 확인 가능한 구조, 시공 방식, 특징만 표시
 `;
-  const thirdSectionInstruction = isUvBirchFinishCompare
+  const thirdSectionInstruction = isGcsBoard
+    ? `
+3단: 선택 포인트
+- 이보드: 경량 시공, 후속 마감, 단열 기능.
+- GCS보드: 시멘트계 면재, PIR 단열 심재, 준불연 복합보드.
+- 단면 확대를 반복하지 않고 선택 이유만 간결하게 표시한다.
+- 폭발도, 상·하부 시멘트판 고정 구조, 접착층 위치와 실제 제조 단면을 생성하지 않는다.
+`
+    : isUvBirchFinishCompare
     ? `
 3단: 사용 목적 차이
 - UV 하도: 후속 도장·추가 마감 작업을 위한 바탕 단계.
@@ -3049,9 +3128,9 @@ ${sourceInstruction}
     : isEboardFinishCompare
     ? `
 3단: 동일 구조의 표면 비교
-- XPS 코어를 두께의 약 80~90%이자 가장 먼저 보이는 핵심 구조로 표현하고 좌우 단면은 동일하게 유지한다.
-- 표면 마감층은 흰색 또는 연회색 외관에서 질감만 다르게 하고 핑크색으로 만들지 않는다.
-- 약 3T PP층은 연회색 상부 단일층으로만 두고 XPS 하부 PP층과 샌드위치 구조는 금지한다. XPS 코어만 옅은 핑크 계열로 표현하며 색상명은 라벨로 출력하지 않는다.
+- PP 중공 구조판과 단열재가 결합된 동일한 복합보드 개념을 유지한다.
+- 도배용은 미세 섬유감, 페인트용·도장용은 평활한 표면 느낌으로 구분한다.
+- PP와 단열재를 독립된 3층 적층 단면으로 과장하거나 실제 제조 단면을 추측하지 않는다.
 `
     : shouldSkipTypeAStructureCompare
       ? `
@@ -3073,7 +3152,16 @@ ${repeatedGlueThirdBan}
 - 2단 비교 핵심 포인트와 같은 정보 반복 금지
 - 긴 설명문 금지
 `;
-  const vsCompareInstruction = isUvBirchFinishCompare
+  const vsCompareInstruction = isGcsBoard
+    ? `
+GCS보드와 이보드 비교 규칙:
+- 좌측 이보드와 우측 GCS보드의 구조를 명확히 분리한다.
+- 이보드는 "PP 중공 구조판", "XPS 단열재", "후속 마감용 복합보드"의 역할만 표시한다.
+- GCS보드는 "Glass Fiber Cement Sheet", "PIR 단열 심재", "준불연 복합보드"의 역할만 표시한다.
+- 실제 판매 제품 기준 색상을 제품 식별 정보로 유지하고 두 제품 구성 요소의 색상과 재질을 서로 혼합하지 않는다.
+- 고정된 층 순서, 폭발도, 접착층과 제조 단면을 생성하거나 두 제품의 구성 요소를 서로 복사하지 않는다.
+`
+    : isUvBirchFinishCompare
     ? `
 UV 하도·상도 공정 비교 규칙:
 - compareTarget은 UV 하도와 UV 상도의 공정 비교 근거로만 사용한다.
@@ -3283,10 +3371,27 @@ ${repeatedHtmlBan}
 
 function buildTypeBPrompt(data) {
   const knowledge = buildProductKnowledgeContext(data);
+  const isGcsBoard = isGcsBoardProduct(data);
+  const isEboard = isEboardProduct(data);
   const isUvBirchFinishCompare = isUvCoatedBirchFinishCompare(data);
   const isPlywoodTypeB = knowledge.productGroup === 'PLYWOOD';
   const typeBRepeatedHtmlBan = isPlywoodTypeB ? '' : '- 상세설명 HTML 문장 반복 금지';
-  const typeBDetailInstruction = isPlywoodTypeB
+  const typeBDetailInstruction = isGcsBoard
+    ? `- GCS보드는 Glass Fiber Cement Sheet, PIR(경질우레탄) 단열 심재와 두 구성 요소의 역할을 보여주는 개념도만 사용한다.
+- Glass Fiber Cement Sheet는 회색 시멘트 질감, PIR 심재는 연한 크림색 또는 미색으로 표현한다.
+- 분홍색 XPS처럼 보이는 PIR, 흰색 플라스틱처럼 보이는 GFC와 두 구성 요소의 색상·재질 혼합을 금지한다.
+- 고정된 상부·중앙·하부 층과 실제 제조 단면을 추측하지 않는다.
+- 면재 개수, 배치 순서, 두께 비율과 접착층 위치를 단정하지 않는다.
+- XPS, PP 중공 구조판, EPS, PF, 석고 코어를 생성하지 않는다.`
+    : isEboard
+    ? `- 이보드는 PP 중공 구조판, XPS 단열재, 후속 마감용 복합보드의 역할을 보여주는 개념도만 사용한다.
+- PP 중공 구조판은 흰색 또는 밝은 회백색, XPS 단열재는 실제 판매 제품 기준 연한 분홍색으로 표현한다.
+- 파란색·하늘색·녹색 XPS와 분홍색 PP 구조판을 금지하고 두 구성 요소의 색상·재질을 혼합하지 않는다.
+- PP와 XPS를 독립된 적층 레이어나 고정된 3층 단면으로 표현하지 않는다.
+- 실제 제조 절단면, 층 순서와 두께 비율을 추측하지 않는다.
+- 입력에 없는 별도 표면층·접착층을 생성하지 않는다.
+- 도배용·페인트용은 후속 표면 마감 차이만 표현한다.`
+    : isPlywoodTypeB
     ? `- 동일한 합판 단면에서 최대 3개의 확대뷰만 사용한다.
 - 단판 레이어와 앞면·뒷면 표면 중 실제로 표시할 정보만 확대한다.
 - 블록형 또는 조각형 내부 구조를 만들지 않는다.
@@ -3328,14 +3433,31 @@ function buildTypeBPrompt(data) {
 - 좌우 카드/제품명/표 제목 없이 확대 이미지 중심`;
   const isBirchStockGuide = knowledge.isBirchStockGuide;
   const isBirchOrderGradeGuide = knowledge.isBirchOrderGradeGuide;
-  const typeBGoalInstruction = isUvBirchFinishCompare
+  const typeBGoalInstruction = isGcsBoard
+    ? '- GCS보드의 Glass Fiber Cement Sheet와 PIR 단열 심재 역할을 제조 단면 추측 없이 시각화'
+    : isEboard
+    ? '- 이보드의 PP 중공 구조판과 XPS 단열재 결합 개념을 고정 적층 단면 없이 시각화'
+    : isUvBirchFinishCompare
     ? '- UV 코팅 자작합판의 공정 흐름과 하도·상도의 역할 및 사용 목적 차이를 시각화'
     : isBirchOrderGradeGuide
     ? '- 주문 가능한 복합 등급을 독립 카드로 나누고 앞면·뒷면의 표면 차이만 시각화'
     : isBirchStockGuide
       ? '- 재고 상품 S/BB의 앞면 S와 뒷면 BB를 단일 상품 설명형으로 시각화'
       : '- 단면 구조, 구조 상세 확대, 핵심 구조 키워드만 시각화';
-  const typeBFirstSection = isUvBirchFinishCompare
+  const typeBFirstSection = isGcsBoard
+    ? `1단: GCS보드 완제품 외관
+- 회색 시멘트 질감의 Glass Fiber Cement Sheet와 연한 크림색·미색 PIR 단열 심재가 붙어 있는 하나의 완성된 준불연 복합보드로 표시한다.
+- 구성 요소의 역할 설명은 1단에 넣지 않고 2단에서만 표시한다.
+- 구성 요소를 각각 따로 배치한 부품 카탈로그, 폭발도와 분해도를 생성하지 않는다.
+- 양면 시멘트판·중앙 심재의 고정 샌드위치 구조로 만들지 않는다.
+- 실제 제조 단면, 면재 개수, 층 순서와 비율을 추측하지 않는다.`
+    : isEboard
+    ? `1단: 이보드 완제품 외관
+- 얇은 흰색·밝은 회백색 PP 중공 구조판과 상대적으로 두꺼운 연한 분홍색 XPS 단열재가 붙어 있는 하나의 완성된 복합보드로 표시한다.
+- 구성 요소의 역할 설명은 1단에 넣지 않고 2단에서만 표시한다.
+- 구성 요소를 각각 따로 배치한 부품 카탈로그, 폭발도와 분해도를 생성하지 않는다.
+- PP와 XPS를 독립된 3층 적층 구조로 만들거나 실제 제조 단면을 추측하지 않는다.`
+    : isUvBirchFinishCompare
     ? `1단: UV 코팅 공정 흐름
 - "원판 → 샌딩 → UV 하도 → UV 상도"를 순서대로 연결한다.
 - 자작합판 원판에서 최종 UV 마감까지 공정 단계가 한눈에 보이게 한다.
@@ -3356,7 +3478,19 @@ ${buildBirchOrderGradeCardGuide(knowledge.availableSurfaceGrades)}
 - 레이어, 코어, 표면층, 접합부 등 실제 존재하는 구조 포인트만 시각화
 - 라벨은 3개 이하
 - 긴 설명문 금지`;
-  const typeBSecondSection = isUvBirchFinishCompare
+  const typeBSecondSection = isGcsBoard
+    ? `2단: GCS 구성 요소의 역할
+${typeBDetailInstruction}
+- 시멘트계 면재는 표면 보호와 마감 바탕 역할, PIR 심재는 단열 역할로 표현한다.
+- 실제 판매 제품 기준 색상을 제품 식별 정보로 유지하고 일반적인 단열재 색상으로 임의 변경하지 않는다.
+- PIR 심재를 XPS처럼 표현하거나 이보드 구조와 혼합하지 않는다.`
+    : isEboard
+    ? `2단: 이보드 구성 요소의 역할
+${typeBDetailInstruction}
+- PP 중공 구조판은 마감 바탕 역할, XPS는 단열 역할로 표현한다.
+- 실제 판매 제품 기준 색상을 제품 식별 정보로 유지하고 일반적인 단열재 색상으로 임의 변경하지 않는다.
+- PP 중공 구조판과 XPS를 분리된 여러 층으로 과장하지 않는다.`
+    : isUvBirchFinishCompare
     ? `2단: UV 하도와 UV 상도의 표면·공정 차이
 - UV 하도: 최종 마감 전 바탕 단계, 후속 도장 또는 추가 마감용, 표면 균일화 목적, 무광 또는 낮은 광택 느낌.
 - UV 상도: 최종 UV 마감 완료 단계, 표면 보호를 위한 마감, 바로 사용하는 완성 마감 상태.
@@ -3377,7 +3511,18 @@ ${buildBirchOrderGradeCardGuide(knowledge.availableSurfaceGrades)}
 - 패치 개수·크기·직경을 숫자로 생성하지 않는다.`
       : `2단: 구조 상세 확대 영역
 ${typeBDetailInstruction}`;
-  const typeBThirdSection = isUvBirchFinishCompare
+  const typeBThirdSection = isGcsBoard
+    ? `3단: 선택 포인트
+- 시멘트계 면재와 PIR 단열 심재를 적용한 준불연 복합보드.
+- GFC 면재의 표면 보호·마감 바탕 역할과 PIR 심재의 단열 역할을 기준으로 안내한다.
+- 완전 불연, 화재 안전, 방수, 구조 강도 우위와 입력에 없는 성능 수치를 생성하지 않는다.`
+    : isEboard
+    ? `3단: 선택 포인트
+- 경량 시공
+- 후속 마감
+- 단열 기능
+- 실제 제조 단면과 입력에 없는 성능 수치를 생성하지 않는다.`
+    : isUvBirchFinishCompare
     ? `3단: 사용 목적 차이
 - UV 하도: 후속 도장·추가 마감 작업을 위한 바탕 단계.
 - UV 상도: 별도 추가 마감 없이 사용하는 최종 마감 단계.
@@ -3397,7 +3542,13 @@ ${typeBDetailInstruction}`;
 - 단일 제품의 구조 키워드 카드만 사용
 - 아이콘은 단순하게
 - 긴 설명문 금지`;
-  const typeBSingleStructureGuard = isUvBirchFinishCompare
+  const typeBSingleStructureGuard = isGcsBoard
+    ? `- GCS보드의 구조 개념만 표현하고 이보드, XPS, PP 중공 구조판을 혼합하지 않는다.
+- 양면 시멘트판과 중앙 심재의 고정 구조, 폭발도, 접착층 또는 실제 제조 단면을 추측하지 않는다.`
+    : isEboard
+    ? `- 이보드의 구조 개념만 표현하고 PP와 XPS를 고정된 적층 레이어로 과장하지 않는다.
+- 실제 제조 단면, 별도 표면층·접착층과 층 순서를 추측하지 않는다.`
+    : isUvBirchFinishCompare
     ? `- UV 하도와 상도의 공정 역할만 표현하고 합판 단면·앞뒷면·등급 카드를 생성하지 않는다.
 - S/BB·B/BB 등 표면 등급 비교와 일반 자작합판 등급 규칙을 적용하지 않는다.`
     : isBirchOrderGradeGuide || isBirchStockGuide
