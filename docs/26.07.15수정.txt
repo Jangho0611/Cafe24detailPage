@@ -1,0 +1,44 @@
+## 2026-07-15
+
+### 이미지 생성 품질 고도화
+
+- Global Image Readability Rule 적용
+- 1024×1024 기준 텍스트 가독성 개선
+- 이미지 중심 레이아웃으로 재구성
+
+### 단열재
+
+- PF보드 알루미늄 면재 표현 강화
+- PF 0.020 ↔ XPS 0.028 비교
+- 아이소핑크 기초단열 표현 수정
+- 열반사 단열재 전용 Product Knowledge 구축
+- 규격(6T/10T)과 성능 정보 분리
+
+### 특수보드
+
+- CRC보드 전용 Product Knowledge
+- 목모보드 전용 Product Knowledge
+- 공통 구조 라이브러리 제거
+
+### 집성판
+
+- Type C 전면 개선
+- 수종별 색감 Override
+- 구조별(TOP / SIDE / SOLID) 분리
+- 실제 제품 사진 기반 표면 표현 강화
+- 아카시아 유절·무절 비교
+- TOP Finger / SIDE Finger / SOLID 규칙 재정의
+
+### 일반합판
+
+- One Source of Truth 설계
+- BB/CC 중심 설명
+- BB/CC / 콤비 / 알비자 / MLH 구성 가이드 추가
+- 동남아산·베트남산 확인 항목 추가
+- HTML·AI Summary·FAQ 동기화
+
+### 품질
+
+- Human Writing Rule 유지
+- Product Knowledge 기반 설명 강화
+- 이미지와 HTML 정보 일치(One Source of Truth) 적용
