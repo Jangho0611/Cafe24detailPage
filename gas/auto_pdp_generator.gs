@@ -620,6 +620,31 @@ function buildPlywoodGradeComparisonContext(data, knowledge) {
   };
 }
 
+function getGeneralImportedPlywoodKnowledge(data) {
+  const productName = cleanEntityValue(data && data.productName).replace(/\s+/g, ' ');
+  const match = productName.match(/^일반합판\(수입산\)\s+(4\*8|3\*6)$/);
+  if (!match || !/^BB\s*\/\s*CC$/i.test(cleanEntityValue(data && data.grade))) return null;
+
+  const format = match[1];
+  return {
+    productType: 'GENERAL_PLYWOOD_BBCC',
+    format: format,
+    currentGrade: 'BB/CC',
+    currentOrigin: '인도네시아 또는 베트남',
+    definition: '얇은 목재 베니어를 여러 겹 적층한 일반합판',
+    gradeGuide: 'BB/CC는 앞면 BB와 뒷면 CC의 표면 상태를 구분하며, 노출 마감 여부와 표면 품질을 검토할 때 참고하는 표면 등급입니다. 내부 베니어 수종이나 강도를 의미하는 절대 품질 등급은 아니므로 실제 입고 제품의 표면 상태를 함께 확인합니다.',
+    selectionNotice: '현재 상품은 BB/CC 기준입니다. 콤비·알비자·MLH는 일반합판 선택을 위한 구성 안내이며 현재 판매 옵션이 아닙니다. 각 구성은 별도 입고 사양 확인이 필요합니다.',
+    selectionGuide: [
+      { name: '콤비', role: '베니어 구성', summary: '라왕계열과 알비자계열의 혼합 구성 확인', current: false },
+      { name: '알비자', role: '베니어 구성', summary: '알비자계열 중심, 무게와 요구 강도·사용 위치 확인', current: false },
+      { name: 'MLH', role: '베니어 구성', summary: '혼합 활엽수 베니어, 제조사·번들별 입고 사양 확인', current: false }
+    ],
+    originGuide: '동남아산과 베트남산 모두 제조사, 베니어 구성, 표면 상태, 측면 적층과 재단면을 같은 기준으로 확인합니다. 원산지만으로 품질을 단정하지 않습니다.',
+    originChecks: ['제조사', '베니어 구성', '표면 상태', '측면 적층', '재단면'],
+    checks: ['표면 베니어', '측면 적층', '재단면', '공극·겹침', '두께 편차', '색상·무늬 편차', '노출면', '제조사·번들·입고 시기']
+  };
+}
+
 function buildProductKnowledgeContext(data) {
   const values = [
     data && data.category,
@@ -655,10 +680,38 @@ function buildProductKnowledgeContext(data) {
     '내수합판', '내수 합판', '준내수합판', '준내수 합판', '방수합판', '방수 합판',
     'wbp', 'exterior glue', 'exterior bonded', '접착등급', '접착 등급', '사용환경 등급'
   ].some(function (keyword) { return lowerLabel.indexOf(keyword) !== -1; });
+  const generalPlywood = getGeneralImportedPlywoodKnowledge(data);
   const isEboard = isEboardProduct(data);
   const isGcsBoard = isGcsBoardProduct(data);
-  const resolvedProductGroup = isEboard || isGcsBoard ? 'COMPOSITE_BOARD' : getFAQCategoryType(data);
-  const resolvedProductType = isEboard ? 'EBOARD' : (isGcsBoard ? 'GCS_BOARD' : (isBirchPlywood ? 'BIRCH_PLYWOOD' : (isPlywood ? 'PLYWOOD' : 'DEFAULT')));
+  const isCrcBoard = isCrcBoardProduct(data);
+  const isWoodWoolBoard = isWoodWoolBoardProduct(data);
+  const isReflectiveInsulation = isReflectiveInsulationProduct(data);
+  const resolvedProductGroup = isCrcBoard
+    ? 'CRC_BOARD'
+    : isWoodWoolBoard
+    ? 'WOOD_WOOL_BOARD'
+    : isReflectiveInsulation
+    ? 'REFLECTIVE_INSULATION'
+    : isEboard || isGcsBoard
+    ? 'COMPOSITE_BOARD'
+    : getFAQCategoryType(data);
+  const resolvedProductType = isCrcBoard
+    ? 'CRC_BOARD'
+    : isWoodWoolBoard
+    ? 'WOOD_WOOL_BOARD'
+    : isReflectiveInsulation
+    ? 'REFLECTIVE_INSULATION'
+    : isEboard
+    ? 'EBOARD'
+    : isGcsBoard
+    ? 'GCS_BOARD'
+    : generalPlywood
+    ? generalPlywood.productType
+    : isBirchPlywood
+    ? 'BIRCH_PLYWOOD'
+    : isPlywood
+    ? 'PLYWOOD'
+    : 'DEFAULT';
   const grade = parsePlywoodSurfaceGrade(data);
   const stockType = cleanEntityValue(data && data.stockType);
   const availableSurfaceGrades = [];
@@ -689,6 +742,8 @@ function buildProductKnowledgeContext(data) {
     backGrade: grade ? grade.backGrade : '',
     hasAdhesiveEvidence: isWaterResistantPlywood,
     isBirchPlywood: isBirchPlywood,
+    isGeneralImportedPlywood: Boolean(generalPlywood),
+    generalPlywood: generalPlywood,
     isWaterResistantPlywood: isWaterResistantPlywood,
     hasMdfInput: mdfEvidenceLabel.indexOf('mdf') !== -1 || mdfEvidenceLabel.indexOf('엠디에프') !== -1,
     stockType: stockType,
@@ -744,6 +799,15 @@ function removeUnsupportedPlywoodAdhesiveText(value, context) {
 }
 
 function getProductKnowledgeStructure(data, context) {
+  if (isCrcBoardProduct(data)) {
+    return '규산칼슘계 원료로 성형한 균일한 무기질 판재';
+  }
+  if (isWoodWoolBoardProduct(data)) {
+    return '길고 가는 목재 섬유를 무기질 결합재로 성형한 개방형 표면의 평판';
+  }
+  if (isReflectiveInsulationProduct(data)) {
+    return '은색 알루미늄 반사면과 발포 폴리에틸렌층을 결합한 롤·시트형 단열재';
+  }
   if (isEboardProduct(data)) {
     return 'PP 중공 구조판과 단열재를 결합한 복합보드';
   }
@@ -976,6 +1040,18 @@ function buildAISummary(entity) {
   const uses = entity.uses || [];
   const dictionary = getHumanExpressionDictionary(entity.productGroup);
   const knowledge = entity.productKnowledge || {};
+
+  if (knowledge.isGeneralImportedPlywood && knowledge.generalPlywood) {
+    const guide = knowledge.generalPlywood;
+    const lines = [
+      guide.format === '3*6'
+        ? '현재 상품은 반입 공간과 작업 크기를 고려할 때 검토하는 3×6 BB/CC 일반합판입니다.'
+        : '현재 상품은 BB/CC 표면 등급의 4×8 수입 일반합판입니다.',
+      guide.gradeGuide,
+      guide.selectionNotice + ' ' + guide.originGuide
+    ];
+    return lines.map(filterAISummaryText);
+  }
 
   if (knowledge.isBirchPlywood) {
     summary.push('자작합판은 얇은 목재 단판을 여러 겹 적층한 판재입니다.');
@@ -1230,6 +1306,28 @@ function buildProductSpecificFAQItems(entity) {
         answer: cleanHumanWritingText(item.answer)
       };
     });
+  }
+
+  if (knowledge.isGeneralImportedPlywood && knowledge.generalPlywood) {
+    const guide = knowledge.generalPlywood;
+    if (knowledge.generalPlywood.format === '3*6') {
+      return items(
+        '3×6 일반합판은 언제 선택하나요?',
+        '4×8보다 작은 규격으로 반입 공간과 작업 크기를 고려해야 하는 현장에서 검토합니다.',
+        'BB/CC와 콤비·알비자·MLH는 같은 등급인가요?',
+        guide.gradeGuide + ' ' + guide.selectionNotice,
+        '원산지와 재단면에서 무엇을 확인해야 하나요?',
+        guide.originGuide
+      );
+    }
+    return items(
+      'BB/CC, 콤비, 알비자, MLH는 무엇이 다른가요?',
+      guide.gradeGuide + ' 콤비는 혼합 베니어, 알비자는 알비자계열 중심, MLH는 혼합 활엽수 베니어 구성에 관한 안내입니다. ' + guide.selectionNotice,
+      '동남아산과 베트남산 일반합판은 어떻게 비교하나요?',
+      guide.originGuide,
+      '가구나 노출 마감용으로 사용할 때 무엇을 확인해야 하나요?',
+      '사용할 면의 표면 베니어와 색상·무늬 편차, 측면 적층, 재단면, 두께 편차가 마감 목적에 맞는지 확인합니다.'
+    );
   }
 
   if (isUvCoatedBirchFinishCompare({ productName: productName, compareTarget: compareTarget })) {
@@ -2351,6 +2449,17 @@ function hasOverlappingNoteTopic(notes, note) {
 function buildDefaultNotes(data) {
   const notes = [];
   const knowledge = buildProductKnowledgeContext(data);
+  if (knowledge.isGeneralImportedPlywood && knowledge.generalPlywood) {
+    const guide = knowledge.generalPlywood;
+    return [
+      '현재 재고의 생산지와 BB/CC 앞·뒷면 표면 상태는 주문 전에 확인해야 합니다.',
+      '노출 마감은 사용할 면의 색상·무늬 편차를 먼저 살펴봅니다.',
+      '재단이 필요하면 측면 적층, 공극·겹침과 실제 재단면 상태를 검토합니다.',
+      guide.format === '3*6'
+        ? '3×6 규격은 반입 공간과 작업 크기를 고려해 선택합니다.'
+        : '4×8 규격은 사용 위치와 필요한 재단 치수를 기준으로 선택합니다.'
+    ];
+  }
   const cleanStructure = cleanNoteSource(getProductKnowledgeStructure(data, knowledge));
   const cleanUse1 = cleanNoteSource(data.use1);
   const cleanUse2 = cleanNoteSource(data.use2);
@@ -2448,7 +2557,23 @@ function buildInfographicPrompt(data) {
   if (data.type === 'B') prompt = buildTypeBPrompt(data);
   if (data.type === 'C') prompt = buildTypeCPrompt(data);
   const outputType = buildProductKnowledgeContext(data).productGroup === 'PLYWOOD' ? 'image' : '';
-  return prompt ? prompt + buildGeneratedContentRemedyGuard(outputType) : null;
+  return prompt ? prompt + buildGlobalImageReadabilityRule() + buildGeneratedContentRemedyGuard(outputType) : null;
+}
+
+function buildGlobalImageReadabilityRule() {
+  return `
+
+[GLOBAL IMAGE READABILITY RULE]
+- 1024×1024 상세페이지에서 PC와 모바일 모두 확대 없이 핵심 정보를 읽을 수 있는 충분한 텍스트 크기로 구성한다.
+- 작은 글씨를 많이 배치하지 않고 한 정보 블록은 제목과 최대 2~3줄의 설명으로 제한하며 장문의 문단을 생성하지 않는다.
+- 열전도율, 압축강도, 규격, 두께 등 핵심 수치는 다른 설명보다 크게 강조한다.
+- 이미지와 텍스트 비율은 약 65~70 : 30~35로 유지하고 정보량보다 가독성을 우선한다.
+- 여백을 충분히 확보하고 아이콘 아래 긴 설명을 배치하지 않는다.
+- 동일 크기의 작은 카드 여러 개를 나열하지 말고 중요한 정보를 우선 크게 배치한다.
+- 제품 사진과 텍스트가 서로 겹치지 않게 한다.
+- 브로슈어처럼 작은 글씨가 빽빽한 인포그래픽을 생성하지 않는다.
+- 모바일에서 한눈에 핵심 내용이 보이는 레이아웃을 우선하고 디자인보다 정보 전달성과 가독성을 최우선으로 한다.
+`;
 }
 
 function isUvCoatedBirchFinishCompare(data) {
@@ -2468,9 +2593,749 @@ function isEboardProduct(data) {
   return /(?:^|\s|단열재)\s*(?:이보드|e-?board)(?:\s|$)/i.test(String(data && data.productName || ''));
 }
 
+function isCrcBoardProduct(data) {
+  return String(data && data.productName || '').trim() === 'CRC보드';
+}
+
+function isWoodWoolBoardProduct(data) {
+  return String(data && data.productName || '').trim() === '목모보드';
+}
+
+function isReflectiveInsulationProduct(data) {
+  return String(data && data.productName || '').trim() === '열반사 단열재';
+}
+
+function getInsulationInfographicProfile(data) {
+  const productName = String(data && data.productName || '').trim();
+  const profiles = {
+    '프리미엄 단열재 PF보드': {
+      title: 'PF보드의 외벽 단열 적용 특징',
+      feature: '열전도율 0.020 W/m·K 이하를 먼저 보여주는 PF 폼 단열보드 완제품',
+      locations: ['건물 외피의 외벽 단열', '바닥 단열', '기초 단열'],
+      selections: ['요구 단열성능', '적용 부위', '두께 선택', '시공 방향과 이음부'],
+      roles: ['면재는 PF 폼 코어를 보호하는 보조 구성', 'PF 폼 코어는 단열 역할'],
+      visual: '실제 판매 PF보드의 완제품 외관을 우선한다. PF 코어는 균일한 연한 분홍빛 또는 옅은 살구빛에 미세 셀 질감을 더한다. 알루미늄 라미네이팅 면재는 얇은 금속 면재의 은은한 메탈 질감과 무광 은색을 실제 제품처럼 표현하고 코어와 명확히 구분한다. 건물 외피에서 외벽 단열 위치를 강조한다.',
+      guard: '실제 벽체 레이어, 면재 개수, 접착층과 제조 단면을 추정하지 않는다. PF 코어의 완전한 흰색·노란색·진한 분홍색, XPS처럼 진한 핑크, PIR처럼 진한 노란색·크림색, 코어와 면재의 색상 혼합을 금지한다. 알루미늄 라미네이팅 면재를 흰색 종이 면재, 일반 석고보드 또는 일반 판재처럼 표현하지 않는다.'
+    },
+    '단열재 아이소핑크': {
+      title: '아이소핑크의 바닥·지하 단열 특징',
+      feature: '하중과 습기 환경을 고려하는 XPS 단열보드',
+      locations: ['기초 외벽 단열', '기초 슬래브 단열', '바닥 단열'],
+      selections: ['하중 조건', '습기 노출 환경', '두께 선택', '평면 이음부 확인'],
+      roles: ['미세 독립기포 구조는 단열과 습기 대응을 위한 보조 개념', '보드 전체는 하중을 받는 위치의 단열 역할'],
+      visual: '실제 아이소핑크의 깨끗한 핑크 계열 완제품 외관을 유지하고 기초 외벽·기초 슬래브·바닥의 단열 위치를 정확히 구분해 보여준다.',
+      guard: '완전 방수, 수분 완전 차단, 침수에도 변형 없음, 맞물림 가공을 생성하지 않는다. 실제 핑크 XPS 보드 표면에는 ISOPINK, 아이소핑크, 벽산, 제품명, 규격, LOT 번호, QR 코드, 바코드, 로고, 숫자, 인쇄, 워터마크, 임의 텍스트와 읽을 수 없는 AI 글자를 생성하지 않는다.'
+    },
+    '단열재 GCS보드': {
+      title: 'GCS보드의 벽체·천장 단열 특징',
+      feature: 'GFC 시멘트계 면재와 PIR 단열 심재를 결합한 준불연 복합보드',
+      locations: ['내단열 벽체', '천장 단열', '대피공간 벽체', '복도 벽체'],
+      selections: ['준불연 근거 확인', '적용 위치', '후속 마감 조건', '규격과 시공 방향'],
+      roles: ['GFC 면재는 표면 보호와 마감 바탕 역할', 'PIR 심재는 단열 역할'],
+      visual: '회색 시멘트 질감의 GFC 면재와 연한 크림색 PIR 심재가 결합된 하나의 완제품 외관을 우선한다.',
+      guard: '고정 대칭 샌드위치 구조, 양면 면재 단정, 접착층, 폭발도와 실제 제조 단면을 추정하지 않는다.'
+    },
+    '단열재 이보드': {
+      title: '이보드 두께와 표면 마감 선택',
+      feature: 'PP 표면 구조판과 핑크 XPS가 결합된 후속 마감용 복합단열보드',
+      locations: ['실내 벽체', '천장', '발코니 확장부'],
+      selections: ['도배용·페인트용 표면 선택', '13mm·23mm·33mm 두께 선택', '바탕면 상태', '이음부 처리'],
+      roles: ['PP 표면 구조판은 후속 마감 바탕 역할', 'XPS는 단열 역할'],
+      visual: '기존 이보드의 품질 좋은 완제품 단면 표현을 유지한다. 얇은 흰색·밝은 회백색 PP 표면 구조판과 상대적으로 두꺼운 동일한 연한 핑크 XPS가 실제 제품 비율로 붙어 있는 하나의 완제품처럼 표현한다.',
+      guard: 'PP와 XPS를 분리 부품, 폭발도, 고정 3층 단면 또는 PP → XPS → PP 구조로 표현하지 않는다. 새로운 단면 비율, 코팅층, 보강층, 접착층과 가상 레이어를 추론하지 않는다.'
+    },
+    '열반사 단열재': {
+      title: '열반사 단열재의 복사열 차단 원리',
+      feature: '은색 알루미늄 반사면과 발포 폴리에틸렌(PE)층을 결합한 롤·시트형 단열재',
+      locations: ['지붕 하부', '천장', '벽체'],
+      selections: ['적용 위치', '공기층 확보', '반사면 방향', '이음부 밀착'],
+      roles: ['알루미늄 반사면은 복사열 반사 역할', '공기층은 반사면과 함께 복사열 차단 개념을 구성'],
+      visual: '실제 제품처럼 은색 금속성 표면과 얇은 발포 폴리에틸렌(PE)층이 보이는 유연한 롤 또는 시트 형태를 우선한다. 반사면 방향과 열 흐름을 명확히 표현한다.',
+      guard: '생활·자기계발 포스터, 캘린더·시계, 사람·캐릭터와 건강 콘텐츠를 생성하지 않는다. 다른 단열재나 판재의 재료·구조를 혼합하지 않고 코어 확대, 단면 폭발도와 고정된 내부 공기층을 생성하지 않는다.'
+    }
+  };
+  return profiles[productName] || null;
+}
+
+function buildInsulationInfographicPrompt(data, type) {
+  const profile = getInsulationInfographicProfile(data);
+  if (!profile) return '';
+  const lines = function (items) {
+    return items.map(function (item) { return '- ' + item; }).join('\n');
+  };
+  const isReflectiveInsulation = isReflectiveInsulationProduct(data);
+  const reflectivePerformanceItems = String(data.keyValue || '').split(/[,;|\n]+/).map(function (item) {
+    return item.replace(/(?:6|10)\s*mm/gi, '').replace(/^[\s/·]+|[\s/·]+$/g, '').trim();
+  }).filter(function (item) {
+    return /열전도율|압축강도|준불연/.test(item) && !/Google Sheet 확인 성능|제조사 스펙시트/.test(item);
+  });
+  const performance = isReflectiveInsulation
+    ? reflectivePerformanceItems.length
+      ? '- 객관적인 성능: ' + reflectivePerformanceItems.join(' / ')
+      : '- 확인된 객관적 성능 수치가 없으면 성능 영역을 만들지 않는다.'
+    : data.keyValue
+    ? `- Google Sheet 확인 성능: ${data.keyValue}`
+    : '- 확인된 성능 수치가 없으면 수치 카드를 만들지 않는다.';
+  const source = isReflectiveInsulation
+    ? data.source
+      ? `- 이미지 최하단에만 작은 글씨로 "출처: ${data.source}"를 표시한다.`
+      : '- 출처 근거가 없으면 출처 문구를 생성하지 않는다.'
+    : data.source ? `- 출처: ${data.source}` : '- 별도 출처 영역을 만들지 않는다.';
+  const isPfBoard = data.productName === '프리미엄 단열재 PF보드';
+  const isXpsBoard = data.productName === '단열재 아이소핑크';
+  const isEboard = data.productName === '단열재 이보드';
+  const typeAHeadings = isPfBoard
+    ? ['PF보드 열전도율과 완제품', '외벽·바닥·기초 적용 위치', 'PF보드 선택 기준']
+    : isXpsBoard
+    ? ['아이소핑크 핵심 성능', '기초 외벽·슬래브·바닥 적용', '아이소핑크 선택 기준']
+    : isEboard
+    ? ['이보드 완제품과 두께 옵션', '도배용과 페인트용 표면 비교', '이보드 적용 위치와 선택 기준']
+    : isReflectiveInsulation
+    ? ['열반사 단열재 실제 외관', '지붕·천장·벽체 적용 위치', '열반사 단열재 선택 기준']
+    : ['1단: 완제품과 제품 특징', '2단: 실제 시공 위치', '3단: 선택 기준'];
+  const typeBHeadings = isPfBoard
+    ? ['PF보드 실제 설치 모습', '열 흐름과 시공 흐름', '구조 역할과 시공 주의사항']
+    : isXpsBoard
+    ? ['아이소핑크 실제 설치 모습', '기초와 바닥의 열 흐름', '성능과 시공 확인사항']
+    : isEboard
+    ? ['도배용과 페인트용 실제 표면', '두께 선택과 후속 마감 흐름', '이보드 적용 위치와 확인사항']
+    : isReflectiveInsulation
+    ? ['열반사 단열재 실제 제품 외관', '실제 시공 위치와 반사면 방향', '복사열 차단 원리', '제품 규격과 시공 선택 기준']
+    : ['1단: 실제 설치 모습', '2단: 열 흐름과 시공 흐름', '3단: 구조 역할과 주의사항'];
+  const stageLabelBan = isPfBoard || isReflectiveInsulation
+    ? '- 숫자나 영문으로 된 단계형 섹션 라벨을 이미지에 생성하지 않고 위 설명형 제목만 사용한다.'
+    : '';
+  const eboardFlow = data.productName === '단열재 이보드'
+    ? '- 시공 흐름은 "바탕면 확인 → 이보드 설치 → 도배 또는 페인트 후속 마감"으로 표현한다.'
+    : '- 시공 순서는 입력에 없는 접착제, 고정구, 마감 레이어를 추가하지 않고 위치 확인 → 보드 배치 → 이음부 확인 수준으로만 표현한다.';
+  const productSpecificPerformance = isPfBoard
+    ? '- 핵심 비교 수치: PF 0.020 W/m·K 이하 ↔ XPS 0.028 W/m·K. PF의 열전도율을 가장 먼저, 가장 크게 인식하도록 배치하되 이 수치만 객관적으로 비교하고 과장된 우위 문구는 쓰지 않는다.'
+    : isXpsBoard
+    ? '- 핵심 성능에 열전도율 0.028 W/m·K와 Google Sheet의 압축강도를 함께 표시한다.'
+    : '';
+  const eboardFinishComparison = isEboard
+    ? `- 13mm / 23mm / 33mm 세 규격을 모두 명확히 표시한다.
+- 좌측 "도배용"과 우측 "페인트용"의 실제 표면을 확대 비교한다.
+- 도배용은 벽지 부착을 고려한 표면, 페인트용은 샌딩·도장 마감을 고려한 표면으로 구분하되 색상만 바꾸지 않는다.
+- 도배용 표면에 벽지를 붙이거나 페인트용 표면에 페인트를 칠한 완성품처럼 표현하지 않는다.
+- 두 유형 모두 동일한 연한 핑크 XPS 복합보드이며 표면 질감과 후속 작업의 선택 차이를 우선한다.`
+    : '';
+  const reflectiveTypeBLayout = isReflectiveInsulation && type === 'B'
+    ? `${typeBHeadings[0]}
+- ${profile.feature}
+- ${profile.visual}
+- 완제품의 은색 알루미늄 반사면, 발포 폴리에틸렌(PE)층과 롤·시트 형태를 실사 중심으로 보여준다.
+
+${typeBHeadings[1]}
+${lines(profile.locations)}
+- 공기층과 함께 시공되는 개념을 표현하되 공기층을 제품 내부 고정 레이어로 만들지 않는다.
+- 지붕·천장·벽체에서 알루미늄 반사면 방향과 이음부 위치를 단순 개념도로 표시한다.
+
+${typeBHeadings[2]}
+- 태양 복사열 → 알루미늄 반사면 → 공기층 → 실내 열 유입 감소 순서로 열 흐름을 표현한다.
+- 알루미늄 반사면의 복사열 반사 역할과 공기층을 함께 보여준다.
+- 입력에 없는 차단율과 성능 수치를 추가하지 않는다.
+
+${typeBHeadings[3]}
+제품 규격
+- 선택 가능한 두께: 6mm / 10mm
+- 6mm와 10mm는 성능값이 아니라 제품 옵션으로만 표시한다.
+${lines(profile.selections)}
+${performance}
+${source}
+- 성능 영역에는 입력에서 확인된 열전도율, 압축강도, 준불연 등 객관적인 수치·등급만 배치한다.
+- 시트 확인 여부를 성능 제목으로 만들지 않고 자료 출처를 성능명이나 카드 제목으로 표시하지 않는다.
+- 제품 규격과 성능을 같은 카드나 같은 라벨로 혼합하지 않는다.
+- 코어 확대와 단면 폭발도를 생성하지 않는다.`
+    : '';
+  const typeLayout = reflectiveTypeBLayout || (type === 'A'
+    ? `${typeAHeadings[0]}
+- ${profile.feature}
+- ${profile.visual}
+${productSpecificPerformance}
+${eboardFinishComparison}
+${performance}
+${source}
+
+${typeAHeadings[1]}
+${lines(profile.locations)}
+- 건물 또는 공간의 단순한 위치 개념도에서 단열 위치와 열 흐름 화살표를 표시한다.
+- 특정 벽체·바닥·천장의 상세 레이어는 추정하지 않는다.
+
+${typeAHeadings[2]}
+${lines(profile.selections)}
+- 구조 역할은 작은 보조 개념도 1개 이하로만 표현한다.
+${lines(profile.roles)}`
+    : `${typeBHeadings[0]}
+- ${profile.visual}
+${lines(profile.locations)}
+${productSpecificPerformance}
+${eboardFinishComparison}
+- 제품을 무조건 절단하지 않고 실제 적용 위치에 설치된 완제품을 먼저 보여준다.
+
+${typeBHeadings[1]}
+- 실내·외 또는 상·하부의 열 흐름과 단열 위치를 간단한 화살표로 표시한다.
+${eboardFlow}
+- 실제 시공 상세와 벽체 레이어를 추정하지 않는다.
+
+${typeBHeadings[2]}
+${lines(profile.roles)}
+${lines(profile.selections)}
+${performance}
+${source}
+- 구조 확대는 역할 설명용 개념도 1개 이하로 제한한다.`);
+
+  return `
+건축자재 B2B 쇼핑몰 상세페이지용 한국어 인포그래픽 이미지를 생성하라.
+
+메인 제목: ${profile.title}
+
+목표:
+- 구조 설명보다 제품 특징 → 시공 위치 → 선택 기준이 먼저 이해되게 한다.
+- 실제 완제품과 시공 위치를 중심으로 한 실무형 시공 카탈로그 스타일로 구성한다.
+- 열 흐름, 단열 위치와 시공 흐름은 단순한 아이콘과 개념도로 표현한다.
+- 상세설명 HTML 문장을 그대로 반복하지 않는다.
+
+캔버스와 색상:
+- 1024 x 1024px, 배경 #FFFFFF
+- 메인 #123628, 포인트 #C9A84C, 텍스트 #1C1C1C, 서브텍스트 #616161, 보더 #E0E0E0만 사용한다.
+
+[Type ${type} 구성]
+${typeLayout}
+
+제품 고정 규칙:
+- ${profile.guard}
+${stageLabelBan}
+- 제품을 무조건 절단하거나 구조 확대만 반복하지 않는다.
+- 절단도, 폭발도, 추정 단면과 입력에 없는 시공 부자재를 생성하지 않는다.
+- 다른 단열재의 코어, 색상, 면재와 시공 위치를 혼합하지 않는다.
+- 성능 수치는 Google Sheet 값만 사용하고 근거 없는 성능 우위를 만들지 않는다.
+- 범용 마케팅 제목, 영어 라벨, 광고 배너와 과장 표현을 사용하지 않는다.
+`;
+}
+
+function getSelectionInfographicProfile(data) {
+  const productName = String(data && data.productName || '').trim();
+  const gluedWoodProfiles = {
+    '고무나무 집성판 탑핑거': ['TOP_FINGER', ['균일한 밝은 색감', '가공·재단 작업성', '상판 제작 시 선택하기 쉬운 실용성'], ['밝고 고른 표면', '탑핑거 접합은 보조 표현'], ['카페 테이블 상판', '주방 상판']],
+    '라디에타파인 집성판 탑핑거': ['TOP_FINGER', ['밝고 깨끗한 색감', '도장 마감에 어울리는 표면', '가구 상판·전면재 제작'], ['미백색 표면', '도장 전후 마감 이미지'], ['모던 가구 상판', '서랍 가구 전면재']],
+    '라디에타파인 계단재': ['STAIR', ['계단 전용 규격', '보행 하중을 고려한 두께', '30mm·38mm 두께 선택'], ['계단판 완제품', '계단에 설치된 상태'], ['계단판', '챌판']],
+    '삼나무 집성판 솔리드': ['SOLID', ['자연스러운 원목 느낌', '유절 표면의 개성', '따뜻한 인테리어 감성'], ['붉은 결·옹이가 보이는 표면', '폭 방향 솔리드 집성은 보조 표현'], ['옷장 내부 가구', '인테리어 가구']],
+    '쏘노클린 집성판 사이드핑거': ['SIDE_FINGER', ['자줏빛·검붉은 디자인 패턴', '표면을 드러내는 노출 마감', '포인트 가구 선택'], ['색조가 교차하는 표면 패턴', '완성 가구의 노출면'], ['디자인 가구 상판', '포인트 월']],
+    '아카시아 집성판 사이드핑거': ['SIDE_FINGER', ['심재와 변재의 모자이크 무늬', '빈티지한 표면 분위기', '카페·인테리어 상판 선택'], ['짙고 밝은 목재 조각이 교차하는 표면', '노출 상판'], ['카페 카운터', '인테리어 테이블']],
+    '엘더 집성판 사이드핑거': ['SIDE_FINGER', ['따뜻한 붉은 황색', '비교적 고르게 이어지는 색조', '도어·프레임 노출 마감'], ['은은하고 따뜻한 표면 톤', '가구 도어 노출면'], ['수제 가구 도어', '침대 프레임']],
+    '티크 집성판 사이드핑거': ['SIDE_FINGER', ['골드브라운 색감', '천연 유분이 있는 목재 표면', '고급 상판의 노출 마감'], ['골드브라운 표면과 자연스러운 광택', '노출 상판'], ['카운터 상판', '내장 가구']],
+    '탄화 애쉬(물푸레나무) 집성판': ['SOLID', ['탄화 전후의 색감 변화', '진한 갈색의 포인트 표면', '탄화 처리에 따른 치수 안정성 고려'], ['일반 애쉬와 탄화 애쉬의 색감 비교', '탄화 후 표면'], ['테이블 상판', '포인트 월']],
+    '멀바우 집성판 사이드핑거': ['SIDE_FINGER', ['중후한 붉은 갈색', '무겁고 치밀한 하드우드 느낌', '중량감 있는 상업 공간 상판'], ['짙은 적갈색 표면', '두꺼운 상판의 존재감'], ['대형 테이블', '진열대 상판']],
+    '오크 집성판 사이드핑거': ['SIDE_FINGER', ['굵고 선명한 타이거 패턴', '클래식한 원목 가구 분위기', '결을 드러내는 노출 마감'], ['호반문이 보이는 표면', '가구 도어·상판 노출면'], ['가구 도어', '책상 상판']],
+    '오동나무 집성판 솔리드': ['SOLID', ['가벼운 목재 특성', '재단·가공 편의', '가구와 선반 제작용 선택'], ['밝고 가벼운 목재 표면', '폭 방향 솔리드 집성은 보조 표현'], ['가구 제작', '선반 제작']],
+    '레드파인 집성판 솔리드': ['SOLID', ['자연스러운 붉은 소나무 결', '유절 원목 분위기', '가구·선반 제작 범용성'], ['붉은 결과 옹이가 보이는 표면', '폭 방향 솔리드 집성은 보조 표현'], ['가구 제작', '선반·인테리어 마감']]
+  };
+  const gluedWoodTypeCOverrides = {
+    '고무나무 집성판 탑핑거': {
+      title: '고무나무 집성판의 밝고 균일한 표면', speciesTitle: '고무나무', appearance: ['밝은 황갈색과 연한 베이지의 비교적 균일한 바탕색', '차분하고 고른 나뭇결'],
+      applications: ['테이블 상판', '가구 상판', '주방 상판'], selections: ['상판 제작 시 가공 조건', '표면 마감 방식'],
+      joint: '탑핑거 접합부는 작은 보조 확대 1개로만 표현한다.', guard: '과도한 노란색, 강한 옹이와 진한 적갈색을 생성하지 않는다.'
+    },
+    '라디에타파인 집성판 탑핑거': {
+      title: '라디에타파인 집성판의 밝은 목재 질감', speciesTitle: '라디에타파인', appearance: ['밝은 미백색과 연한 크림색 바탕', '은은하고 부드러운 소나무 결'],
+      applications: ['책상 상판', '선반', '가구 프레임'], selections: ['도장·마감 방식', '노출할 표면 상태'],
+      joint: '탑핑거 접합은 표면보다 작게 보조 설명한다.', guard: '주황색, 진한 옹이와 고무나무의 균일한 활엽수 결을 혼합하지 않는다.'
+    },
+    '라디에타파인 계단재': {
+      title: '라디에타파인 계단재의 계단 적용 특징', speciesTitle: '라디에타파인 계단재', appearance: ['밝은 미백색과 연한 크림색의 설치된 계단', '은은한 소나무 결이 보이는 디딤판과 챌판'],
+      applications: ['복층 공간의 설치된 계단', '계단 디딤판과 챌판'], selections: ['30mm / 38mm 두께 선택', '적용할 계단 위치'],
+      joint: '폭 방향 집성은 설치된 계단 이미지 아래의 작은 보조 정보로만 표시한다.', guard: '일반 상판, 테이블, 평판 상품 이미지를 메인으로 만들거나 주황색으로 과장하지 않는다.',
+      structureLibrary: 'TOP_FINGER'
+    },
+    '삼나무 집성판 솔리드': {
+      title: '삼나무 집성판의 자연스러운 유절 표면', speciesTitle: '삼나무', appearance: ['밝은 베이지와 옅은 황갈색 바탕', '붉은빛은 일부 결·옹이 주변에만 약하게 나타나는 자연스러운 유절 표면', '다양한 폭의 긴 원목 스트립이 끊김 없이 이어지는 표면'],
+      applications: ['옷장 내부 가구', '원목 감성 인테리어 가구'], selections: ['옹이와 색상 편차 확인', '노출할 표면 선택'],
+      joint: '솔리드 폭 방향 집성은 작은 보조 개념도로만 표현한다.', guard: '붉은기는 옹이 주변과 일부 결에만 약하게 둔다. 상면 스트립 위치와 전면 단면의 접합선은 자연스럽게 이어져야 하며 제품 전체를 붉은색·주황색으로 만들거나 균일한 무절 표면으로 바꾸지 않는다.'
+    },
+    '쏘노클린 집성판 사이드핑거': {
+      title: '쏘노클린 집성판의 자연스러운 브라운 스트립', speciesTitle: '쏘노클린', appearance: ['중간 밝기의 따뜻한 브라운 바탕', '밝은 브라운·회갈색·중간 브라운 스트립의 자연스러운 혼합과 일부 짙은 브라운 스트립', '스트립별 색상과 결이 지나치게 균일하지 않은 실제 제품 표면'],
+      applications: ['포인트 테이블', '디자인 가구와 포인트 월'], selections: ['검붉은 패턴의 노출 방향', '공간과 어울리는 색조'],
+      joint: '측면 핑거조인트는 가장 작은 보조 확대에만 사용한다.', guard: '일반 쏘노클린 판매 제품을 기준으로 자연광 아래 저채도·무도장·무광 표면을 유지한다. 쏘노클린 지브라 수준의 강한 명암 대비, 전체 진갈색·초콜릿색·검정·보라·자주색·와인색·다크월넛과 월넛 표면, 검정에 가까운 스트립 과다, 염색·스테인·고광택을 생성하지 않는다.'
+    },
+    '아카시아 집성판 사이드핑거': {
+      title: '아카시아 집성판의 모자이크 나뭇결', speciesTitle: '아카시아', appearance: ['길이 방향으로 이어지는 길고 좁으며 폭과 길이가 완전히 균일하지 않은 원목 스트립', '밝은 크림·황갈색 변재와 중간 갈색 심재가 불규칙하게 섞인 자연스러운 패치워크형 모자이크 표면', '일부 옹이와 자연스러운 색상 편차가 보이는 저채도·무도장·무광 실물 촬영 표면'],
+      applications: ['카페 카운터', '인테리어 테이블'], selections: ['심재·변재 색상 편차', '노출할 모자이크 무늬'],
+      joint: '상판에는 Finger Joint를 생성하지 않고 긴 스트립만 자연스럽게 이어지게 한다. 실제 SIDE FINGER 맞물림은 모서리가 아닌 측면(face) 전체 면적과 그 확대에서만 명확히 표시한다.',
+      guard: '상면과 전면 단면의 스트립 위치를 자연스럽게 연결한다. 지나치게 노란 표면, 회색으로 탈색된 표면, 오크·고무나무처럼 균일한 표면, 합판 적층선, 벽돌형 짧은 블록 반복, 상판 Finger Joint, 굵은 사각 톱니, 직각 블록과 모서리 한 줄 핑거를 생성하지 않는다.',
+      structureVisualOverride: '아카시아 전용: 상판은 폭과 길이가 완전히 균일하지 않은 길고 좁은 스트립이 길이 방향으로 이어지고 폭 방향으로 나란히 집성된 실제 제품 표면을 유지한다. 상판에는 Finger Joint를 만들지 않고 측면(face) 전체 면적에서 매우 촘촘한 ㅅ형 삼각 맞물림이 보이는 실제 SIDE FINGER 형상과 그 확대만 보여준다.'
+    },
+    '엘더 집성판 사이드핑거': {
+      title: '엘더 집성판의 따뜻하고 균일한 색감', speciesTitle: '엘더', appearance: ['따뜻한 연황색과 연갈색 바탕', '비교적 고르게 이어지는 은은한 나뭇결'],
+      applications: ['수제 가구 도어', '가구 전면재와 침대 프레임'], selections: ['도어 노출면의 색조', '후속 마감 방식'],
+      joint: '측면 핑거조인트는 표면 안내 뒤의 보조 정보로만 둔다.', guard: '오크 호반문, 강한 명암 대비와 과장된 붉은색을 혼합하지 않는다.'
+    },
+    '티크 집성판 사이드핑거': {
+      title: '티크 집성판의 골드브라운 나뭇결', speciesTitle: '티크', appearance: ['자연스러운 골드브라운과 황갈색 바탕', '천연 유분감이 은은하게만 느껴지는 나뭇결'],
+      applications: ['카운터 상판', '내장 가구'], selections: ['노출면의 색조와 결', '후속 마감 방식'],
+      joint: '측면 핑거조인트는 작은 보조 확대에만 표시한다.', guard: '진한 오렌지색과 고광택을 피하고 방수·방충 성능, 변형 없음과 부패 걱정 없음으로 단정하지 않는다.'
+    },
+    '탄화 애쉬(물푸레나무) 집성판': {
+      title: '탄화 애쉬의 탄화 전후 색감', speciesTitle: '탄화 애쉬', appearance: ['일반 애쉬의 밝은 회갈색', '완전 검정색이 아닌 탄화 애쉬의 진한 중갈색과 선명한 결'],
+      applications: ['레스토랑 테이블 상판', '주거 공간 포인트 월'], selections: ['탄화 전후 색감 차이', '공간에 맞는 노출면 선택'],
+      joint: '솔리드 집성 방식은 작은 보조 정보로만 표현한다.', guard: '함수율과 치수 안정성을 비교 우위 카드로 만들지 않고 무첨가·영구 안정성을 단정하지 않는다.',
+      colorCompare: true
+    },
+    '멀바우 집성판 사이드핑거': {
+      title: '멀바우 집성판의 묵직한 적갈색', speciesTitle: '멀바우', appearance: ['중간 짙기의 브라운에 묵직한 적갈색이 더해진 바탕', '자연스럽고 치밀한 하드우드 결'],
+      applications: ['상업 공간 대형 테이블', '중량감 있는 진열대 상판'], selections: ['상판의 색조와 존재감', '설치 공간과 규격 확인'],
+      joint: '측면 핑거조인트는 모서리의 작은 보조 확대만 사용한다.', guard: '검정색·와인색으로 과장하지 않고 수축·팽창 없음과 변형 없음 같은 절대 표현을 사용하지 않는다.'
+    },
+    '오크 집성판 사이드핑거': {
+      title: '오크 집성판의 호반문과 굵은 나뭇결', speciesTitle: '오크', appearance: ['연한 황갈색과 중간 브라운 바탕', '첫 화면에서 명확히 보이는 굵은 결·호반문·타이거 패턴'],
+      applications: ['가구 도어', '서재 책상 상판'], selections: ['호반문이 드러나는 노출면', '가구의 결 방향'],
+      joint: '측면 핑거조인트는 타이거 패턴보다 작게 보조 설명한다.', guard: '과도한 검은 줄무늬, 고광택과 임의 촉감 설명을 생성하지 않는다.'
+    },
+    '오동나무 집성판 솔리드': {
+      title: '오동나무 집성판의 밝고 가벼운 외관', speciesTitle: '오동나무', appearance: ['매우 밝은 황백색과 연한 베이지 바탕', '가볍고 부드러운 인상의 단순한 나뭇결'],
+      applications: ['가구 제작', '선반 제작'], selections: ['경량이 필요한 제작물', '재단·가공 조건'],
+      joint: '폭 방향 솔리드 집성은 가장 작은 보조 정보로만 표시한다.', guard: '금지된 집성 용어를 사용하지 않고 삼나무처럼 붉은 결과 옹이를 혼합하지 않는다.'
+    },
+    '레드파인 집성판 솔리드': {
+      title: '레드파인 집성판의 소나무 결과 옹이', speciesTitle: '레드파인', appearance: ['밝은 황갈색과 연한 적갈색의 소나무 톤', '자연스러운 옹이와 소나무 결이 보이는 유절 표면'],
+      applications: ['가구와 선반 제작', '테이블 상판'], selections: ['옹이와 표면 상태', '가구·선반·상판의 적용 위치'],
+      joint: '폭 방향 솔리드 집성은 작은 보조 개념도로만 표현한다.', guard: '제품 전체를 진한 붉은색으로 만들지 않고 다른 제품군의 재료·코어·보드 구조를 포함하지 않는다.'
+    }
+  };
+  const gluedWood = gluedWoodProfiles[productName];
+  if (gluedWood) {
+    const acaciaComparisonEvidence = [
+      data && data.productName,
+      data && data.grade,
+      data && data.compareTarget,
+      data && data.keyValue,
+      data && data.structure,
+      data && data.emphasis
+    ].map(function (value) { return String(value || ''); }).join(' ');
+    const productTitle = productName
+      .replace(/\s+(?:탑핑거|사이드핑거|솔리드)$/, '')
+      .replace(/^탄화 애쉬\(물푸레나무\) 집성판$/, '탄화 애쉬 집성판');
+    return {
+      family: 'GLUED_WOOD',
+      library: gluedWood[0],
+      productTitle: productTitle,
+      title: productName + '의 특징',
+      reasons: gluedWood[1],
+      visuals: gluedWood[2],
+      applications: gluedWood[3],
+      typeC: gluedWoodTypeCOverrides[productName],
+      structureVisualStandard: '실제 목공 가공 사진·실제 판매 제품 사진·실제 단면 구조 우선',
+      hasAcaciaKnotComparison: productName === '아카시아 집성판 사이드핑거' &&
+        acaciaComparisonEvidence.indexOf('유절') !== -1 && acaciaComparisonEvidence.indexOf('무절') !== -1,
+      guard: '접합 구조는 제품 식별에 필요한 범위에서만 보조적으로 표시하고, 제품 선택 이유보다 크게 다루지 않는다.'
+    };
+  }
+
+  const gypsumNames = [
+    'GS자이 천연 일반석고보드',
+    'GS자이 천연 방수석고보드',
+    'GS자이 천연 방화석고보드',
+    'KCC방화 석고보드',
+    'KCC차음 석고보드',
+    'KCC 석고텍스'
+  ];
+  if (gypsumNames.indexOf(productName) === -1) return null;
+
+  let library = '일반';
+  if (productName.indexOf('석고텍스') !== -1) library = '석고텍스';
+  else if (productName.indexOf('방수') !== -1) library = '방수';
+  else if (productName.indexOf('방화') !== -1) library = '방화';
+  else if (productName.indexOf('차음') !== -1) library = '차음';
+  const isGsNatural = productName.indexOf('GS자이 천연') === 0;
+  const gsNaturalTitles = {
+    '일반': 'GS자이 천연석고의 특징',
+    '방수': 'GS자이 천연 방수석고의 특징',
+    '방화': 'GS자이 천연 방화석고의 특징'
+  };
+  const gypsumTitles = {
+    '일반': '일반석고보드의 특징',
+    '방수': '방수석고보드의 특징',
+    '방화': productName.indexOf('KCC') !== -1 ? 'KCC 방화석고보드의 특징' : '방화석고보드의 특징',
+    '차음': productName.indexOf('KCC') !== -1 ? 'KCC 차음석고보드의 특징' : '차음석고보드의 특징',
+    '석고텍스': '석고텍스 표면과 시공 특징'
+  };
+  const gypsumProfiles = {
+    '일반': [['건조한 실내의 벽체·천장 바탕', '칼 재단이 가능한 기본 시공성', '일반 실내 바탕재 선택'], ['완제품 보드 외관', '벽체·천장 바탕 적용'], ['사무실 벽체 바탕', '아파트 천장 바탕']],
+    '방수': [['전흡수율 10% 이하', '습기 노출을 고려한 방수 처리', '욕실·주방 바탕재 선택'], ['습기 대응 성능 개념도', '욕실·주방의 바탕 시공'], ['욕실 벽체 타일 바탕', '주방 싱크 배면']],
+    '방화': [['화재 시 형상 유지를 돕는 보강', '내화구조 벽체 구성에 적용', '방화 구획용 보드 선택'], ['열에 노출된 보드의 형상 유지 개념', '방화 구획 벽체 구성'], ['방화 구획 벽체', '엘리베이터 홀 벽면']],
+    '차음': [['밀도 0.85g/cm³ 이상', '미세하고 조밀한 고밀도 코어', '차음 벽체 시스템 구성용 선택'], ['일반 보드보다 조밀한 코어 입자감', '석고보드·스터드·흡음재 조합'], ['세대 간 경계벽', '회의실 칸막이벽']],
+    '석고텍스': [['노출 천장 마감재', '짧은 웜홀과 미세 도트가 섞인 비반복 표면', '300×600 규격형 패널 시공'], ['방향과 길이가 다른 불규칙한 짧은 선형 홈 사이에 미세 도트가 섞인 무광 백색 표면', 'M-Bar·T-Bar에 정돈되게 설치된 천장 패널'], ['사무실 천장', '학교 천장', '상가 천장']]
+  };
+  const gypsum = gypsumProfiles[library];
+  return {
+    family: 'GYPSUM',
+    library: isGsNatural ? 'GS자이 천연석고 / ' + library : library,
+    title: isGsNatural ? gsNaturalTitles[library] : gypsumTitles[library],
+    reasons: gypsum[0],
+    visuals: gypsum[1],
+    applications: gypsum[2],
+    isGsNatural: isGsNatural,
+    gsNaturalTitle: isGsNatural ? gsNaturalTitles[library] : '',
+    isKccSoundBoard: productName === 'KCC차음 석고보드',
+    isGypsumTex: library === '석고텍스',
+    paperAppearance: library === '일반' ? '흰색 원지 외관' : library === '방수' ? '하늘색 원지 외관' : library === '방화' ? '핑크색 원지 외관' : productName === 'KCC차음 석고보드' ? '일반석고보드와 동일한 원지 외관' : library === '차음' ? '연두색 원지 외관' : '',
+    guard: library === '석고텍스'
+      ? '일반 석고보드 단면, 석고 코어와 원지 확대를 생성하지 않는다.'
+      : '공통 원지·석고 코어 단면은 보조 정보로만 사용하고 성능, 적용 공간, 선택 이유를 우선한다.'
+  };
+}
+
+function buildSelectionInfographicPrompt(data, type) {
+  const profile = getSelectionInfographicProfile(data);
+  if (!profile) return '';
+  if (type === 'C' && profile.family === 'GLUED_WOOD' && profile.typeC) {
+    const typeC = profile.typeC;
+    const typeCStructureLibrary = typeC.structureLibrary || profile.library;
+    const jointInstruction = typeCStructureLibrary === 'SIDE_FINGER'
+      ? 'Finger Joint는 모서리(edge)가 아닌 측면(face) 전체 면적과 그 확대에서만 표현한다.'
+      : typeC.joint;
+    const appearanceLines = typeC.appearance.map(function (item) { return '- ' + item; }).join('\n');
+    const applicationLines = typeC.applications.map(function (item) { return '- ' + item; }).join('\n');
+    const selectionLines = typeC.selections.map(function (item) { return '- ' + item; }).join('\n');
+    const comparisonGuide = typeC.colorCompare
+      ? `일반 애쉬 ↔ 탄화 애쉬 색감 변화
+- 같은 구도에서 밝은 일반 애쉬와 진한 갈색의 탄화 애쉬 표면 색감만 비교한다.
+- 성능, 함수율, 강도, 내구성과 치수 안정성의 우열을 비교하지 않는다.`
+      : profile.hasAcaciaKnotComparison
+      ? '- 유절·무절 외관 차이는 현재 아카시아 상품 안의 선택 가능한 표면 옵션으로만 비교한다.'
+      : '- 좌우 비교 구성과 빈 비교 영역을 만들지 않고 현재 제품 하나만 설명한다.';
+    const jointStructureGuide = typeCStructureLibrary === 'TOP_FINGER'
+      ? `TOP FINGER 이미지 생성 규칙
+MUST: TOP FINGER의 가장 중요한 특징은 상판이며 메인 제품 사진에서 Finger Joint가 실제 판매 제품처럼 자연스럽게 분명히 보여야 한다.
+MUST: Finger Joint는 상판 윗면에서 긴 스트립을 길이 방향으로 이어주는 실제 이음으로만 생성한다.
+MUST: 메인 상판에는 실제 목재 조각의 끝과 끝이 만나는 TOP FINGER 접합부를 전체에서 1~2곳만 자연스럽게 노출한다.
+MUST: 핑거 접합선은 스트립을 길이 방향으로 연결하면서 판재 폭을 가로지르는 한 줄의 이음으로 표현한다.
+MUST: 확대 이미지는 독립된 구조를 새로 만들지 않고 메인 상판에 실제 생성된 접합부 1곳을 선택해 그대로 확대한다.
+MUST: 메인 상판과 확대 영역의 접합 위치·방향·형상·목재색·나뭇결은 완전히 동일하며 연결선 또는 확대 표시로 두 영역을 연결한다.
+MUST: 확대 영역에서 상판 결 방향과 핑거 방향이 함께 보이게 하고 같은 접합부는 한 줄만 크게 표시한다.
+MUST: 실제 목공 가공이 가능한 개수와 간격의 가늘고 뾰족한 ㅅ형 맞물림을 사용하며 핑거 길이·폭·간격을 일정하고 자연스럽게 유지한다.
+MUST: 측면에는 Finger Joint 없이 일반 집성 단면과 원목 스트립 경계만 보이게 한다.
+MUST: 상판 Finger Joint 노출은 선택 사항이 아니라 필수 이미지 요소다.
+MUST NOT: 측면(face) 전체에 Finger Joint를 만들거나 측면 전용 맞물림과 SIDE FINGER 확대 형태를 혼입하지 않는다. 이 형태가 나타나면 실패다.
+MUST NOT: 메인에 없는 핑거 라인을 확대 영역에 추가하거나 접합부 개수와 밀도를 임의로 늘리지 않는다.
+MUST NOT: 모든 스트립마다 핑거를 반복하거나 접합부를 제품 전체의 주 패턴으로 만들지 않는다.
+MUST NOT: 여러 줄이 스트립 방향과 나란히 길게 반복되는 세로 빗살무늬, 지퍼, 재봉선, 빗과 솔 브러시 형태를 생성하지 않는다.
+MUST NOT: 수십 개의 바늘 모양 초밀집 핑거, 두 줄 이상 반복된 확대 접합부와 메인·확대의 방향 불일치를 생성하지 않는다.
+MUST NOT: 단순 톱니무늬 아이콘, 굵고 성긴 핑거 형상과 가짜 도식으로 표현하지 않는다.`
+      : typeCStructureLibrary === 'SIDE_FINGER'
+      ? `SIDE FINGER 이미지 생성 규칙
+MUST: 상판은 Finger Joint가 보이지 않는 긴 원목 스트립을 길이 방향으로 놓고 폭 방향으로 나란히 배열한 자연스러운 표면으로 생성한다.
+MUST: Finger Joint는 모서리(edge)가 아니라 측면(face) 전체 면적에서만 보이게 하고 확대 이미지도 그 측면(face)을 확대한다.
+MUST: 측면(face)의 핑거 형상은 실제 목공 사진처럼 매우 가늘고 촘촘한 ㅅ형 삼각 맞물림으로 표현한다.
+MUST NOT: 상판에 Finger Joint를 생성하거나 TOP FINGER처럼 상판 길이 이음을 표시하지 않는다.
+MUST NOT: 모서리에만 작은 핑거 한 줄을 넣거나 굵은 사각 톱니, 직각 블록, 합판 적층, 벽돌 패턴과 반복되는 짧은 블록을 생성하지 않는다.
+MUST NOT: TOP FINGER 형태와 SOLID 구조를 혼입하지 않는다.`
+      : typeCStructureLibrary === 'SOLID'
+      ? `SOLID 이미지 생성 규칙
+MUST: Finger Joint가 전혀 없는 다양한 폭의 긴 원목 스트립만 폭 방향으로 자연스럽게 연결하고 하나의 넓은 통판처럼 생성한다.
+MUST: 상판과 측면 모두 통원목 스트립이 자연스럽게 이어지고 접합선은 원목 스트립 경계만 존재하게 한다.
+MUST NOT: 상면·측면·끝단 어디에도 Finger Joint, 톱니형 접합과 짧은 블록 연결을 생성하지 않는다.
+MUST NOT: 2개·3개의 대형 블록, 인위적인 접합선, 굵은 반복 접합선, 합판 적층과 벽돌 패턴을 생성하지 않는다.`
+      : `STAIR 구조 식별 규칙
+- 계단재의 폭 방향 집성은 설치된 계단 완제품을 보조하는 범위에서만 명확히 표시한다.`;
+    const acaciaSurfaceComparisonGuide = profile.hasAcaciaKnotComparison
+      ? `
+표면 옵션 비교
+- 현재 아카시아 상품 한 개 안에 유절·무절 옵션이 모두 있을 때만 표시하고 별도 상품군이나 다른 아카시아 상품으로 확장하지 않는다.
+- 이 영역은 접합 방식이 아닌 현재 상품의 선택 가능한 표면 옵션 안내이며 전체 이미지의 약 15~20% 이내로 제한한다.
+- 좌측 "유절": 자연스러운 옹이와 일부 색상 편차, 옹이 주변의 결 변화가 보이는 원목 표면. 옹이를 과다하게 만들거나 검은 구멍·갈라짐·부패 흔적으로 표현하지 않는다.
+- 우측 "무절": 눈에 띄는 옹이가 적거나 거의 없는 비교적 정돈된 표면. 긴 스트립의 나뭇결과 심재·변재 모자이크 색감은 유지하고 단색·인조 무늬처럼 균일하게 만들지 않는다.
+- 유절과 무절 모두 밝은 크림·황갈색 변재와 중간 갈색 심재가 불규칙하게 섞인 아카시아 고유 색감을 동일하게 유지한다.
+- 유절은 자연스러운 원목 느낌, 무절은 비교적 정돈된 노출면이라는 선택 차이만 설명하고 노출 위치와 원하는 표면 분위기에 맞춰 선택하게 한다.
+- 성능, 강도, 품질, 내구성, 수명, 등급과 가격의 우열을 만들거나 유절을 저급, 무절을 고급·고강도로 표현하지 않는다.
+- "유절"과 "무절" 제목은 확대 없이 읽히게 크게 표시하고 각 설명은 최대 1~2줄로 제한한다.
+`
+      : '';
+    return `
+건축자재 B2B 쇼핑몰 상세페이지용 한국어 인포그래픽 이미지를 생성하라.
+
+메인 제목: ${profile.productTitle}
+부제: ${typeC.title}
+
+목표:
+- 제품 전체 사진 → 수종 고유 색감과 결 → 실제 적용 사례 → 접합 방식 확대 → 사용·마감 선택 포인트 순서로 시선이 이동하게 한다.
+- 구조 설명보다 실제 구매자가 확인하는 표면과 사용 모습을 우선한다.
+- 제품 사진이 첫 화면에서 가장 먼저 보이는 실제 목재 상세페이지 스타일로 구성한다.
+- 실제 제조사 카탈로그와 실제 판매 제품 사진 수준의 자연광·무도장·무광·저채도 색감, 결, 질감을 최우선으로 재현한다.
+- 과도하게 연출한 인테리어 감성사진보다 구매자가 실제 받아볼 평판 완제품 외관을 우선하고 제품을 예쁘게 보이기 위한 인위적인 색 보정을 하지 않는다.
+- 장식 프레임, 배지, 배경 소품과 불필요한 아이콘을 최소화하고 구매자가 제품과 집성 방식을 이해하는 데 필요한 정보만 크게 표시한다.
+- 1024×1024 상세페이지에서 확대 없이 읽을 수 있는 텍스트 크기로 구성한다.
+- 이미지 비중은 약 65~70%, 텍스트 비중은 약 30~35%로 유지하고 정보량보다 가독성을 우선한다.
+- 아이콘은 유지하되 한 영역의 설명은 핵심 키워드 중심 최대 1~2줄로 제한하고 장문을 만들지 않는다.
+- 아이콘 아래 장문을 넣지 않고 제품 사진과 텍스트가 서로 겹치지 않게 한다.
+- 영역 사이에 충분한 여백을 두고 브로슈어처럼 작은 글씨가 빽빽한 구성을 만들지 않는다.
+
+캔버스:
+- 1024 x 1024px, 배경 #FFFFFF
+- 메인 #123628, 포인트 #C9A84C, 텍스트 #1C1C1C, 서브텍스트 #616161, 보더 #E0E0E0만 사용한다.
+
+${profile.productTitle}
+- 상단에는 제품명만 가장 크고 명확하게 표시하고 특징 설명은 바로 아래 부제 "${typeC.title}"로 작게 분리한다.
+- 메인 제목에 특징, 완제품 외관, 밝은 목재 질감, 균일한 표면 같은 설명 문구를 붙이지 않는다.
+- 완제품 전체와 실제 두께감이 보이는 사진을 가장 크게 배치한다.
+- 접합부 확대나 구조 개념도를 메인 이미지로 사용하지 않는다.
+- ${typeC.guard}
+
+${typeC.speciesTitle} 바탕색과 나뭇결
+${appearanceLines}
+${comparisonGuide}
+- 실제 수종과 다른 색상, 결, 옹이와 표면 패턴을 생성하지 않는다.
+- 자연광 아래 실제 무도장 목재 표면처럼 표현하고 채도를 과장하지 않는다.
+- 인위적 스테인·염색·고광택 마감을 생성하지 않는다.
+- 제품 전체 바탕색과 일부 포인트 결 색상을 구분하고 붉은색·보라색·검은색을 전체 표면에 과장하지 않는다.
+- 수종별 고유 색차를 유지한다: 고무나무는 밝은 황베이지, 라디에타파인은 크림화이트에 가까운 밝은 소나무톤, 삼나무는 붉은기를 최소화한 연한 베이지~살구톤, 쏘노클린은 중간 브라운과 일부 진한 스트립, 아카시아는 황갈색 변재와 중간 갈색 심재, 오크는 황갈색과 호반문, 멀바우는 검붉게 과장하지 않은 적갈색이다.
+
+실제 적용 사례
+${applicationLines}
+- 해당 수종과 제품 형태에 실제로 맞는 완성 가구와 공간만 보여주고 특성과 맞지 않는 사례를 생성하지 않는다.
+${acaciaSurfaceComparisonGuide}
+
+접합 방식 확대
+- Type C 이미지 구조 라이브러리: ${typeCStructureLibrary}
+- 구조 시각 기준: ${profile.structureVisualStandard}
+- ${jointInstruction}
+${jointStructureGuide}
+${typeC.structureVisualOverride ? '- ' + typeC.structureVisualOverride : ''}
+- 접합 확대는 아이콘이나 단순 도식이 아니라 실제 목공 가공 사진처럼 생성한다.
+- TOP_FINGER, SIDE_FINGER, SOLID는 이미지 하나만 봐도 서로 구분되게 하며 구조 확대는 실제 교육자료처럼 명확하게 표현한다.
+- 이 집성판 Type C에서는 제품 사진을 전체 화면의 약 80~85%로 가장 크게 유지하고 구조 설명과 핵심 텍스트는 나머지 약 15~20% 안에 간결하게 배치한다.
+- 공통 이미지·텍스트 비율보다 이 집성판 Type C의 제품 사진 80~85% 규칙을 우선 적용한다.
+- 접합 확대는 전체 이미지의 15~20% 이하인 보조 영역 1개 이하로 제한한다.
+- 동일한 재단 방향 카드와 반복 구조 확대를 생성하지 않는다.
+
+사용·마감 선택 포인트
+${selectionLines}
+- 아이콘과 핵심 키워드 중심으로 표시하고 각 설명은 최대 1~2줄로 제한한다.
+
+절대 금지:
+- 숫자나 영문 단계 제목, 범용 마케팅 제목
+- 비교 대상이 없는 좌우 비교와 일반 원목판 비교
+- 최적, 1위, 최고급, 가장 선호, 변형 없음, 부패 걱정 없음, 수축·팽창 없음
+- 친환경 아동 가구 단정과 입력에 없는 성능·내구성·가성비 우위
+- 다른 제품군의 구조 라이브러리, 재료와 시공 이미지
+- 실제 수종보다 예쁘게 보이도록 고광택·고채도·스테인 색을 더하거나 월넛·멀바우·티크 색감을 다른 수종에 혼합하는 표현
+- 집성각재에 이 규칙 적용
+`;
+  }
+  const reasonLines = profile.reasons.map(function (item) { return '- ' + item; }).join('\n');
+  const visualLines = profile.visuals.map(function (item) { return '- ' + item; }).join('\n');
+  const applicationLines = profile.applications.map(function (item) { return '- ' + item; }).join('\n');
+  const performanceLine = profile.family === 'GYPSUM' && data.keyValue
+    ? '- 시트에서 확인된 성능·특징: ' + data.keyValue
+    : '';
+  const sourceLine = data.source ? '- 확인된 수치의 출처만 작게 표시: "출처: ' + data.source + '"' : '- 별도 출처 영역을 만들지 않는다.';
+  const gsProductGuide = !profile.isGsNatural ? '' : profile.library.indexOf('방수') !== -1
+    ? '- 제품별 차별점: 천연석고 기반, 방수 처리, 습기 대응, 욕실·주방 바탕 적용.'
+    : profile.library.indexOf('방화') !== -1
+    ? '- 제품별 차별점: 천연석고 기반, 전용 보강 코어, 화재 시 형태 유지 개념, 내화 구획 적용.'
+    : '- 제품별 차별점: 천연석고 기반, ISO 9001 품질관리 기반의 생산 관리, 내부 벽체·천장 바탕 적용.';
+  const gsNaturalGuide = profile.isGsNatural
+    ? `
+GS자이 천연석고 전용 규칙:
+- 일반 석고보드 라이브러리를 그대로 재사용하지 않는다.
+- 메인 제목은 "${profile.gsNaturalTitle}"로 고정하고 범용 선택 이유 제목을 사용하지 않는다.
+- ZEIT Gypsum을 생산하는 GS건설 그룹 계열 VGSI의 석고보드 제품이라는 브랜드 정체성을 보조 문구로 1회 표시한다.
+- 천연석고 원료 → 확인된 제품 성능 → 적용 공간 순서로 구성한다.
+- 제조사 공식 자료에서 확인되는 한국 기술, 유럽 표준 생산설비, ISO 9001 품질관리 중 최대 2개만 짧게 표시한다.
+${gsProductGuide}
+- 방수 제품은 석고 코어로 수분이 퍼지는 것을 제한하는 공극 차단 방식만 개념적으로 표현한다.
+- 방화 제품은 화재 시 형상 유지를 돕는 전용 보강 코어만 개념적으로 표현한다.
+- 대산 공급 운영 정보: 대산 직접 수입·직접 유통, 안정적인 재고 운영, 대량 구매 상담, 프로젝트 납품 대응, 전국 GS건설 현장 직접 납품.
+- 공급 정보는 "공급 경쟁력", "프로젝트 적용", "납품 대응"처럼 작은 보조 영역에만 배치한다.
+- 최대 재고, 항상 즉시출고, 무조건 대량 가능처럼 공급을 보장하거나 과장하지 않는다.
+- 브랜드 카탈로그와 시공 카탈로그를 결합한 실사 중심 스타일로 구성하고 과도한 3D CG를 생성하지 않는다.
+- 천연석고의 성분 비율, 산지, 순도, 친환경 성능은 입력 근거가 없으므로 생성하지 않는다.
+- VOC, 무독성, 항균, 라돈, 석면, 친환경 인증 문구를 생성하지 않는다.
+- 브랜드 로고를 임의 생성하지 않고 제조사명은 설명문에서 반복하지 않는다.`
+    : '';
+  const soundBoardGuide = profile.isKccSoundBoard
+    ? `
+KCC 차음석고보드 전용 규칙:
+- 차음 제품을 일반석고보드와 다른 원지 색상으로 구분하지 않는다.
+- 연두색, 형광색, 색상 범례로 차음 성능을 표현하지 않는다.
+- 핵심은 일반 보드보다 미세하고 조밀한 입자감의 고밀도 코어다.
+- 확대뷰는 동일 배율에서 일반 코어와 고밀도 코어의 입자 간격 차이를 자연스럽게 보여준다.
+- 코어를 금속, 콘크리트, 검은 고형물처럼 과장하지 않는다.
+- 벽체 단면은 석고보드 + 스터드 + 흡음재 조합으로 표현한다.
+- 차음 성능은 보드 색상이 아니라 보드와 스터드, 흡음재를 함께 구성한 벽체 시스템에서 구현된다는 점을 표시한다.
+- 단일 보드만으로 완전 차음되는 표현과 근거 없는 차음 수치를 생성하지 않는다.`
+    : '';
+  const paperGuide = profile.paperAppearance
+    ? `- 현재 코드의 제품 식별 외관인 ${profile.paperAppearance}을 유지한다. 색상명은 이미지 텍스트로 출력하지 않는다.`
+    : '- 확인되지 않은 원지 색상이나 새로운 제품 색상을 추가하지 않는다.';
+  const gypsumTexGuide = profile.isGypsumTex
+    ? `
+석고텍스 실제 외관 규칙:
+- 업로드한 실제 KCC 석고텍스 참고 이미지의 표면 질감을 최우선 기준으로 사용한다.
+- 무광 백색 바탕에 벌레가 지나간 흔적처럼 짧고 가는 웜홀형 선형 홈을 불규칙하게 흩어 놓는다.
+- 웜홀은 짧은 곡선, 가는 대시, 작은 끊긴 선 형태이며 방향·길이·간격이 조금씩 다르다.
+- 선형 웜홀 사이에 아주 작은 점상 홈과 미세 도트를 보조적으로 섞되 원형 도트가 주 패턴이 되지 않게 한다.
+- 패턴을 격자나 일정 간격으로 반복하지 않고 패널마다 자연스럽게 다른 분포로 표현한다.
+- 요철과 홈은 실제 압축 성형된 석고텍스처럼 매우 얕고 은은하게 표현한다.
+- 일반 석고보드 단면이 아니라 완제품 표면과 설치된 천장 모습을 우선한다.
+- 실제 제품 사진에 가까운 리얼 포토 스타일과 무광 백색 표면을 사용한다.
+- 큰 원형 구멍, 원형 대공, 레이저 타공, 슬롯 타공, 깊은 흡음 타공을 생성하지 않는다.
+- 목모보드, 유공 흡음패널, 텍스처 페인트와 같은 표면으로 바꾸지 않는다.
+- 300×600 패널 경계와 줄눈을 자연스럽고 정돈되게 반복한다.
+- M-Bar 또는 T-Bar 시공은 패널이 정렬된 실제 천장, 자연스러운 패널 줄눈과 고정 상태 중심으로 표현한다.
+- 부분 교체와 유지관리 편의는 입력 근거가 없으므로 생성하지 않는다.`
+    : '';
+  const typeGuide = type === 'A'
+    ? (profile.isGypsumTex
+      ? `메인 제목: ${profile.title}
+
+1단: 완제품 표면 확대
+${visualLines}
+- 완제품 표면 확대를 가장 크게 배치하고 불규칙한 짧은 웜홀형 선형 홈과 미세 도트가 함께 보이게 한다.
+- 도트만 반복하지 않고 패턴의 방향·길이·간격을 자연스럽게 달리한다.
+- 레이저 타공, 원형 대공, 슬롯 타공과 흡음패널처럼 깊은 타공을 생성하지 않는다.
+
+2단: 설치된 천장 패널 배열
+- 300×600 패널이 M-Bar 또는 T-Bar 시공 상태로 정돈되게 배열된 천장을 보여준다.
+- 사무실·학교·상가의 실제 천장처럼 패널 경계와 줄눈을 자연스럽게 표현한다.
+
+3단: 도트 패턴·규격·적용 공간
+${reasonLines}
+${applicationLines}`
+      : profile.isGsNatural
+      ? `메인 제목: ${profile.gsNaturalTitle}
+
+1단: GS자이 천연석고 제품 특징
+- 천연석고 원료와 GS건설 그룹 계열 VGSI의 제조 기반을 먼저 보여준다.
+- 한국 기술·유럽 표준 생산설비·ISO 9001 품질관리 중 최대 2개만 보조 정보로 사용한다.
+
+2단: 확인된 제품 성능
+${reasonLines}
+${performanceLine}
+- 제조사 자료와 시트에 없는 추가 성능은 만들지 않는다.
+
+3단: 대산 공급 경쟁력과 프로젝트 적용
+${applicationLines}
+- 실제 시트의 적용 공간을 완제품 시공 이미지로 보여준다.
+- 대산 직접 수입·유통, 재고 운영, 대량 구매 상담, 프로젝트 납품 대응을 작은 정보 블록으로 표시한다.
+- "전국 GS건설 현장 직접 납품"을 납품 대응 정보로 1회 표시한다.`
+      : `메인 제목: ${profile.title}
+
+1단: 제품 선택 특징
+${reasonLines}
+
+2단: 제품 고유 외관과 성능
+${visualLines}
+- 구조 설명보다 현재 제품에서 실제로 확인되는 차이를 크게 보여준다.
+
+3단: 적용 공간과 선택 기준
+${applicationLines}
+- 추천이나 최상급 표현이 아니라 입력 근거에 맞는 적용 예시로 표시한다.`)
+    : (profile.isGypsumTex
+      ? `메인 제목: ${profile.title}
+
+1단: 표면 패턴 확대
+${visualLines}
+- 구조 단면보다 완제품 표면을 우선하여 짧은 웜홀형 선형 홈, 미세 점상 홈과 무광 백색 질감을 함께 확대한다.
+- 웜홀의 방향·길이·간격은 불규칙하게 하고 동일 패턴 타일처럼 반복하지 않는다.
+- 균일한 원형 도트, 레이저 타공, 원형 대공, 슬롯 타공과 흡음패널처럼 깊은 타공을 생성하지 않는다.
+
+2단: 패널 모서리·홈·시공 방식
+- 패널 모서리와 홈, M-Bar 또는 T-Bar 고정 상태를 실제 시공 사진처럼 보여준다.
+- 석고 코어, 원지, 일반 석고보드 단면 확대를 만들지 않는다.
+
+3단: 실제 천장 적용 모습
+- 300×600 패널이 일정한 줄눈으로 반복되는 설치 천장을 보여준다.
+- 사무실·학교·상가의 실제 M-Bar 또는 T-Bar 천장처럼 정돈된 패널 배열과 자연스러운 줄눈을 표현한다.
+${applicationLines}`
+      : profile.isGsNatural
+      ? `메인 제목: ${profile.gsNaturalTitle}
+
+1단: 천연석고와 제조 품질
+- 천연석고 원료를 중심에 두고 GS건설 그룹 계열 VGSI의 제조 기반을 함께 보여준다.
+- 한국 기술·유럽 표준 생산설비·ISO 9001 품질관리 중 최대 2개만 사용한다.
+
+2단: 제품별 성능 작동 방식
+${visualLines}
+${performanceLine}
+- 일반·방수·방화 제품의 역할을 서로 혼합하지 않는다.
+
+3단: 실제 적용과 납품 대응
+${applicationLines}
+- 완제품이 벽체 또는 천장에 적용된 상태를 보여준다.
+- 대산 직접 수입·유통과 프로젝트 납품 대응 흐름을 실사형 물류·현장 이미지로 작게 연결한다.
+- "전국 GS건설 현장 직접 납품"을 공급 경쟁력 보조 문구로 1회 표시한다.`
+      : `메인 제목: ${profile.title}
+
+1단: 제품 고유 특징
+${visualLines}
+- 공통 단면보다 제품 고유 외관 또는 성능 작동 방식을 우선한다.
+
+2단: 선택 이유 확대
+${reasonLines}
+- 같은 구조를 세 번 확대하지 않고 서로 다른 선택 근거를 보여준다.
+
+3단: 실제 적용
+${applicationLines}
+- 완제품이 적용된 공간과 선택 기준을 함께 보여준다.`);
+
+  return `
+건축자재 B2B 쇼핑몰 상세페이지용 한국어 인포그래픽 이미지를 생성하라.
+
+목표:
+${profile.isGsNatural ? '- GS자이 천연석고의 제조 특징, 확인된 성능, 적용 공간을 순서대로 보여준다.' : '- 제품명을 포함한 설명형 제목과 현재 제품의 고유 특징을 먼저 보여준다.'}
+- 상세설명 HTML의 규격·제조사·용도 문장을 그대로 복사하지 않는다.
+- 확인되지 않은 성능, 인증, 수치, 우열, 최상급 표현을 생성하지 않는다.
+- 1024 x 1024px, 배경 #FFFFFF
+- 메인 #123628, 포인트 #C9A84C, 텍스트 #1C1C1C, 서브텍스트 #616161, 보더 #E0E0E0만 사용한다.
+
+[제품별 Infographic Guide]
+- 제품: ${data.productName}
+- 공통 라이브러리: ${profile.library}
+- ${profile.guard}
+${performanceLine}
+${paperGuide}
+${sourceLine}
+${gsNaturalGuide}
+${soundBoardGuide}
+${gypsumTexGuide}
+
+[Type ${type} 구성]
+${typeGuide}
+
+절대 금지:
+- 입력에 없는 성능·수치·인증·재료 생성 금지
+- 구조 설명을 선택 이유보다 크게 반복 금지
+- 제품명, 제조사, 규격을 제목과 설명에 반복 금지
+${profile.isGsNatural ? '- 공식 브랜드명 ZEIT Gypsum과 ISO 9001 외 영어 라벨, 광고 배너, 과장된 비교 금지' : '- 영어 라벨, 광고 배너, 과장된 비교 금지'}
+${profile.isGsNatural ? '- 브랜드 로고 생성, VOC, 무독성, 라돈, 석면, 친환경 인증, 항균, 국내 최고, 세계 최고, 업계 1위, 최고 품질, 최대 재고, 항상 즉시출고, 무조건 대량 가능 금지' : ''}
+- 다른 제품군의 구조·표면·색상 혼합 금지
+`;
+}
+
 function buildInfographicStructureGuide(data) {
   const guide = buildProductCategoryGuide(data);
   const knowledge = buildProductKnowledgeContext(data);
+  if (isCrcBoardProduct(data)) {
+    return `
+CRC보드 전용 구조 가이드:
+- 얇고 평평한 밝은 회백색 또는 연회색 무기질 판재 완제품으로 표현한다.
+- 표면은 매끈하거나 미세한 시멘트계 질감, 단면은 비교적 균일한 회백색 무기질 조직으로 표현한다.
+- 거친 덩어리나 두꺼운 구조체가 아니라 실제 보드 제품의 얇은 판재 형태를 유지한다.
+- 벽체·칸막이·천장 바탕에 적용된 모습을 보여준다.
+- 입력에 없는 방수·불연·강도 성능과 수치를 생성하지 않는다.
+`;
+  }
+  if (isWoodWoolBoardProduct(data)) {
+    return `
+목모보드 전용 구조 가이드:
+- 길고 가는 목재 섬유(wood wool)가 불규칙하게 얽힌 개방형 표면을 표현한다.
+- 섬유 사이의 작은 공극과 베이지·자연 목재색 표면을 실제 평평한 보드 형태로 보여준다.
+- 짧은 가루나 넓은 조각, 미세하고 균일한 솜 형태가 아니라 길고 가는 스트랜드를 유지한다.
+- 벽체·천장 흡음 마감재로 설치된 실제 공간을 보여준다.
+- 입력에 없는 흡음계수·난연등급·환경 인증과 수치를 생성하지 않는다.
+`;
+  }
   if (isEboardProduct(data)) {
     return `
 이보드 전용 구조 가이드:
@@ -2795,6 +3660,20 @@ function buildProductIntroductionFromKnowledge(data, fallback) {
   const knowledge = buildProductKnowledgeContext(data);
   if (knowledge.productGroup !== 'PLYWOOD') return cleanHumanWritingText(fallback);
 
+  if (knowledge.isGeneralImportedPlywood && knowledge.generalPlywood) {
+    const guide = knowledge.generalPlywood;
+    return cleanHumanWritingText(
+      '일반합판은 얇은 목재 베니어를 여러 겹 적층한 판재입니다.<br><br>' +
+      guide.gradeGuide + '<br><br>' +
+      guide.selectionNotice + '<br><br>' +
+      'BB/CC는 표면 등급을 먼저 확인하고, 콤비는 혼합 베니어 구성, 알비자는 무게와 요구 강도·사용 위치, MLH는 제조사·번들별 베니어 구성과 상태를 확인합니다. 아래 내용은 일반합판 선택을 돕기 위한 구성 안내이며 현재 재고 옵션은 주문 전에 확인해야 합니다.<br><br>' +
+      '인도네시아를 포함한 동남아산과 베트남산 제품이 공급될 수 있습니다. ' + guide.originGuide + '<br><br>' +
+      (guide.format === '3*6'
+        ? '3×6 규격은 반입 공간과 작업 크기를 고려할 때 검토합니다.'
+        : '4×8 규격은 가구 심재, 벽체·천장 바탕재와 인테리어 제작에 사용합니다.')
+    );
+  }
+
   let definition = '얇은 목재 단판을 여러 겹 적층한 판재입니다.';
   if (knowledge.isBirchPlywood && knowledge.surfaceGrade) {
     return cleanHumanWritingText('자작합판은 앞면과 뒷면의 표면 등급을 조합해 사용 목적에 맞게 선택합니다.<br><br>현재 상품은 ' + knowledge.surfaceGrade + ' 등급이며, 이 설명은 현재 상품·공급사 기준입니다. 앞면 ' + knowledge.faceGrade + '와 뒷면 ' + knowledge.backGrade + '의 표면 구성을 적용한 제품입니다.<br><br>앞면과 뒷면의 표면 상태가 달라 노출할 면을 먼저 정하고 사용합니다.');
@@ -2807,7 +3686,177 @@ function buildProductIntroductionFromKnowledge(data, fallback) {
   return cleanHumanWritingText(definition + ' ' + secondSentence);
 }
 
+function buildSpecialBoardInfographicPrompt(data, type) {
+  const isCrcBoard = isCrcBoardProduct(data);
+  const isWoodWoolBoard = isWoodWoolBoardProduct(data);
+  if (!isCrcBoard && !isWoodWoolBoard) return '';
+
+  const title = isCrcBoard
+    ? 'CRC보드의 무기질 표면과 적용 특징'
+    : '목모보드의 섬유 표면과 흡음 특징';
+  const identity = isCrcBoard
+    ? `- 규산칼슘계 원료로 성형한 밝은 회백색 또는 연회색의 무기질 보드다.
+- 얇고 평평한 완제품, 매끈하거나 미세한 시멘트계 표면, 비교적 균일한 회백색 단면을 표현한다.`
+    : `- 이 이미지는 건축자재 목모보드 제품 인포그래픽이다.
+- 길고 가는 목재 섬유(wood wool)가 불규칙하게 얽힌 보드 표면을 표현한다.
+- 섬유 사이의 작은 공극, 베이지·자연 목재색 표면과 평평한 완제품 형태를 유지한다.`;
+  const application = isCrcBoard
+    ? `- 벽체·칸막이 바탕에 설치된 모습
+- 천장 바탕에 설치된 모습`
+    : `- 벽체·천장 흡음 마감 적용을 보여준다.
+- 실내 벽체 마감과 천장 흡음 패널의 실제 설치 모습을 사용한다.`;
+  const selection = isCrcBoard
+    ? `- 적용 위치와 규격·두께 확인
+- 절단면, 고정 방식과 후속 퍼티 마감 확인`
+    : `- 적용 위치와 규격·두께 확인
+- 절단면 처리, 고정 방식과 요구 등급의 상품 표시 확인`;
+  const materialGuide = buildInfographicStructureGuide(data);
+  const irrelevantContentGuard = isWoodWoolBoard
+    ? `- 사람, 음식, 운동, 책, 생활 습관, 건강 관리, 화분, 캐릭터와 교육 포스터를 생성하지 않는다.
+- 제품명이 없는 범용 인포그래픽과 제품과 무관한 영어 콘텐츠를 생성하지 않는다.`
+    : '- 다른 재료의 표면·코어·적층 구조와 제품 외 콘텐츠를 생성하지 않는다.';
+  const typeLayout = type === 'A'
+    ? `완제품 외관
+${identity}
+
+고유 표면과 재질
+${materialGuide}
+
+실제 적용 위치
+${application}
+
+선택 기준
+${selection}`
+    : type === 'B'
+    ? `표면과 단면 확대
+${identity}
+- 실제 표면 확대를 가장 크게 배치하고 재질 구조 개념도는 1개 이하로 제한한다.
+
+재질 구조 확인
+${materialGuide}
+
+설치 예시
+${application}
+
+가공과 마감 확인
+${selection}`
+    : `완제품과 표면 특징
+${identity}
+
+재질과 설치 모습
+${materialGuide}
+${application}
+
+선택과 작업 확인
+${selection}`;
+
+  return `
+건축자재 B2B 쇼핑몰 상세페이지용 한국어 인포그래픽 이미지를 생성하라.
+
+메인 제목: ${title}
+
+목표:
+- 현재 제품의 완제품 외관, 고유 표면·재질, 실제 적용 위치와 선택 기준만 설명한다.
+- 제품 사진에 가까운 실사형 건축자재 카탈로그 스타일로 구성한다.
+- 숫자 또는 영문 단계 라벨과 범용 마케팅 제목을 사용하지 않는다.
+
+캔버스와 색상:
+- 1024 x 1024px, 배경 #FFFFFF
+- 메인 #123628, 포인트 #C9A84C, 텍스트 #1C1C1C, 서브텍스트 #616161, 보더 #E0E0E0만 사용한다.
+
+[Type ${type} 구성]
+${typeLayout}
+
+제품 고정 규칙:
+${irrelevantContentGuard}
+- 입력에 없는 성능·인증·수치·재료·구조를 생성하지 않는다.
+- 거친 덩어리, 과도한 절단도, 폭발도와 재질 구조 확대 반복을 생성하지 않는다.
+- 제품명을 포함한 설명형 제목을 유지하고 광고성 우위 표현을 사용하지 않는다.
+`;
+}
+
+function buildGeneralImportedPlywoodTypeAPrompt(data) {
+  const knowledge = buildProductKnowledgeContext(data);
+  if (!knowledge.isGeneralImportedPlywood || !knowledge.generalPlywood) return '';
+  const guide = knowledge.generalPlywood;
+  const application = guide.format === '3*6'
+    ? '반입 공간과 작업 크기를 고려하는 소규모 리모델링·협소 공간 바탕 작업'
+    : '가구 심재, 벽체·천장 바탕재와 인테리어 제작';
+
+  return `
+1024×1024 카페24 상세페이지용 한국어 일반합판 인포그래픽을 생성한다.
+
+제목:
+- 메인 제목: "일반합판"
+- 부제: "BB/CC 표면 등급과 구성별 선택 기준"
+- 1단, 2단, 3단, STEP, SECTION과 "왜 이 제품을 선택하는가"를 제목으로 사용하지 않는다.
+
+현재 상품 고정 정보:
+- 상품: ${data.productName}
+- 규격: ${data.size}
+- 두께 옵션: ${data.thickness}
+- 현재 상품은 시트에서 확인된 BB/CC 기준이다.
+- 인도네시아 또는 베트남 생산 제품이 공급될 수 있으므로 주문 전 실제 입고 원산지와 제품 상태를 확인한다.
+- 콤비·알비자·MLH를 현재 상품의 판매 옵션이나 확정 재고로 표현하지 않는다.
+
+메인 제품 이미지:
+- 현재 BB/CC 일반합판 완제품을 실제 판매 제품 사진처럼 크게 표현한다.
+- 앞면 표면과 얇은 목재 베니어가 여러 겹 적층된 측면이 함께 보이게 한다.
+- 제품 이미지가 가장 먼저 보이게 하고 실제 근거 없는 베니어 층 수를 고정하지 않는다.
+- 모든 제품에 공극·박리·접착 불량을 필수 결함처럼 만들지 않는다.
+
+핵심 정보 블록은 다음 4개까지만 구성한다.
+
+일반합판 구조와 BB/CC:
+- 일반합판: 얇은 목재 베니어를 여러 겹 적층한 판재.
+- ${guide.gradeGuide}
+
+현재 상품:
+- BB/CC · 표면 등급 · 앞면 BB와 뒷면 CC 및 실제 입고 표면 확인 · "현재 상품 기준"
+
+일반합판 선택 가이드:
+- 콤비 · 베니어 구성 · 라왕계열과 알비자계열 혼합 · "별도 입고 사양 확인"
+- 알비자 · 베니어 구성 · 알비자계열 중심, 무게와 요구 강도·사용 위치 확인 · "별도 입고 사양 확인"
+- MLH · 베니어 구성 · Mixed Light Hardwood 혼합 활엽수 베니어, 제조사·번들 확인 · "별도 입고 사양 확인"
+- 각 유형은 이름과 핵심 차이 1줄만 표시하고 기계적인 반반 적층·일정한 줄무늬를 만들지 않는다.
+- BB/CC는 표면 등급, 나머지는 주로 베니어 구성이라는 개념을 섞지 않는다.
+
+원산지별 입고 제품 확인:
+- 같은 크기의 "동남아산"과 "베트남산" 보조 카드에 동일한 확인 아이콘을 사용한다.
+- 제목: "원산지 확인 포인트"
+- 양쪽 공통 체크리스트: ${guide.originChecks.join(', ')}.
+- 베트남산은 MLH 또는 기타 베니어 구성 여부도 확인하되 베트남산 전체를 MLH로 단정하지 않는다.
+- 결론: "원산지만으로 품질을 단정하지 않고 실제 입고 제품을 확인"
+- 국가명을 VS로 연결하거나 승패·순위·상하 등급·빨강·초록 평가와 국가별 강도·접착력·내구성 우열을 생성하지 않는다.
+
+적용과 구매 전 확인:
+- 실제 적용: ${application}
+- 표면 베니어, 측면 적층, 재단면, 공극·겹침, 두께 편차, 색상·무늬 편차와 노출면을 확인한다.
+- 설명은 최대 1~2줄로 제한하고 확인 항목을 작은 글씨로 빽빽하게 나열하지 않는다.
+
+필수 안내 문장:
+- "${guide.gradeGuide}"
+- "${guide.selectionNotice}"
+- "${guide.originGuide}"
+
+금지:
+- 국가 간 대결형 비교, 특정 국가를 저품질로 표현, 근거 없는 품질 일반화와 출처 없는 수치 비교.
+- 최고·최상·우수·가성비 1위, 실내 사용 부적합, 실외용 추천, 냄새·눈 자극·유해성 표현.
+- 콤비 혼합 비율·적층 순서 고정, 알비자를 약하거나 불량한 합판으로 표현, MLH를 접착 불량·얇은 표면 베니어의 필수 특성으로 표현.
+- 자작합판 등급표, 내수합판 접착 성능, 미송·코아·오징어합판, MDF·PB·OSB 구조 혼입.
+- 작은 글씨가 빽빽한 브로슈어와 제품보다 표·텍스트가 큰 구성.
+`;
+}
+
 function buildTypeAPrompt(data) {
+  const generalPlywoodPrompt = buildGeneralImportedPlywoodTypeAPrompt(data);
+  if (generalPlywoodPrompt) return generalPlywoodPrompt;
+  const specialBoardPrompt = buildSpecialBoardInfographicPrompt(data, 'A');
+  if (specialBoardPrompt) return specialBoardPrompt;
+  const insulationPrompt = buildInsulationInfographicPrompt(data, 'A');
+  if (insulationPrompt) return insulationPrompt;
+  const selectionPrompt = buildSelectionInfographicPrompt(data, 'A');
+  if (selectionPrompt) return selectionPrompt;
   const compareTargetText = String(data.compareTarget || '').trim();
   const compareParts = compareTargetText
     .split(/\s+VS\s+/i)
@@ -3370,6 +4419,12 @@ ${repeatedHtmlBan}
 }
 
 function buildTypeBPrompt(data) {
+  const specialBoardPrompt = buildSpecialBoardInfographicPrompt(data, 'B');
+  if (specialBoardPrompt) return specialBoardPrompt;
+  const insulationPrompt = buildInsulationInfographicPrompt(data, 'B');
+  if (insulationPrompt) return insulationPrompt;
+  const selectionPrompt = buildSelectionInfographicPrompt(data, 'B');
+  if (selectionPrompt) return selectionPrompt;
   const knowledge = buildProductKnowledgeContext(data);
   const isGcsBoard = isGcsBoardProduct(data);
   const isEboard = isEboardProduct(data);
@@ -3626,6 +4681,10 @@ ${typeBRepeatedHtmlBan}
 }
 
 function buildTypeCPrompt(data) {
+  const specialBoardPrompt = buildSpecialBoardInfographicPrompt(data, 'C');
+  if (specialBoardPrompt) return specialBoardPrompt;
+  const selectionPrompt = buildSelectionInfographicPrompt(data, 'C');
+  if (selectionPrompt) return selectionPrompt;
   const knowledge = buildProductKnowledgeContext(data);
   const typeCProductLabel = String(data && data.productName || '') + ' ' + String(data && data.category || '');
   const isGluedWoodTypeC = (
