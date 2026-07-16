@@ -317,7 +317,7 @@ const APPROVED_GLUED_WOOD_TYPE_C_COPY = {
     surfaceOptions: [],
     jointType: 'TOP_FINGER',
     jointTitle: '탑핑거 집성',
-    jointCaption: '목재 스트립의 길이 이음부를 상판에서 연결한 핑거조인트',
+    jointCaption: '목재 스트립의 길이를 연장하기 위해 상판 길이 이음부를 핑거조인트로 연결한 방식',
     identificationLevel: 'TRADE_NAME_UNVERIFIED',
     restrictions: ['건강·성능·품질 우열 생성 금지', '승인되지 않은 수종 특징 생성 금지', 'H/K 원문 출력 금지']
   },
@@ -350,7 +350,7 @@ const APPROVED_GLUED_WOOD_TYPE_C_COPY = {
     surfaceOptions: [],
     jointType: 'SIDE_FINGER',
     jointTitle: '사이드핑거 집성',
-    jointCaption: '목재 스트립의 길이 이음부에 적용한 핑거조인트'
+    jointCaption: '목재 스트립의 길이 이음부를 긴 측면에서 보여주는 핑거조인트 방식'
   },
   '자작나무 집성판 사이드핑거': {
     title: '자작나무 집성판 사이드핑거',
@@ -359,7 +359,7 @@ const APPROVED_GLUED_WOOD_TYPE_C_COPY = {
     surfaceOptions: [],
     jointType: 'SIDE_FINGER',
     jointTitle: '사이드핑거 집성',
-    jointCaption: '목재 스트립의 길이 이음부에 적용한 핑거조인트'
+    jointCaption: '목재 스트립의 길이 이음부를 긴 측면에서 보여주는 핑거조인트 방식'
   },
   '애쉬 집성판 사이드핑거': {
     title: '애쉬 집성판 사이드핑거',
@@ -368,7 +368,7 @@ const APPROVED_GLUED_WOOD_TYPE_C_COPY = {
     surfaceOptions: [],
     jointType: 'SIDE_FINGER',
     jointTitle: '사이드핑거 집성',
-    jointCaption: '목재 스트립의 길이 이음부에 적용한 핑거조인트'
+    jointCaption: '목재 스트립의 길이 이음부를 긴 측면에서 보여주는 핑거조인트 방식'
   },
   '히노끼(편백) 집성판 사이드핑거(유절/무절)': {
     title: '히노끼(편백) 집성판 사이드핑거',
@@ -380,7 +380,7 @@ const APPROVED_GLUED_WOOD_TYPE_C_COPY = {
     ],
     jointType: 'SIDE_FINGER',
     jointTitle: '사이드핑거 집성',
-    jointCaption: '목재 스트립의 길이 이음부에 적용한 핑거조인트'
+    jointCaption: '목재 스트립의 길이 이음부를 긴 측면에서 보여주는 핑거조인트 방식'
   },
   '히노끼(편백) 집성판 솔리드(유절/무절)': {
     title: '히노끼(편백) 집성판 솔리드',
@@ -399,17 +399,17 @@ const APPROVED_GLUED_WOOD_TYPE_C_COPY = {
 const GLUED_WOOD_JOINT_VISUAL_RULES = {
   SOLID: {
     imageRole: 'wood_strips_and_widthwise_joint_closeup',
-    positive: ['UNIFORM_STRIP_WIDTH', 'PARALLEL_LENGTHWISE_STRIPS', 'EVEN_WIDTHWISE_JOINT_SPACING', 'SAME_STRIP_LAYOUT_MAIN_AND_CLOSEUP', 'WIDTHWISE_JOINT_CLOSEUP'],
+    positive: ['UNIFORM_STRIP_WIDTH', 'PARALLEL_LENGTHWISE_STRIPS', 'EVEN_WIDTHWISE_JOINT_SPACING', 'SAME_STRIP_LAYOUT_MAIN_AND_CLOSEUP', 'WIDTHWISE_JOINT_CLOSEUP', 'ZERO_FINGER_JOINTS_ALL_FACES'],
     forbidden: ['FINGER_JOINT_ANY_FACE', 'TOOTHED_JOINT', 'UNEVEN_STRIP_WIDTH', 'SHORT_BLOCK_PATTERN', 'RANDOM_BLOCK_LAYOUT', 'PLYWOOD_LAYERS', 'PROCEDURAL_CG_PATTERN']
   },
   SIDE_FINGER: {
     imageRole: 'long_side_local_finger_joint_same_point_closeup',
-    positive: ['THREE_FACE_COORDINATE_LOCK', 'TOP_SURFACE_NO_FINGER', 'LONG_SIDE_ONE_LOCAL_FINGER_JOINT', 'SAME_LONG_SIDE_AND_SAME_POINT_MAIN_AND_CLOSEUP', 'SHORT_END_STRIP_CROSS_SECTIONS', 'SAME_STRIP_WIDTH_ACROSS_SPLICE', 'GRAIN_COLOR_THICKNESS_CONTINUITY'],
+    positive: ['THREE_FACE_COORDINATE_LOCK', 'TOP_SURFACE_NO_FINGER', 'LONG_SIDE_ONE_LOCAL_FINGER_JOINT', 'SAME_LONG_SIDE_AND_SAME_POINT_MAIN_AND_CLOSEUP', 'SHORT_END_STRIP_CROSS_SECTIONS', 'SAME_STRIP_WIDTH_ACROSS_SPLICE', 'GRAIN_COLOR_THICKNESS_CONTINUITY', 'NO_CORNER_TEETH'],
     forbidden: ['TOP_SURFACE_FINGER', 'SHORT_END_FINGER', 'CORNER_FINGER', 'EDGE_LINE_TEETH', 'FULL_HEIGHT_TEETH', 'FULL_WIDTH_TEETH', 'FULL_SIDE_ZIPPER', 'MISMATCHED_MAIN_CLOSEUP', 'MATERIAL_COLOR_CHANGE_AT_JOINT', 'STRIP_WIDTH_CHANGE_AT_JOINT', 'LAYERED_TEETH']
   },
   TOP_FINGER: {
     imageRole: 'top_surface_local_finger_joint_same_point_closeup',
-    positive: ['TOP_SURFACE_ONE_LOCAL_LENGTH_SPLICE', 'SAME_POINT_MAIN_AND_CLOSEUP', 'SAME_STRIP_WIDTH_ACROSS_SPLICE', 'GRAIN_COLOR_STRIP_CONTINUITY', 'LONG_SIDE_NO_FINGER', 'SHORT_END_STRIP_CROSS_SECTIONS'],
+    positive: ['TOP_SURFACE_ONE_LOCAL_LENGTH_SPLICE', 'SAME_POINT_MAIN_AND_CLOSEUP', 'SAME_STRIP_WIDTH_ACROSS_SPLICE', 'GRAIN_COLOR_STRIP_CONTINUITY', 'LONG_SIDE_NO_FINGER', 'SHORT_END_STRIP_CROSS_SECTIONS', 'TOP_SURFACE_ONLY_FINGER'],
     forbidden: ['LONG_SIDE_FINGER', 'SHORT_END_FINGER', 'FULL_END_TEETH', 'REPEATED_JOINT_LINES', 'DETACHED_CLOSEUP_JOINT', 'STRIP_WIDTH_CHANGE_AT_JOINT', 'SHORT_BLOCK_CHAIN', 'PLYWOOD_LAYER_PATTERN', 'ZIPPER_PATTERN', 'COMB_PATTERN', 'STITCH_PATTERN']
   },
   UNKNOWN: {

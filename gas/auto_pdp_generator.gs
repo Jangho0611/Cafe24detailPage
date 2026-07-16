@@ -3277,12 +3277,12 @@ const GLUED_WOOD_JOINT_TYPE_KNOWLEDGE = {
   },
   SIDE_FINGER: {
     title: '사이드핑거 집성',
-    description: '측면 접합부에 핑거조인트가 보이는 집성 방식',
+    description: '목재 스트립의 길이 이음부를 긴 측면에서 보여주는 핑거조인트 방식',
     visualBan: '상품명 근거 없이 상판에 핑거조인트를 만들지 않는다.'
   },
   TOP_FINGER: {
     title: '탑핑거 집성',
-    description: '상판 또는 길이 방향 접합부에 핑거조인트가 보이는 집성 방식',
+    description: '목재 스트립의 길이를 연장하기 위해 상판 길이 이음부를 핑거조인트로 연결한 방식',
     visualBan: '측면 전용 접합으로 바꾸지 않는다.'
   },
   UNKNOWN: {
@@ -3381,6 +3381,27 @@ function resolveApprovedGluedWoodTypeCCopy(data) {
   return copy ? JSON.parse(JSON.stringify(copy)) : null;
 }
 
+function getApprovedGluedWoodSurfaceOptions(approved) {
+  if (!approved || !Array.isArray(approved.surfaceOptions)) return [];
+  // 표면 옵션은 상품명·일반 수종 지식이 아니라 승인 Product Knowledge에만 근거한다.
+  return approved.surfaceOptions.filter(function (option) {
+    return option && cleanEntityValue(option.title) && cleanEntityValue(option.caption);
+  }).map(function (option) {
+    return { title: cleanEntityValue(option.title), caption: cleanEntityValue(option.caption) };
+  });
+}
+
+function splitGluedWoodAppearanceAxes(appearance) {
+  const source = appearance || {};
+  return {
+    // Hero subtitle is the color/grain axis. Do not repeat either in Surface Facts.
+    hero: [].concat(source.color || [], source.grain || []).filter(Boolean).slice(0, 2),
+    surface: [].concat(source.knots || [], source.texture || [], source.scent || [], source.workability || [])
+      .filter(function (item, index, items) { return item && items.indexOf(item) === index; })
+      .slice(0, 4)
+  };
+}
+
 function resolveSafeGluedWoodTypeCFallback(data, profile, jointType, species) {
   const typeC = profile && profile.isExactProfile && profile.typeC ? profile.typeC : null;
   const blocked = /최고급|고급|프리미엄|우수|뛰어|적합|강도|내구성|안정성|방수|방습|수축|팽창|뒤틀림|피톤치드|항균|건강|친환경/i;
@@ -3463,7 +3484,7 @@ function buildGluedWoodHtmlFacts(data) {
     jointCaption: approved ? approved.jointCaption : '',
     heroCopy: approved ? approved.heroCopy : '',
     appearance: approved && approved.appearance ? approved.appearance : { color: [], grain: [], knots: [], texture: [], scent: [], workability: [] },
-    surfaceOptions: approved ? approved.surfaceOptions.slice() : [],
+    surfaceOptions: getApprovedGluedWoodSurfaceOptions(approved),
     applications: applications
   };
 }
@@ -3581,7 +3602,9 @@ function buildGluedWoodTypeCUIBlocks(data, profile) {
   if (approved && approved.jointType !== jointType) {
     throw new Error('승인 Product Knowledge와 상품명의 집성 방식이 일치하지 않습니다: ' + data.productName);
   }
-  const applicationGroups = [data && data.use1, data && data.use2].map(normalizeGluedWoodApplicationFacts);
+  const applicationGroups = [data && data.use1, data && data.use2].map(function (value) {
+    return normalizeGluedWoodApplicationFacts(value).slice(0, 2);
+  });
   const seenApplications = [];
   const sheetApplications = applicationGroups.map(function (group) {
     return group.filter(function (item) {
@@ -3592,7 +3615,7 @@ function buildGluedWoodTypeCUIBlocks(data, profile) {
     });
   });
   const referenceFacts = classifyGluedWoodReferenceFacts(data);
-  const surfaceOptions = displayKnowledge ? displayKnowledge.surfaceOptions.map(function (option, index) {
+  const surfaceOptions = getApprovedGluedWoodSurfaceOptions(approved).map(function (option, index) {
     return {
       title: option.title,
       caption: option.caption,
@@ -3600,7 +3623,7 @@ function buildGluedWoodTypeCUIBlocks(data, profile) {
       position: 'middle_left_' + (index + 1),
       forbidden: ['QUALITY_RANKING', 'PERFORMANCE_RANKING', 'INVENTED_KNOT_LIMIT']
     };
-  }) : [];
+  });
   const applications = sheetApplications.reduce(function (items, group, groupIndex) {
     return items.concat(group.map(function (caption, itemIndex) {
       return {
@@ -3610,26 +3633,17 @@ function buildGluedWoodTypeCUIBlocks(data, profile) {
         forbidden: ['UNVERIFIED_USE', 'MARKETING_CLAIM']
       };
     }));
-  }, []);
+  }, []).slice(0, 4);
   const appearance = displayKnowledge && displayKnowledge.appearance ? displayKnowledge.appearance : { color: [], grain: [], knots: [], texture: [], scent: [], workability: [] };
-  const surfaceFacts = []
-    .concat(
-      (appearance.color || []).slice(0, 1),
-      (appearance.grain || []).slice(0, 1),
-      (appearance.knots || []).slice(0, 1),
-      (appearance.scent || []).slice(0, 1),
-      (appearance.texture || []).slice(0, 1),
-      (appearance.workability || []).slice(0, 1)
-    )
-    .filter(function (item, index, items) { return item && items.indexOf(item) === index; })
-    .slice(0, 4);
+  const appearanceAxes = splitGluedWoodAppearanceAxes(appearance);
+  const surfaceFacts = appearanceAxes.surface;
   return {
     version: 'GLUED_WOOD_TYPE_C_LAYOUT_V3',
     isExactApproved: Boolean(approved),
     hero: {
       title: displayKnowledge.title || profile.productTitle,
       surfaceCopy: displayKnowledge.heroCopy || '',
-      facts: surfaceFacts.slice(0, 3),
+      facts: appearanceAxes.hero,
       imageRole: 'full_product_photo',
       position: 'top_55',
       forbidden: ['ADDITIONAL_COPY', 'HEALTH_CLAIM', 'PERFORMANCE_CLAIM', 'MARKETING_CLAIM']

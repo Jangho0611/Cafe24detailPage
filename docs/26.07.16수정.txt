@@ -212,3 +212,59 @@ HTML 추가 점검
 
 ※ 이미지 생성 / Apps Script Push / Google Sheet 수정 / HTML 생성 테스트는 수행하지 않음.
 ========================================
+
+# 2026.07.16 (집성목 Type C 품질 개선 2차)
+
+## 목적
+- 집성목 Type C의 Product Knowledge 기반 품질 향상
+- HTML과 이미지의 정보 일관성 강화
+- H/K 원문 노출 제거 및 Human Writing 유지
+
+## 변경 사항
+
+### Product Knowledge
+- 38(고무나무) 승인 Fact Database 추가
+- 54~60 승인 Fact 보강
+- Hero / Surface / Joint / Applications 구조 개선
+- 기존 exact Profile의 안전한 Fact fallback 연결
+
+### 구조 표현
+- SOLID
+  - 일정한 스트립 폭과 배열 유지
+  - 핑거조인트 금지 규칙 강화
+- SIDE_FINGER
+  - 긴 측면 국부 핑거조인트 규칙 강화
+  - 상판·짧은 끝면 핑거조인트 금지
+  - Hero와 확대뷰 동일 위치 규칙 적용
+- TOP_FINGER
+  - 상판 길이 이음부 중심 표현 강화
+  - 동일 제품 Identity 규칙 적용
+
+### HTML
+- AI Summary 개선
+- Product Introduction 개선
+- Hero / Surface 정보 중복 감소
+- Product Knowledge 기반 설명 사용
+- FAQ 3개 유지
+- Schema 유지
+
+### 규칙
+- H/K 원문 직접 출력 금지
+- 건강·광고·성능 표현 제거
+- L/M 외 용도 생성 금지
+- 이미지 용도 최대 4개
+- 유절·무절 옵션은 실제 둘 다 존재할 때만 노출
+
+## 검증
+- JavaScript 문법 PASS
+- git diff --check PASS
+- Type A/B 회귀 없음
+- 비집성 Type C 회귀 없음
+
+## 다음 Sprint
+- 실제 38~60 QA
+- SIDE_FINGER 미세 보정
+- TOP_FINGER 설명 개선
+- Hero 실사감 향상
+- 색감/결 표현 중복 제거
+- 용도 노출 최적화
