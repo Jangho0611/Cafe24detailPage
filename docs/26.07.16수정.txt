@@ -118,4 +118,97 @@ a441e10
 
 까지 완료하여 v1.1 기준 일반합판 품질을 마무리하였다.
 
-향후 동일 품질 기준을 다른 제품군에도 순차적으로 적용한다.
+향후 동일 품질 기준을 다른 제품군에도 순차적으로 적용한다.========================================
+26.07.16 (오후 작업)
+
+[완료]
+
+- 집성목 Type C를 Product Knowledge 기반 UI Block 구조로 재구성
+- H/K 원문 직접 출력 제거
+- Hero / Surface / Joint / Applications 구조 적용
+- 54~60 집성목 Product Knowledge 보강
+- 이미지 Hero 현실감 향상
+- HTML 집성목 전용 Product Knowledge 반영
+- AI Summary / 제품소개 / FAQ / Schema 집성목 개선
+- H/K 원문 노출 제거
+- 건강·광고 문구 제거
+- Product Knowledge 기반 HTML 생성 적용
+
+[현재 상태]
+
+이미지 품질
+- Hero 품질 크게 개선
+- Product Knowledge 반영률 향상
+- AI 문체 대부분 제거
+
+남은 이슈
+
+1.
+SIDE_FINGER
+
+- 실제 목재 스트립 길이 이음부 표현 부족
+- Hero와 확대뷰 접합부 일치성 보강 필요
+
+2.
+TOP_FINGER
+
+- 상판 접합 표현 부족
+- Hero/확대뷰 동일 위치 표현 필요
+
+3.
+SOLID
+
+- 목재 스트립 폭이 일정하지 않음
+- Hero와 확대뷰 배열 일치성 보강 필요
+
+4.
+38번 고무나무
+
+- 승인 Product Knowledge 미등록으로 정보량 감소
+- Hero / Surface / Joint Fact 보강 필요
+
+다음 Sprint
+
+집성 방식 구조 엔진 최종 개선
+
+- SOLID
+- SIDE_FINGER
+- TOP_FINGER
+
+공통 Product Identity 강화
+
+- 동일 제품
+- 동일 스트립 폭
+- 동일 나뭇결
+- 동일 접합 위치
+- Hero/확대뷰 일치
+
+HTML 추가 점검
+
+- 집성목 전체 HTML 품질 검토
+- FAQ/AI Summary 미세 보정
+- 전체 QA 후 Commit → Push 예정
+
+※ Commit / Push / Apps Script Push는 아직 수행하지 않음.
+========================================
+
+26.07.16 작업 마무리 로그
+
+[완료]
+
+- 집성목 Type C Product Knowledge 개선
+- Hero / Surface / Joint / Applications 구조 적용
+- H/K 원문 직접 출력 제거
+- Product Knowledge 기반 UI Block 적용
+- 38번 고무나무 Product Knowledge 추가
+- SOLID / SIDE_FINGER / TOP_FINGER 구조 규칙 개선
+- Hero와 확대뷰의 동일 제품 Identity 규칙 추가
+- 집성목 Product Knowledge를 HTML에 반영
+
+[다음 Sprint]
+
+- 집성목 HTML 최종 QA
+- 집성목 Type C 이미지 최종 QA
+
+※ 이미지 생성 / Apps Script Push / Google Sheet 수정 / HTML 생성 테스트는 수행하지 않음.
+========================================

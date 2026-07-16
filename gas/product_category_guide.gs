@@ -289,6 +289,177 @@ const PRODUCT_CATEGORY_GUIDES = [
   }
 ];
 
+const WOOD_SPECIES_KNOWLEDGE = [
+  { id: 'RED_PINE_TRADE', standardName: '레드파인', aliases: ['레드파인', 'red pine'], scientificName: '', identificationLevel: 'TRADE_NAME_UNVERIFIED', appearance: null, referenceUses: ['제재목', '가구 및 인테리어 목공', '포장용 목재'], verifiedProductUses: [], purchaseChecks: ['실제 수종 또는 원산지 표시', '유절·무절 구분', '옹이와 표면 상태'], variationNotice: '실제 수종과 표면 상태는 개별 제품 정보를 확인합니다.' },
+  { id: 'RADIATA_PINE', standardName: '라디에타파인', aliases: ['라디에타파인', '라디아타파인', 'radiata pine', 'monterey pine'], scientificName: 'Pinus radiata', identificationLevel: 'EXACT', appearance: '밝은 색감과 소나무 결이 나타날 수 있습니다.', referenceUses: ['가구', '몰딩', '패널', '인테리어 목공'], verifiedProductUses: [], purchaseChecks: ['유절·무절 구분', '옹이와 송진 흔적', '표면 상태'], variationNotice: '색감과 결, 옹이 상태는 개별 제품마다 다를 수 있습니다.' },
+  { id: 'LAUAN_MERANTI_GROUP', standardName: '라왕', aliases: ['라왕', 'lauan', 'meranti', 'philippine mahogany'], scientificName: 'Shorea spp. 등', identificationLevel: 'GROUP', appearance: '밝은 색부터 황갈색·적갈색까지 다양한 색감과 결이 나타날 수 있습니다.', referenceUses: ['가구', '캐비닛', '몰딩', '인테리어 목공'], verifiedProductUses: [], purchaseChecks: ['세부 수종 또는 수종 그룹', '표면 색상과 무늬', '옹이와 보수 상태'], variationNotice: '라왕은 여러 수종을 포함하며 세부 수종과 제품에 따라 외관이 달라질 수 있습니다.' },
+  { id: 'BIRCH_GROUP', standardName: '자작나무', aliases: ['자작나무', '자작', 'birch'], scientificName: 'Betula spp.', identificationLevel: 'GROUP', appearance: '밝은 색감과 비교적 곱고 잔잔한 결이 나타날 수 있습니다.', referenceUses: ['가구', '캐비닛', '도어', '인테리어 목공'], verifiedProductUses: [], purchaseChecks: ['세부 자작 수종', '색상 편차', '옹이와 보수 흔적'], variationNotice: '세부 수종과 선별 상태에 따라 색감과 표면 특징이 달라질 수 있습니다.' },
+  { id: 'ASH_GROUP', standardName: '애쉬', aliases: ['애쉬', '물푸레나무', 'ash'], scientificName: 'Fraxinus spp.', identificationLevel: 'GROUP', appearance: '밝은 갈색 바탕과 굵은 나뭇결이 나타날 수 있습니다.', referenceUses: ['가구', '캐비닛', '실내 목공'], verifiedProductUses: [], purchaseChecks: ['세부 애쉬 수종', '집성 스트립 색상 편차', '결 방향과 옹이 상태'], variationNotice: '세부 수종과 집성 스트립 구성에 따라 색감과 결이 달라질 수 있습니다.' },
+  { id: 'HINOKI', standardName: '편백', aliases: ['히노끼', '히노키', '편백', 'hinoki', 'japanese cypress'], scientificName: 'Chamaecyparis obtusa', identificationLevel: 'EXACT', appearance: '밝은 색감과 고운 결이 나타날 수 있습니다.', referenceUses: ['건축 내장재', '가구', '생활 목제품', '인테리어 목공'], verifiedProductUses: [], purchaseChecks: ['유절·무절 구분', '옹이와 색상 편차', '표면 마감'], variationNotice: '색감과 결, 옹이와 향의 정도는 개별 제품마다 다를 수 있습니다.' },
+  { id: 'OAK_GROUP', standardName: '오크', aliases: ['오크', 'oak', '참나무류'], scientificName: 'Quercus spp.', identificationLevel: 'GROUP', appearance: '황갈색 계열의 바탕과 굵은 결, 방사조직 무늬가 나타날 수 있습니다.', referenceUses: ['가구', '캐비닛', '도어', '상판', '인테리어 목공'], verifiedProductUses: [], purchaseChecks: ['세부 오크 수종', '결과 무늬 방향', '색상 편차와 옹이 상태'], variationNotice: '세부 수종과 제재 방향에 따라 색감과 무늬가 달라질 수 있습니다.' }
+];
+
+const VERIFIED_GLUED_WOOD_PRODUCT_USES = {
+  '레드파인 집성판 솔리드': { use1: '가구 제작 및 선반 제작', use2: '계단재 및 인테리어 마감' },
+  '라디에타파인 솔리드': { use1: '가구 제작 및 실내 인테리어', use2: '선반 제작 및 계단재' },
+  '라왕 집성판 사이드핑거': { use1: '가구 제작 및 선반 시공', use2: '계단재 및 인테리어 마감 작업' },
+  '자작나무 집성판 사이드핑거': { use1: '가구 제작 및 인테리어 마감', use2: '선반 제작 및 계단재' },
+  '애쉬 집성판 사이드핑거': { use1: '가구 및 선반 제작', use2: '계단재 및 인테리어 마감' },
+  '히노끼(편백) 집성판 사이드핑거(유절/무절)': { use1: '가구 제작 및 인테리어 마감', use2: '선반 제작 및 계단재' },
+  '히노끼(편백) 집성판 솔리드(유절/무절)': { use1: '가구 제작 시공', use2: '인테리어 마감재 작업' }
+};
+
+const APPROVED_GLUED_WOOD_TYPE_C_COPY = {
+  '고무나무 집성판 탑핑거': {
+    title: '고무나무 집성판 탑핑거',
+    heroCopy: '밝은 황갈색과 차분한 나뭇결이 이어지는 고무나무 집성판',
+    appearance: { color: ['밝은 황갈색과 연한 베이지 색감'], grain: ['차분하고 고르게 이어지는 나뭇결'], knots: [], texture: ['비교적 고른 표면 인상'], scent: [], workability: [] },
+    surfaceOptions: [],
+    jointType: 'TOP_FINGER',
+    jointTitle: '탑핑거 집성',
+    jointCaption: '목재 스트립의 길이 이음부를 상판에서 연결한 핑거조인트',
+    identificationLevel: 'TRADE_NAME_UNVERIFIED',
+    restrictions: ['건강·성능·품질 우열 생성 금지', '승인되지 않은 수종 특징 생성 금지', 'H/K 원문 출력 금지']
+  },
+  '레드파인 집성판 솔리드': {
+    title: '레드파인 집성판 솔리드',
+    heroCopy: '따뜻한 색감과 자연스러운 옹이가 어우러진 레드파인',
+    appearance: { color: ['따뜻한 밝은 색감', '은은한 붉은 기'], grain: [], knots: ['자연스러운 옹이'], texture: ['유절 목재 표면'], scent: ['은은한 천연 나무 향'], workability: [] },
+    surfaceOptions: [{ title: '유절', caption: '옹이가 드러나는 표면 옵션' }],
+    jointType: 'SOLID',
+    jointTitle: '솔리드 집성',
+    jointCaption: '긴 목재 스트립을 나란히 배치한 폭 방향 접합'
+  },
+  '라디에타파인 솔리드': {
+    title: '라디에타파인 솔리드',
+    heroCopy: '밝은 색감과 자연스러운 나뭇결이 돋보이는 라디에타파인',
+    appearance: { color: ['밝은 색감'], grain: ['자연스럽게 이어지는 나뭇결'], knots: ['옵션에 따라 달라지는 옹이 노출'], texture: [], scent: [], workability: ['비교적 가볍고 재단과 가공을 고려하기 좋은 목재'] },
+    surfaceOptions: [
+      { title: '양면유절', caption: '양쪽 면에 옹이가 드러나는 표면 옵션' },
+      { title: '양면무절', caption: '양쪽 면을 무절로 구분한 표면 옵션' },
+      { title: '일면무절', caption: '한쪽 면을 무절로 구분한 표면 옵션' }
+    ],
+    jointType: 'SOLID',
+    jointTitle: '솔리드 집성',
+    jointCaption: '긴 목재 스트립을 나란히 배치한 폭 방향 접합'
+  },
+  '라왕 집성판 사이드핑거': {
+    title: '라왕 집성판 사이드핑거',
+    heroCopy: '제품마다 다른 색감과 무늬를 살린 라왕 계열 집성판',
+    appearance: { color: ['제품에 따라 보이는 붉은 기'], grain: ['자연스러운 무늬결'], knots: [], texture: ['제품별로 달라지는 표면 인상'], scent: [], workability: ['가구 제작과 가공 작업에 쓰는 목재'] },
+    surfaceOptions: [],
+    jointType: 'SIDE_FINGER',
+    jointTitle: '사이드핑거 집성',
+    jointCaption: '목재 스트립의 길이 이음부에 적용한 핑거조인트'
+  },
+  '자작나무 집성판 사이드핑거': {
+    title: '자작나무 집성판 사이드핑거',
+    heroCopy: '밝은 색감과 곱고 선명한 결이 돋보이는 자작나무',
+    appearance: { color: ['맑고 밝은 색감'], grain: ['곱고 선명한 나뭇결'], knots: [], texture: ['화사한 표면 인상'], scent: [], workability: [] },
+    surfaceOptions: [],
+    jointType: 'SIDE_FINGER',
+    jointTitle: '사이드핑거 집성',
+    jointCaption: '목재 스트립의 길이 이음부에 적용한 핑거조인트'
+  },
+  '애쉬 집성판 사이드핑거': {
+    title: '애쉬 집성판 사이드핑거',
+    heroCopy: '밝은 톤과 선명한 나뭇결을 살린 애쉬 집성판',
+    appearance: { color: ['자연스럽고 밝은 목재 톤'], grain: ['곧게 이어지는 선명한 나뭇결'], knots: [], texture: ['결이 분명하게 드러나는 표면'], scent: [], workability: ['가구 제작과 가공 작업에 많이 쓰는 목재'] },
+    surfaceOptions: [],
+    jointType: 'SIDE_FINGER',
+    jointTitle: '사이드핑거 집성',
+    jointCaption: '목재 스트립의 길이 이음부에 적용한 핑거조인트'
+  },
+  '히노끼(편백) 집성판 사이드핑거(유절/무절)': {
+    title: '히노끼(편백) 집성판 사이드핑거',
+    heroCopy: '유절과 무절 표면을 함께 고를 수 있는 히노끼 집성판',
+    appearance: { color: [], grain: [], knots: ['유절의 자연스러운 옹이', '무절의 정돈된 표면'], texture: ['유절과 무절의 표면 차이'], scent: [], workability: [] },
+    surfaceOptions: [
+      { title: '유절', caption: '옹이가 드러나는 표면 옵션' },
+      { title: '무절', caption: '무절로 구분한 표면 옵션' }
+    ],
+    jointType: 'SIDE_FINGER',
+    jointTitle: '사이드핑거 집성',
+    jointCaption: '목재 스트립의 길이 이음부에 적용한 핑거조인트'
+  },
+  '히노끼(편백) 집성판 솔리드(유절/무절)': {
+    title: '히노끼(편백) 집성판 솔리드',
+    heroCopy: '유절과 무절의 표면 차이를 살린 히노끼 솔리드',
+    appearance: { color: [], grain: [], knots: ['유절의 자연스러운 옹이', '무절의 정돈된 표면'], texture: ['유절과 무절의 표면 차이'], scent: [], workability: [] },
+    surfaceOptions: [
+      { title: '유절', caption: '옹이가 드러나는 표면 옵션' },
+      { title: '무절', caption: '무절로 구분한 표면 옵션' }
+    ],
+    jointType: 'SOLID',
+    jointTitle: '솔리드 집성',
+    jointCaption: '길게 이어진 목재 스트립의 폭 방향 접합'
+  }
+};
+
+const GLUED_WOOD_JOINT_VISUAL_RULES = {
+  SOLID: {
+    imageRole: 'wood_strips_and_widthwise_joint_closeup',
+    positive: ['UNIFORM_STRIP_WIDTH', 'PARALLEL_LENGTHWISE_STRIPS', 'EVEN_WIDTHWISE_JOINT_SPACING', 'SAME_STRIP_LAYOUT_MAIN_AND_CLOSEUP', 'WIDTHWISE_JOINT_CLOSEUP'],
+    forbidden: ['FINGER_JOINT_ANY_FACE', 'TOOTHED_JOINT', 'UNEVEN_STRIP_WIDTH', 'SHORT_BLOCK_PATTERN', 'RANDOM_BLOCK_LAYOUT', 'PLYWOOD_LAYERS', 'PROCEDURAL_CG_PATTERN']
+  },
+  SIDE_FINGER: {
+    imageRole: 'long_side_local_finger_joint_same_point_closeup',
+    positive: ['THREE_FACE_COORDINATE_LOCK', 'TOP_SURFACE_NO_FINGER', 'LONG_SIDE_ONE_LOCAL_FINGER_JOINT', 'SAME_LONG_SIDE_AND_SAME_POINT_MAIN_AND_CLOSEUP', 'SHORT_END_STRIP_CROSS_SECTIONS', 'SAME_STRIP_WIDTH_ACROSS_SPLICE', 'GRAIN_COLOR_THICKNESS_CONTINUITY'],
+    forbidden: ['TOP_SURFACE_FINGER', 'SHORT_END_FINGER', 'CORNER_FINGER', 'EDGE_LINE_TEETH', 'FULL_HEIGHT_TEETH', 'FULL_WIDTH_TEETH', 'FULL_SIDE_ZIPPER', 'MISMATCHED_MAIN_CLOSEUP', 'MATERIAL_COLOR_CHANGE_AT_JOINT', 'STRIP_WIDTH_CHANGE_AT_JOINT', 'LAYERED_TEETH']
+  },
+  TOP_FINGER: {
+    imageRole: 'top_surface_local_finger_joint_same_point_closeup',
+    positive: ['TOP_SURFACE_ONE_LOCAL_LENGTH_SPLICE', 'SAME_POINT_MAIN_AND_CLOSEUP', 'SAME_STRIP_WIDTH_ACROSS_SPLICE', 'GRAIN_COLOR_STRIP_CONTINUITY', 'LONG_SIDE_NO_FINGER', 'SHORT_END_STRIP_CROSS_SECTIONS'],
+    forbidden: ['LONG_SIDE_FINGER', 'SHORT_END_FINGER', 'FULL_END_TEETH', 'REPEATED_JOINT_LINES', 'DETACHED_CLOSEUP_JOINT', 'STRIP_WIDTH_CHANGE_AT_JOINT', 'SHORT_BLOCK_CHAIN', 'PLYWOOD_LAYER_PATTERN', 'ZIPPER_PATTERN', 'COMB_PATTERN', 'STITCH_PATTERN']
+  },
+  UNKNOWN: {
+    imageRole: 'full_product_only',
+    positive: ['FULL_PRODUCT_PHOTO'],
+    forbidden: ['INFERRED_FINGER_POSITION', 'INFERRED_JOINT_TYPE']
+  }
+};
+
+const GLUED_WOOD_PRODUCT_IDENTITY_RULES = [
+  'SAME_PRODUCT_IDENTITY_STRICT',
+  'JOINT_LOCATION_MATCH',
+  'STRIP_WIDTH_CONSISTENCY',
+  'GRAIN_CONTINUITY',
+  'COLOR_CONTINUITY'
+];
+
+function resolveVerifiedGluedWoodProductUses(data) {
+  const productName = String(data && data.productName || '').trim();
+  const uses = VERIFIED_GLUED_WOOD_PRODUCT_USES[productName];
+  return uses ? { use1: uses.use1, use2: uses.use2 } : null;
+}
+
+function getUnknownWoodSpeciesKnowledge() {
+  return { id: 'UNKNOWN', standardName: '', aliases: [], scientificName: '', identificationLevel: 'UNKNOWN', appearance: null, referenceUses: [], verifiedProductUses: [], purchaseChecks: ['수종명', '표면 상태', '규격과 두께'], variationNotice: '등록되지 않은 수종으로 수종별 특징을 임의 생성하지 않습니다.' };
+}
+
+function resolveWoodSpeciesKnowledge(data) {
+  const productName = String(data && data.productName || '').toLowerCase();
+  const candidates = WOOD_SPECIES_KNOWLEDGE.slice().sort(function (left, right) {
+    const leftLength = Math.max.apply(null, left.aliases.map(function (alias) { return alias.length; }));
+    const rightLength = Math.max.apply(null, right.aliases.map(function (alias) { return alias.length; }));
+    return rightLength - leftLength;
+  });
+  return candidates.find(function (species) {
+    return species.aliases.some(function (alias) { return productName.indexOf(String(alias).toLowerCase()) !== -1; });
+  }) || getUnknownWoodSpeciesKnowledge();
+}
+
+function resolveGluedWoodProductKnowledge(data) {
+  const label = [data && data.category, data && data.productName].map(function (value) { return String(value || '').toLowerCase(); }).join(' ');
+  if (label.indexOf('집성판') === -1 && label.indexOf('집성목') === -1) return null;
+  const joint = buildProductCategoryGuide(data);
+  return {
+    isGluedWood: true,
+    species: resolveWoodSpeciesKnowledge(data),
+    joint: { name: joint.name, keyValue: joint.keyValue, structure: joint.structure, checks: (joint.emphasisCandidates || []).slice() }
+  };
+}
+
 function buildProductCategoryGuide(data) {
   const productName = String(data && data.productName || '').toLowerCase();
   const category = String(data && data.category || '').toLowerCase();
