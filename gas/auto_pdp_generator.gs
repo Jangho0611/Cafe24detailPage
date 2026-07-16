@@ -1334,11 +1334,11 @@ function buildProductSpecificFAQItems(entity) {
   if (knowledge.isGeneralImportedPlywood && knowledge.generalPlywood) {
     return items(
       '고급합판(BB/CC)은 어떤 제품인가요?',
-      '표면 상태를 중시하는 가구와 인테리어 제작에 많이 사용하는 일반합판입니다.',
-      '콤비·알비자·MLH와 어떤 차이가 있나요?',
-      '베니어 구성과 무게, 색감, 주요 용도가 다릅니다. 작업 목적과 예산을 기준으로 선택합니다.',
-      '일반합판은 구매 전에 무엇을 확인하면 좋나요?',
-      '사용할 위치와 규격을 정한 뒤 표면 상태, 재단 치수와 노출 마감 여부를 확인합니다.'
+      '표면 상태가 우수하여 가구와 인테리어 제작에 일반적으로 가장 많이 선택되는 일반합판입니다.',
+      '일반합판은 어떤 종류를 많이 사용하나요?',
+      '고급합판(BB/CC), 콤비, 알비자, MLH 등 용도와 예산에 따라 다양한 종류를 선택합니다.',
+      '노출 마감용으로 사용할 때 무엇을 확인해야 하나요?',
+      '표면 상태와 보수 여부를 먼저 확인하고 원하는 마감 품질에 맞는 제품을 선택하는 것이 좋습니다.'
     );
   }
 
@@ -2466,11 +2466,11 @@ function buildDefaultNotes(data) {
   const knowledge = buildProductKnowledgeContext(data);
   if (knowledge.isGeneralImportedPlywood && knowledge.generalPlywood) {
     return [
-      '• 사용 용도',
-      '• 규격',
-      '• 표면 상태',
-      '• 재단 치수',
-      '• 노출 마감 여부'
+      '• 작업 용도에 맞는 합판 종류 선택',
+      '• 필요한 규격과 두께 확인',
+      '• 노출 마감 여부에 맞는 표면 상태 확인',
+      '• 재단이 필요한 경우 치수 확인',
+      '• 사용 환경에 맞는 제품 선택'
     ];
   }
   const cleanStructure = cleanNoteSource(getProductKnowledgeStructure(data, knowledge));
