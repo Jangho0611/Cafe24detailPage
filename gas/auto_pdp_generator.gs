@@ -23,6 +23,7 @@ const COL = {
   STOCK_TYPE: 14,
   IMAGE_URL: 15,
   IMAGE_ENGINE: 16,
+  IMAGE_URL_2: 17,
   TYPE: 18,
   CHECKBOX: 19,
   PROMPT: 20,
@@ -128,9 +129,7 @@ function generateHTML(row) {
     C: '표면 질감 비교'
   }[data.type] || '제품 상세 정보';
 
-  const infraImg = data.infographic
-    ? `<div class="ds-infographic"><img src="${appendImageVersion(data.infographic)}" alt="${data.productName} ${sectionTitle}" style="max-width:100%;width:100%;height:auto;display:block;margin:0;"></div>`
-    : '';
+  const infraImg = buildInfographicHtml(data, sectionTitle, true);
 
   const prompt = buildHTMLPrompt(data);
   const response = callTextAPI(apiKey, prompt);
@@ -163,6 +162,8 @@ function generateHTML(row) {
 .ds-spec-table td{background:#FFFFFF;color:#1C1C1C;font-weight:400;font-size:15px;padding:13px 12px;border-bottom:1px solid #E6E3DA;text-align:left;}
 .ds-section-title{font-size:18px;font-weight:700;color:#1C1C1C;margin:24px 0 12px;}
 .ds-infographic{border:1px solid #E0E0E0;border-radius:4px;overflow:hidden;margin:0 0 24px 0;}
+.ds-infographic-stack{display:block;margin:0;padding:0;line-height:0;gap:0;}
+.ds-infographic-stack img{display:block;width:100%;max-width:100%;height:auto;margin:0;padding:0;}
 .ds-reason{background:#FAFAF7;border:1px solid #E3E1D8;border-top:2px solid #123628;border-radius:6px;padding:18px;margin:0 0 22px 0;font-size:15px;color:#616161;}
 .ds-ai-summary,.ds-define,.ds-spec-table,.ds-infographic,.ds-reason{margin-bottom:24px;}
 .ds-reason p{margin:0 0 8px 0;}
@@ -382,6 +383,18 @@ function appendImageVersion(url) {
   return value + (value.indexOf('?') === -1 ? '?' : '&') + 'v=' + encodeURIComponent(getImageVersion());
 }
 
+function buildInfographicHtml(data, sectionTitle, withVersion) {
+  const firstUrl = cleanEntityValue(data && data.infographic);
+  const secondUrl = cleanEntityValue(data && data.infographic2);
+  if (!firstUrl) return '';
+  const resolveUrl = function (url) { return escapeHtml(withVersion ? appendImageVersion(url) : url); };
+  const alt = escapeHtml(cleanEntityValue(data && data.productName) + ' ' + sectionTitle);
+  if (!secondUrl) {
+    return `<div class="ds-infographic"><img src="${resolveUrl(firstUrl)}" alt="${alt}" style="max-width:100%;width:100%;height:auto;display:block;margin:0;"></div>`;
+  }
+  return `<div class="ds-infographic-stack"><img src="${resolveUrl(firstUrl)}" alt="${alt} 1" style="display:block;width:100%;max-width:100%;height:auto;margin:0;padding:0;"><img src="${resolveUrl(secondUrl)}" alt="${alt} 2" style="display:block;width:100%;max-width:100%;height:auto;margin:0;padding:0;"></div>`;
+}
+
 function getImageVersion() {
   try {
     const range = SpreadsheetApp.openById(SHEET_ID).getRangeByName('IMAGE_VERSION');
@@ -543,6 +556,7 @@ function getRowData(sheet, row) {
     use2: sheet.getRange(row, COL.USE2).getValue(),
     stockType: sheet.getRange(row, COL.STOCK_TYPE).getValue(),
     infographic: sheet.getRange(row, COL.IMAGE_URL).getValue(),
+    infographic2: sheet.getRange(row, COL.IMAGE_URL_2).getValue(),
     type: sheet.getRange(row, COL.TYPE).getValue()
   };
 }
@@ -631,17 +645,26 @@ function getGeneralImportedPlywoodKnowledge(data) {
     format: format,
     currentGrade: 'BB/CC',
     currentOrigin: '인도네시아 또는 베트남',
-    definition: '얇은 목재 베니어를 여러 겹 적층한 일반합판',
-    gradeGuide: 'BB/CC는 앞면 BB와 뒷면 CC의 표면 상태를 구분하며, 노출 마감 여부와 표면 품질을 검토할 때 참고하는 표면 등급입니다. 내부 베니어 수종이나 강도를 의미하는 절대 품질 등급은 아니므로 실제 입고 제품의 표면 상태를 함께 확인합니다.',
-    selectionNotice: '현재 상품은 BB/CC 기준입니다. 콤비·알비자·MLH는 일반합판 선택을 위한 구성 안내이며 현재 판매 옵션이 아닙니다. 각 구성은 별도 입고 사양 확인이 필요합니다.',
+    definition: '얇은 목재 베니어를 여러 겹 교차 적층하여 제작하는 일반합판',
+    whyUsed: '일반합판은 가구 심재, 인테리어 제작, 벽체·천장 바탕재와 건축 바닥 작업 등 다양한 용도로 사용합니다. 사용 목적에 맞는 구성을 선택하면 작업성과 경제성을 함께 고려할 수 있습니다.',
+    gradeGuide: '고급합판(BB/CC)은 업계에서 고급합판으로 통용되며 일반적으로 가장 많이 선택되는 일반합판입니다. 표면 상태가 우수하여 가구 및 인테리어 제작에 많이 사용되고, 일반합판 제품군에서 상위 등급으로 많이 선택되는 제품입니다.',
+    selectionNotice: '고급합판(BB/CC)은 라왕계열 베니어 중심 구성으로 가구·인테리어 제작에 많이 사용합니다. 콤비는 라왕계열과 알비자계열의 혼합 구성으로 품질과 경제성을 함께 고려할 때 선택합니다. 알비자는 비교적 가벼워 실외 거푸집, 포장재와 임시 구조물에 많이 사용하며 경제성을 고려할 때 선택하는 일반합판입니다. MLH는 여러 수종을 혼합하여 제작하는 일반합판으로 일반 건축 및 다양한 용도에 사용합니다.',
     selectionGuide: [
-      { name: '콤비', role: '베니어 구성', summary: '라왕계열과 알비자계열의 혼합 구성 확인', current: false },
-      { name: '알비자', role: '베니어 구성', summary: '알비자계열 중심, 무게와 요구 강도·사용 위치 확인', current: false },
-      { name: 'MLH', role: '베니어 구성', summary: '혼합 활엽수 베니어, 제조사·번들별 입고 사양 확인', current: false }
+      { name: '고급합판(BB/CC)', veneer: '라왕계열 베니어 중심 구성', feature: '표면 상태가 우수한 고급합판', use: '가구·인테리어 제작' },
+      { name: '콤비', veneer: '라왕계열과 알비자계열 베니어의 혼합 구성', feature: '품질과 경제성을 함께 고려하는 일반합판', use: '가구 심재와 인테리어 바탕 작업' },
+      { name: '알비자', veneer: '알비자계열 베니어 중심 구성', feature: '비교적 가볍고 경제성을 고려할 때 선택하는 일반합판', use: '실외 거푸집, 포장재와 임시 구조물' },
+      { name: 'MLH', veneer: 'Mixed Light Hardwood 혼합 활엽수 구성', feature: '여러 수종을 혼합하여 제작하는 일반합판', use: '일반 건축 및 다양한 바탕 작업' }
     ],
-    originGuide: '동남아산과 베트남산 모두 제조사, 베니어 구성, 표면 상태, 측면 적층과 재단면을 같은 기준으로 확인합니다. 원산지만으로 품질을 단정하지 않습니다.',
-    originChecks: ['제조사', '베니어 구성', '표면 상태', '측면 적층', '재단면'],
-    checks: ['표면 베니어', '측면 적층', '재단면', '공극·겹침', '두께 편차', '색상·무늬 편차', '노출면', '제조사·번들·입고 시기']
+    selectionCriteria: '사용 용도, 표면 상태, 내부 베니어 구성, 측면 적층, 재단면과 색상·무늬를 함께 살펴 용도에 맞는 일반합판을 선택합니다.',
+    applications: ['가구 심재', '가구·인테리어 제작', '벽체·천장 바탕재', '일반 건축 바탕 작업'],
+    originGuide: '일반합판은 동남아시아와 베트남 등 다양한 국가에서 생산됩니다. 동남아산은 비교적 정돈된 적층과 깔끔한 표면, 비교적 균일한 재단면이 나타나는 경우가 있습니다. 베트남산은 제품에 따라 베니어 배열, 표면 무늬와 색상, 측면 적층과 재단면에 편차가 나타날 수 있습니다. 원산지와 함께 실제 제품의 구성과 상태를 확인하면 제품 선택에 도움이 됩니다.',
+    originChecks: ['베니어 구성', '표면 상태', '측면 적층', '재단면'],
+    originComparison: {
+      southeastAsia: ['내부 층이 비교적 정돈되고 균일하게 적층된 대표적인 사례', '표면의 패치·요철이 비교적 적은 대표적인 사례', '측면 적층선이 비교적 일정하고 공극이 적은 대표적인 사례', '재단면의 벌어짐이 비교적 적고 정돈된 대표적인 사례'],
+      vietnam: ['내부 베니어 두께와 배열에 일부 편차가 보이는 대표적인 사례', '표면 색상·무늬·패치 편차가 더 보이는 대표적인 사례', '측면 적층선에 일부 겹침·공극·불균일이 보이는 대표적인 사례', '재단면에 일부 뜯김·벌어짐·거친 부분이 보이는 대표적인 사례'],
+      conclusion: '일반합판은 동남아시아와 베트남 등 다양한 국가에서 생산됩니다. 원산지와 함께 실제 제품의 구성과 상태를 확인하면 제품 선택에 도움이 됩니다.'
+    },
+    checks: ['표면 베니어 상태', '측면 적층 상태', '재단면', '공극·겹침', '두께 편차', '색상·무늬 편차']
   };
 }
 
@@ -918,7 +941,8 @@ function buildEntityData(data) {
 }
 
 function cleanHumanWritingText(text) {
-  return limitAndUsage(removeCommerceRemedyGuidance(String(text || ''))
+  const generalPlywoodNameToken = 'GENERALPLYWOODBBCCNAME';
+  const cleaned = limitAndUsage(removeCommerceRemedyGuidance(String(text || '').replace(/고급합판\(BB\/CC\)/g, generalPlywoodNameToken))
     .replace(/적층\s*구조\s*[.]\s*판재입니다[.]/g, '적층 구조의 판재입니다.')
     .replace(/구조\s*[.]\s*판재입니다[.]/g, '구조의 판재입니다.')
     .replace(/용도로 선택됩니다/g, '에 많이 사용합니다')
@@ -944,6 +968,7 @@ function cleanHumanWritingText(text) {
     .replace(/\s{2,}/g, ' ')
     .replace(/\s+([.,!?])/g, '$1')
     .trim());
+  return cleaned.replace(new RegExp(generalPlywoodNameToken, 'g'), '고급합판(BB/CC)');
 }
 
 function removeCommerceRemedyGuidance(text) {
@@ -1044,11 +1069,9 @@ function buildAISummary(entity) {
   if (knowledge.isGeneralImportedPlywood && knowledge.generalPlywood) {
     const guide = knowledge.generalPlywood;
     const lines = [
-      guide.format === '3*6'
-        ? '현재 상품은 반입 공간과 작업 크기를 고려할 때 검토하는 3×6 BB/CC 일반합판입니다.'
-        : '현재 상품은 BB/CC 표면 등급의 4×8 수입 일반합판입니다.',
-      guide.gradeGuide,
-      guide.selectionNotice + ' ' + guide.originGuide
+      '목재 베니어를 여러 겹 교차 적층해 만든 판재입니다.',
+      '가구 심재, 인테리어 제작과 벽체·천장 바탕 작업에 사용합니다.',
+      '작업 목적과 마감 방식에 맞춰 규격과 표면 상태를 살펴 선택합니다.'
     ];
     return lines.map(filterAISummaryText);
   }
@@ -1309,24 +1332,13 @@ function buildProductSpecificFAQItems(entity) {
   }
 
   if (knowledge.isGeneralImportedPlywood && knowledge.generalPlywood) {
-    const guide = knowledge.generalPlywood;
-    if (knowledge.generalPlywood.format === '3*6') {
-      return items(
-        '3×6 일반합판은 언제 선택하나요?',
-        '4×8보다 작은 규격으로 반입 공간과 작업 크기를 고려해야 하는 현장에서 검토합니다.',
-        'BB/CC와 콤비·알비자·MLH는 같은 등급인가요?',
-        guide.gradeGuide + ' ' + guide.selectionNotice,
-        '원산지와 재단면에서 무엇을 확인해야 하나요?',
-        guide.originGuide
-      );
-    }
     return items(
-      'BB/CC, 콤비, 알비자, MLH는 무엇이 다른가요?',
-      guide.gradeGuide + ' 콤비는 혼합 베니어, 알비자는 알비자계열 중심, MLH는 혼합 활엽수 베니어 구성에 관한 안내입니다. ' + guide.selectionNotice,
-      '동남아산과 베트남산 일반합판은 어떻게 비교하나요?',
-      guide.originGuide,
-      '가구나 노출 마감용으로 사용할 때 무엇을 확인해야 하나요?',
-      '사용할 면의 표면 베니어와 색상·무늬 편차, 측면 적층, 재단면, 두께 편차가 마감 목적에 맞는지 확인합니다.'
+      '고급합판(BB/CC)은 어떤 제품인가요?',
+      '표면 상태를 중시하는 가구와 인테리어 제작에 많이 사용하는 일반합판입니다.',
+      '콤비·알비자·MLH와 어떤 차이가 있나요?',
+      '베니어 구성과 무게, 색감, 주요 용도가 다릅니다. 작업 목적과 예산을 기준으로 선택합니다.',
+      '일반합판은 구매 전에 무엇을 확인하면 좋나요?',
+      '사용할 위치와 규격을 정한 뒤 표면 상태, 재단 치수와 노출 마감 여부를 확인합니다.'
     );
   }
 
@@ -1805,11 +1817,14 @@ ${itemHtml}
 
 function buildSchemaHtml(data, defineText, faqItems) {
   const productKnowledge = buildProductKnowledgeContext(data);
+  const schemaDescription = productKnowledge.isGeneralImportedPlywood && productKnowledge.generalPlywood
+    ? '목재 베니어를 교차 적층한 일반합판으로 가구와 인테리어 제작, 벽체·천장 바탕재에 사용합니다.'
+    : String(defineText || '').trim();
   const productSchema = {
     '@context': 'https://schema.org',
     '@type': 'Product',
     name: String(data.productName || '').trim(),
-    description: String(defineText || '').trim()
+    description: schemaDescription
   };
 
   if (data.infographic) {
@@ -2450,14 +2465,12 @@ function buildDefaultNotes(data) {
   const notes = [];
   const knowledge = buildProductKnowledgeContext(data);
   if (knowledge.isGeneralImportedPlywood && knowledge.generalPlywood) {
-    const guide = knowledge.generalPlywood;
     return [
-      '현재 재고의 생산지와 BB/CC 앞·뒷면 표면 상태는 주문 전에 확인해야 합니다.',
-      '노출 마감은 사용할 면의 색상·무늬 편차를 먼저 살펴봅니다.',
-      '재단이 필요하면 측면 적층, 공극·겹침과 실제 재단면 상태를 검토합니다.',
-      guide.format === '3*6'
-        ? '3×6 규격은 반입 공간과 작업 크기를 고려해 선택합니다.'
-        : '4×8 규격은 사용 위치와 필요한 재단 치수를 기준으로 선택합니다.'
+      '• 사용 용도',
+      '• 규격',
+      '• 표면 상태',
+      '• 재단 치수',
+      '• 노출 마감 여부'
     ];
   }
   const cleanStructure = cleanNoteSource(getProductKnowledgeStructure(data, knowledge));
@@ -2552,19 +2565,40 @@ function setError(sheet, row, message) {
 }
 
 function buildInfographicPrompt(data) {
+  const outputType = buildProductKnowledgeContext(data).productGroup === 'PLYWOOD' ? 'image' : '';
+  const isVertical = isVerticalGeneralPlywoodInfographic(data);
+  if (isVertical) {
+    const images = buildGeneralImportedPlywoodTypeAPrompts(data).map(function (image) {
+      return {
+        key: image.key,
+        prompt: image.prompt + buildGlobalImageReadabilityRule(true) + buildGeneratedContentRemedyGuard(outputType)
+      };
+    });
+    return JSON.stringify({ version: 1, images: images });
+  }
   let prompt = null;
   if (data.type === 'A') prompt = buildTypeAPrompt(data);
   if (data.type === 'B') prompt = buildTypeBPrompt(data);
   if (data.type === 'C') prompt = buildTypeCPrompt(data);
-  const outputType = buildProductKnowledgeContext(data).productGroup === 'PLYWOOD' ? 'image' : '';
-  return prompt ? prompt + buildGlobalImageReadabilityRule() + buildGeneratedContentRemedyGuard(outputType) : null;
+  return prompt ? prompt + buildGlobalImageReadabilityRule(false) + buildGeneratedContentRemedyGuard(outputType) : null;
 }
 
-function buildGlobalImageReadabilityRule() {
+function isVerticalGeneralPlywoodInfographic(data) {
+  if (String(data && data.type || '').trim() !== 'A') return false;
+  const productName = cleanEntityValue(data && data.productName).replace(/\s+/g, ' ');
+  if (!/^일반합판\(수입산\) (?:4\*8|3\*6)$/.test(productName)) return false;
+  const knowledge = buildProductKnowledgeContext(data);
+  return Boolean(knowledge.generalPlywood && knowledge.generalPlywood.productType === 'GENERAL_PLYWOOD_BBCC');
+}
+
+function buildGlobalImageReadabilityRule(isVertical) {
+  const canvasRule = isVertical
+    ? '1024×1536px 세로형 상세페이지에서 PC와 모바일 모두 확대 없이 핵심 정보를 읽을 수 있는 충분한 텍스트 크기로 구성한다.'
+    : '1024×1024 상세페이지에서 PC와 모바일 모두 확대 없이 핵심 정보를 읽을 수 있는 충분한 텍스트 크기로 구성한다.';
   return `
 
 [GLOBAL IMAGE READABILITY RULE]
-- 1024×1024 상세페이지에서 PC와 모바일 모두 확대 없이 핵심 정보를 읽을 수 있는 충분한 텍스트 크기로 구성한다.
+- ${canvasRule}
 - 작은 글씨를 많이 배치하지 않고 한 정보 블록은 제목과 최대 2~3줄의 설명으로 제한하며 장문의 문단을 생성하지 않는다.
 - 열전도율, 압축강도, 규격, 두께 등 핵심 수치는 다른 설명보다 크게 강조한다.
 - 이미지와 텍스트 비율은 약 65~70 : 30~35로 유지하고 정보량보다 가독성을 우선한다.
@@ -3663,14 +3697,9 @@ function buildProductIntroductionFromKnowledge(data, fallback) {
   if (knowledge.isGeneralImportedPlywood && knowledge.generalPlywood) {
     const guide = knowledge.generalPlywood;
     return cleanHumanWritingText(
-      '일반합판은 얇은 목재 베니어를 여러 겹 적층한 판재입니다.<br><br>' +
-      guide.gradeGuide + '<br><br>' +
-      guide.selectionNotice + '<br><br>' +
-      'BB/CC는 표면 등급을 먼저 확인하고, 콤비는 혼합 베니어 구성, 알비자는 무게와 요구 강도·사용 위치, MLH는 제조사·번들별 베니어 구성과 상태를 확인합니다. 아래 내용은 일반합판 선택을 돕기 위한 구성 안내이며 현재 재고 옵션은 주문 전에 확인해야 합니다.<br><br>' +
-      '인도네시아를 포함한 동남아산과 베트남산 제품이 공급될 수 있습니다. ' + guide.originGuide + '<br><br>' +
-      (guide.format === '3*6'
-        ? '3×6 규격은 반입 공간과 작업 크기를 고려할 때 검토합니다.'
-        : '4×8 규격은 가구 심재, 벽체·천장 바탕재와 인테리어 제작에 사용합니다.')
+      guide.definition + '입니다.<br><br>' +
+      '가구 심재, 인테리어 제작, 벽체·천장 바탕재와 일반 건축 작업에 사용합니다.<br><br>' +
+      '사용 용도, 규격, 표면 상태와 필요한 재단 범위를 기준으로 선택합니다.'
     );
   }
 
@@ -3779,73 +3808,193 @@ function buildGeneralImportedPlywoodTypeAPrompt(data) {
   const knowledge = buildProductKnowledgeContext(data);
   if (!knowledge.isGeneralImportedPlywood || !knowledge.generalPlywood) return '';
   const guide = knowledge.generalPlywood;
-  const application = guide.format === '3*6'
-    ? '반입 공간과 작업 크기를 고려하는 소규모 리모델링·협소 공간 바탕 작업'
-    : '가구 심재, 벽체·천장 바탕재와 인테리어 제작';
+  const application = guide.applications.join(', ');
 
   return `
-1024×1024 카페24 상세페이지용 한국어 일반합판 인포그래픽을 생성한다.
+카페24 상세페이지용 한 장의 긴 세로형 한국어 일반합판 인포그래픽 포스터를 생성한다.
+- Tall infographic poster, long vertical layout, large spacing, large typography, editorial poster 방식으로 구성한다.
+- 특정 높이 안에 모든 내용을 압축하지 말고 정보가 선명하게 들어갈 만큼 긴 세로 캔버스를 사용한다.
+- 공간이 부족하면 글자와 이미지를 줄이지 말고 캔버스 높이와 섹션 프레임을 늘린다.
+- 정사각형 상세페이지나 짧은 3단 카드 레이아웃으로 구성하지 않는다.
 
 제목:
 - 메인 제목: "일반합판"
-- 부제: "BB/CC 표면 등급과 구성별 선택 기준"
+- 부제: "일반합판의 구조와 구성별 선택 가이드"
 - 1단, 2단, 3단, STEP, SECTION과 "왜 이 제품을 선택하는가"를 제목으로 사용하지 않는다.
 
-현재 상품 고정 정보:
-- 상품: ${data.productName}
-- 규격: ${data.size}
-- 두께 옵션: ${data.thickness}
-- 현재 상품은 시트에서 확인된 BB/CC 기준이다.
-- 인도네시아 또는 베트남 생산 제품이 공급될 수 있으므로 주문 전 실제 입고 원산지와 제품 상태를 확인한다.
-- 콤비·알비자·MLH를 현재 상품의 판매 옵션이나 확정 재고로 표현하지 않는다.
-
 메인 제품 이미지:
-- 현재 BB/CC 일반합판 완제품을 실제 판매 제품 사진처럼 크게 표현한다.
+- 일반합판 완제품을 실제 제품 사진처럼 크게 표현하고 전체 캔버스의 40~45%를 사용한다.
 - 앞면 표면과 얇은 목재 베니어가 여러 겹 적층된 측면이 함께 보이게 한다.
 - 제품 이미지가 가장 먼저 보이게 하고 실제 근거 없는 베니어 층 수를 고정하지 않는다.
-- 모든 제품에 공극·박리·접착 불량을 필수 결함처럼 만들지 않는다.
+- 모든 제품에 공극·박리·접착 상태 문제를 필수 특성처럼 만들지 않는다.
 
-핵심 정보 블록은 다음 4개까지만 구성한다.
+상단 소개:
+- ${guide.definition}입니다.
+- ${guide.whyUsed}
+- 상단 소개에는 구성별 종류의 이름을 표시하지 않고 일반합판 전체만 설명한다.
 
-일반합판 구조와 BB/CC:
-- 일반합판: 얇은 목재 베니어를 여러 겹 적층한 판재.
-- ${guide.gradeGuide}
+아래 영역을 순서대로 큰 독립 프레임으로 구성하고, 내용을 제한된 높이나 3단 안에 압축하지 않는다.
 
-현재 상품:
-- BB/CC · 표면 등급 · 앞면 BB와 뒷면 CC 및 실제 입고 표면 확인 · "현재 상품 기준"
+1. 제목과 일반합판 완제품
+2. 일반합판 기본 구조
+3. 일반합판 4가지 구성 차이
+4. 동남아산·베트남산 상태 비교
+5. 실제 적용 사례
+6. 구매 전 확인 체크리스트
+7. 원산지 안내
 
-일반합판 선택 가이드:
-- 콤비 · 베니어 구성 · 라왕계열과 알비자계열 혼합 · "별도 입고 사양 확인"
-- 알비자 · 베니어 구성 · 알비자계열 중심, 무게와 요구 강도·사용 위치 확인 · "별도 입고 사양 확인"
-- MLH · 베니어 구성 · Mixed Light Hardwood 혼합 활엽수 베니어, 제조사·번들 확인 · "별도 입고 사양 확인"
-- 각 유형은 이름과 핵심 차이 1줄만 표시하고 기계적인 반반 적층·일정한 줄무늬를 만들지 않는다.
-- BB/CC는 표면 등급, 나머지는 주로 베니어 구성이라는 개념을 섞지 않는다.
+프레임 크기와 여백:
+- 모든 섹션 프레임을 일반 카드형 구성보다 30~50% 크게 만들고 섹션 사이에 넓은 여백을 둔다.
+- 구성별 종류 비교, 원산지 비교, 구매 전 확인은 다른 영역보다 큰 프레임을 사용한다.
+- 원산지 비교는 세로 높이 500px 이상, 실제 적용 사례는 400~500px, 구매 전 확인은 450px 이상에 준하는 넉넉한 비중을 확보한다.
+- 카드 안의 제품·단면·적용 사진을 크게 보여주고 텍스트는 핵심 문구 1~2줄만 사용한다.
+- 작은 이미지 옆에 작은 글씨를 붙이는 카드 구조를 사용하지 않는다.
+- 최소 글자 크기를 유지할 수 없으면 글자를 줄이지 말고 전체 캔버스와 해당 프레임을 더 길게 확장한다.
 
-원산지별 입고 제품 확인:
-- 같은 크기의 "동남아산"과 "베트남산" 보조 카드에 동일한 확인 아이콘을 사용한다.
-- 제목: "원산지 확인 포인트"
-- 양쪽 공통 체크리스트: ${guide.originChecks.join(', ')}.
+일반합판 기본 구조:
+- 얇은 목재 베니어의 결 방향을 교차시키며 여러 겹 적층한 판재 구조를 보여준다.
+- 특정 구성의 이름이나 실제 근거 없는 정확한 층 수를 이 영역에 표시하지 않는다.
+
+구성별 종류 비교:
+${guide.selectionGuide.map(function (item) { return '- ' + item.name + ' · 구성: ' + item.veneer + ' · 특징: ' + item.feature + ' · 주 사용 용도: ' + item.use; }).join('\n')}
+- 네 항목을 같은 크기와 동일한 시각적 비중으로 표시하고 우열을 표현하지 않는다.
+- 네 카드의 제품 및 내부 구성 이미지를 크게 배치하고 설명은 카드당 핵심 1~2줄로 제한한다.
+- 각 항목에 완제품 표면 또는 측면과 내부 베니어 구성 개념을 함께 표현하고, 표면 사진만 색상만 바꿔 반복하지 않는다.
+- 고급합판(BB/CC)은 라왕계열 베니어가 적층된 측면과 표면 상태가 우수한 완제품 예시를 함께 보여준다.
+- 콤비는 라왕계열과 알비자계열 베니어가 내부에 자연스럽게 혼합된 측면을 보여주고 기계적으로 반반 나누지 않는다.
+- 알비자는 비교적 밝은 알비자계열 내부 베니어와 표면·측면 적층을 함께 보여준다.
+- MLH는 색과 밀도가 일부 다른 혼합 활엽수 베니어가 자연스럽게 적층된 측면을 보여주고 OSB·집성목·콤비와 혼동하지 않는다.
+- 기계적인 반반 적층·일정한 줄무늬를 만들지 않는다.
+- 고급합판(BB/CC)이 가구와 인테리어 제작에 많이 선택되는 이유를 중심으로 설명한다.
+
+동남아산 vs 베트남산 비교:
+- 품질 대결이 아닌 일반적인 상태 경향의 예시이며, 같은 크기의 두 카드에 동일한 네 항목을 크게 표시한다.
+- 비교 영역 전체를 높고 넓은 독립 프레임으로 만들며 각 촬영 부위를 작은 썸네일로 축소하지 않는다.
+- 비교 항목: ${guide.originChecks.join(', ')}.
+- 동남아산 예시: ${guide.originComparison.southeastAsia.join(' / ')}.
+- 베트남산 예시: ${guide.originComparison.vietnam.join(' / ')}.
+- 내부 베니어 구성은 합판 측면의 내부 층 확대, 표면 상태는 윗면 베니어의 정면 확대, 측면 적층은 긴 측면 전체 확대, 재단면은 절단된 모서리 확대를 사용한다.
+- 같은 합판 측면 사진을 네 번 재사용하거나 같은 표면 사진에 설명만 바꾸지 않는다.
 - 베트남산은 MLH 또는 기타 베니어 구성 여부도 확인하되 베트남산 전체를 MLH로 단정하지 않는다.
-- 결론: "원산지만으로 품질을 단정하지 않고 실제 입고 제품을 확인"
-- 국가명을 VS로 연결하거나 승패·순위·상하 등급·빨강·초록 평가와 국가별 강도·접착력·내구성 우열을 생성하지 않는다.
+- 결론: "${guide.originComparison.conclusion}"
+- VS 표기는 허용하되 승패·순위·상하 등급·빨강·초록 평가와 국가별 강도·접착력·내구성 우열을 생성하지 않는다.
+- 모든 동남아산이 항상 더 낫거나 모든 베트남산의 품질이 반드시 낮다고 단정하지 않고 파손·박리·폐기품처럼 과장하지 않는다.
 
 적용과 구매 전 확인:
 - 실제 적용: ${application}
-- 표면 베니어, 측면 적층, 재단면, 공극·겹침, 두께 편차, 색상·무늬 편차와 노출면을 확인한다.
-- 설명은 최대 1~2줄로 제한하고 확인 항목을 작은 글씨로 빽빽하게 나열하지 않는다.
+- 실제 적용 사례는 큰 현장 사진을 중심으로 충분한 세로 높이를 확보한다.
+- 구매 전 확인은 큰 독립 영역으로 만들고 실제 제품의 근접 사진을 중심으로 ${guide.checks.join(', ')}을 확인한다.
+- 각 확인 항목은 확대 없이 읽을 수 있는 크기로 표시하고 작은 글씨로 빽빽하게 나열하지 않는다.
+- 아이콘만 배치하지 않고 표면, 측면, 재단면 등 실제 확인 부위의 확대 사진을 우선한다.
+- 구매 전 확인의 여섯 사진은 식별 가능한 크기로 배치하고 공간이 부족하면 캔버스를 아래로 연장한다.
 
-필수 안내 문장:
-- "${guide.gradeGuide}"
-- "${guide.selectionNotice}"
-- "${guide.originGuide}"
+판매 정보 분리:
+- 판매 상품명에 붙는 규격, 제품 규격 카드, 두께 옵션 표, 재고·수량·납기·라벨 정보를 이미지에 표시하지 않는다.
+- 판매 규격과 두께는 HTML 사양표의 역할이므로 이미지에 생성하지 않는다.
+
+한글 타이포그래피 품질:
+- 모든 한글은 실제 인쇄용 산세리프 폰트처럼 선명하고 정확하게 표현한다.
+- 글자 획을 끊거나 뭉개지 않고 글자끼리 겹치지 않게 한다.
+- 초성·중성·종성을 분리하지 않고 완성형 한글 글리프를 사용한다.
+- 이미지 생성형 글자가 아닌 실제 편집 디자인 수준의 선명한 벡터 타이포그래피 품질로 표현한다.
+- 카드 제목과 본문 모두 올바른 철자를 사용하고 의미 없는 문자나 유사 한글을 만들지 않는다.
+- 한글이 깨질 가능성이 있는 작은 폰트는 사용하지 않으며 글자를 줄이는 대신 여백과 프레임 높이를 늘린다.
 
 금지:
 - 국가 간 대결형 비교, 특정 국가를 저품질로 표현, 근거 없는 품질 일반화와 출처 없는 수치 비교.
 - 최고·최상·우수·가성비 1위, 실내 사용 부적합, 실외용 추천, 냄새·눈 자극·유해성 표현.
-- 콤비 혼합 비율·적층 순서 고정, 알비자를 약하거나 불량한 합판으로 표현, MLH를 접착 불량·얇은 표면 베니어의 필수 특성으로 표현.
+- 콤비 혼합 비율·적층 순서 고정, 알비자를 약하거나 품질이 낮은 합판으로 표현, MLH를 접착 상태 문제·얇은 표면 베니어의 필수 특성으로 표현.
 - 자작합판 등급표, 내수합판 접착 성능, 미송·코아·오징어합판, MDF·PB·OSB 구조 혼입.
-- 작은 글씨가 빽빽한 브로슈어와 제품보다 표·텍스트가 큰 구성.
+- 작은 글씨가 빽빽한 브로슈어, 정사각형 캔버스 강제, 짧은 캔버스에 모든 섹션을 압축하는 구성, 제품보다 표·텍스트가 큰 구성.
 `;
+}
+
+function buildGeneralImportedPlywoodTypeAPrompts(data) {
+  const knowledge = buildProductKnowledgeContext(data);
+  if (!knowledge.isGeneralImportedPlywood || !knowledge.generalPlywood) return [];
+  const guide = knowledge.generalPlywood;
+  const sharedDesign = `
+- 1024×1536px 세로형 편집 디자인 인포그래픽으로 구성한다.
+- 배경 #FFFFFF, 메인 #123628, 포인트 #C9A84C, 텍스트 #1C1C1C, 서브텍스트 #616161, 보더 #E0E0E0만 사용한다.
+- 실제 제품 확대 이미지를 중심으로 충분한 여백과 큰 글자를 사용하고 카드 설명은 최대 1~2줄로 제한한다.
+- 사진 70%, 텍스트 30% 비율을 기준으로 실제 목재 사진을 크게 배치한다.
+- 실제 제품 카탈로그처럼 구성하고 AI 일러스트, 아이콘 남용과 불필요한 벡터 도식을 사용하지 않는다.
+- 모든 한글은 인쇄용 산세리프처럼 선명하게 표현하고 획 끊김, 글자 겹침, 자모 분리, 잘못된 철자와 의미 없는 문자를 만들지 않는다.
+- 판매 규격, 두께, 재고, 수량, 납기와 라벨 정보를 표시하지 않는다.`;
+  const overviewPrompt = `
+카페24 상세페이지용 일반합판 인포그래픽 첫 번째 이미지를 생성한다.
+${sharedDesign}
+
+제목:
+- 메인 제목: "일반합판"
+- 부제: "일반합판의 구조와 구성별 선택 가이드"
+
+레이아웃 흐름:
+일반합판 소개
+- ${guide.definition}입니다. ${guide.whyUsed}
+- 일반합판 정의와 메인 완제품 확대 사진만 사용한다.
+
+구성별 종류 비교
+${guide.selectionGuide.map(function (item) { return '- ' + item.name + ' · 구성: ' + item.veneer + ' · 특징: ' + item.feature + ' · 주 사용 용도: ' + item.use; }).join('\n')}
+- 각 카드에 실제 상판 사진과 실제 측면 사진을 함께 크게 배치한다.
+- 네 카드의 폭과 사진 높이를 기존 카드보다 15~20% 확대하고 본문은 2~3줄 이내로 제한한다.
+- AI 일러스트나 합성 도식으로 베니어 구성을 대신하지 않는다.
+
+실제 적용 사례
+- ${guide.applications.join(', ')}.
+- 텍스트보다 실제 시공·제작 사진을 우선한다.
+
+연결 규칙:
+- 이 이미지는 두 장 중 첫 번째 이미지다.
+- 마지막에 푸터, 결론, 마감 배너, 회사 정보와 종료 문구를 만들지 않는다.
+- 두 번째 이미지에서 다룰 품질 및 선택 안내 내용을 미리 표시하지 않는다.
+- 하단 디자인이 다음 이미지로 자연스럽게 이어지도록 배경, 컬러와 세로 흐름을 열어 둔다.
+- 섹션 제목 앞에 숫자, 번호 배지, STEP 표기를 붙이지 않는다.
+`;
+  const guidePrompt = `
+카페24 상세페이지용 일반합판 인포그래픽 두 번째 이미지를 생성한다.
+${sharedDesign}
+
+연결 규칙:
+- 첫 번째 이미지의 배경, 컬러, 보더, 여백, 사진 톤과 타이포그래피를 그대로 이어간다.
+- 새로운 대표 타이틀, 메인 제품 소개와 구성별 종류 비교를 반복하지 않는다.
+- 상단에 큰 제목 대신 "동남아산 / 베트남산 비교" 섹션부터 자연스럽게 시작한다.
+
+레이아웃 흐름:
+동남아산 / 베트남산 상태 비교
+
+내부 베니어 구성 비교
+- 동남아산: ${guide.originComparison.southeastAsia[0]}
+- 베트남산: ${guide.originComparison.vietnam[0]}
+
+표면 상태 비교
+- 동남아산: ${guide.originComparison.southeastAsia[1]}
+- 베트남산: ${guide.originComparison.vietnam[1]}
+
+측면 적층 비교
+- 동남아산: ${guide.originComparison.southeastAsia[2]}
+- 베트남산: ${guide.originComparison.vietnam[2]}
+
+재단면 비교
+- 동남아산: ${guide.originComparison.southeastAsia[3]}
+- 베트남산: ${guide.originComparison.vietnam[3]}
+
+구매 전 체크리스트
+- ${guide.checks.join(', ')}.
+
+원산지 안내
+- ${guide.originComparison.conclusion}
+
+표현 규칙:
+- 네 비교 항목은 각각 다른 촬영 부위의 큰 실제 제품 확대 이미지를 사용한다.
+- 원산지만으로 제품 성능을 단정하거나 승패·순위를 표시하지 않고, 심각한 파손과 폐기품 이미지를 만들지 않는다.
+- 원산지 안내 다음에서 인포그래픽을 마무리한다.
+- 섹션 제목 앞에 숫자, 번호 배지, STEP 표기를 붙이지 않는다.
+`;
+  return [
+    { key: 'overview', prompt: overviewPrompt },
+    { key: 'guide', prompt: guidePrompt }
+  ];
 }
 
 function buildTypeAPrompt(data) {
@@ -4781,9 +4930,7 @@ function buildHTMLPrompt(data) {
   const safeStructure = removeCommerceRemedyGuidance(getProductKnowledgeStructure(data, knowledge));
   const safeEmphasis = removeCommerceRemedyGuidance(removeUnsupportedPlywoodAdhesiveText(data.emphasis, knowledge));
 
-  const infraImg = data.infographic
-    ? `<div class="ds-infographic"><img src="${data.infographic}" alt="${data.productName} ${sectionTitle}" style="max-width:100%;width:100%;height:auto;display:block;margin:0;"></div>`
-    : '';
+  const infraImg = buildInfographicHtml(data, sectionTitle, false);
 
   return `
 아래 항목을 작성하라. HTML 태그 없이 순수 텍스트로만 출력.
