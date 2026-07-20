@@ -376,6 +376,19 @@ const APPROVED_GLUED_WOOD_TYPE_C_COPY = {
     jointCaption: '원목을 길이 방향으로 이어 만든\n집성 구조',
     jointDetailCaption: '측면의 한 원목 부재에서만\n짧은 핑거 이음이 국소적으로 보입니다.'
   },
+  '아카시아 집성판 사이드핑거 (유절/무절)': {
+    title: '아카시아 집성판 사이드핑거',
+    heroCopy: '밝은 변재와 중간 갈색 심재가 어우러진 원목 색감',
+    appearance: { color: ['밝은 변재와 중간 갈색 심재의 색 차이'], grain: ['원목마다 달라지는 나뭇결과 색의 대비'], knots: ['유절의 자연스러운 옹이', '무절의 정돈된 표면'], texture: [], scent: [], workability: [] },
+    surfaceOptions: [
+      { title: '유절', caption: '옹이가 자연스럽게 드러나는 표면 옵션' },
+      { title: '무절', caption: '눈에 띄는 옹이가 적은 정돈된 표면 옵션' }
+    ],
+    jointType: 'SIDE_FINGER',
+    jointTitle: '사이드핑거 집성',
+    jointCaption: '원목을 길이 방향으로 이어 만든\n집성 구조',
+    jointDetailCaption: '측면의 한 원목 부재에서만\n짧은 핑거 이음이 국소적으로 보입니다.'
+  },
   '히노끼(편백) 집성판 사이드핑거(유절/무절)': {
     title: '히노끼(편백) 집성판 사이드핑거',
     heroCopy: '밝고 깨끗한 원목 색감',

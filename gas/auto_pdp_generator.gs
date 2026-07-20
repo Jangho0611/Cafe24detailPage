@@ -3735,13 +3735,13 @@ function buildGluedWoodCompactApplications(applications, limit) {
 function buildGluedWoodIntroductionReasonSentence(facts) {
   if (!facts) return '필요한 규격의 원목 판재를 구성할 때 선택합니다.';
   if (facts.jointType === 'TOP_FINGER') {
-    return '필요한 길이의 판재를 안정적으로 구성하기 좋으며, 상판에서는 핑거 이음이 국소적으로 나타나는 특징이 있습니다.';
+    return '필요한 길이의 판재를 안정적으로 구성할 때 선택하는 집성 방식입니다.';
   }
   if (facts.jointType === 'SIDE_FINGER') {
-    return '상판의 연결선을 덜 드러내고 측면에서 연결부를 확인할 수 있도록 구성한 방식입니다.';
+    return '원목 부재를 길게 이어 필요한 규격의 판재를 구성할 때 선택하는 방식입니다.';
   }
   if (facts.jointType === 'SOLID') {
-    return '핑거 이음 없이 원목 부재를 나란히 이어 넓은 판재를 구성할 때 선택합니다.';
+    return '원목 부재를 나란히 이어 넓은 규격의 판재를 구성할 때 선택합니다.';
   }
   return '필요한 규격의 원목 판재를 구성할 때 선택합니다.';
 }
@@ -3752,22 +3752,22 @@ function buildGluedWoodPurchaseNotes(facts) {
     : '';
   const notesByJoint = {
     TOP_FINGER: [
-      '• 상판에서 핑거 이음이 보이는 정도를 확인하세요.',
-      '• 노출면이라면 색감 차이도 함께 살펴보세요.',
-      '• 사용할 규격과 재단 치수는 작업 전에 정하면 좋습니다.',
-      '• 탑핑거 구조가 필요한 판재 길이와 작업 목적에 맞는지 확인하세요.'
+      '• 필요한 두께와 완성 규격을 먼저 정하세요.',
+      '• 재단 후 남겨둘 여유 치수를 작업 전에 계산하세요.',
+      '• 노출면의 마감 방향을 주문 조건에 함께 적어두세요.',
+      '• 수령 후 확인할 기준면과 수량을 미리 정해두세요.'
     ],
     SIDE_FINGER: [
-      '• 측면의 한 원목 부재에 보이는 핑거 이음 위치를 확인하세요.',
-      '• 상판 노출면에서는 이음선이 얼마나 보이는지 살펴보세요.',
-      '• 사용할 규격과 재단 치수는 작업 전에 정하면 좋습니다.',
-      '• 사이드핑거 구조가 노출 방향과 작업 목적에 맞는지 확인하세요.'
+      '• 필요한 두께와 완성 규격을 먼저 정하세요.',
+      '• 재단 후 남겨둘 여유 치수를 작업 전에 계산하세요.',
+      '• 노출면의 마감 방향을 주문 조건에 함께 적어두세요.',
+      '• 수령 후 확인할 기준면과 수량을 미리 정해두세요.'
     ],
     SOLID: [
-      '• 핑거 이음 없이 나란히 이어진 접합선을 확인하세요.',
-      '• 노출면에서는 원목마다 보이는 색감과 결의 차이를 살펴보세요.',
-      '• 사용할 규격과 재단 치수는 작업 전에 정하면 좋습니다.',
-      '• 솔리드 구조가 필요한 판재 폭과 작업 목적에 맞는지 확인하세요.'
+      '• 필요한 두께와 완성 규격을 먼저 정하세요.',
+      '• 재단 후 남겨둘 여유 치수를 작업 전에 계산하세요.',
+      '• 노출면의 마감 방향을 주문 조건에 함께 적어두세요.',
+      '• 수령 후 확인할 기준면과 수량을 미리 정해두세요.'
     ],
     UNKNOWN: [
       '• 제품에 적용된 집성 방식과 접합부 위치를 확인하세요.',
@@ -3782,66 +3782,64 @@ function buildGluedWoodPurchaseNotes(facts) {
   return notes.slice(0, 5);
 }
 
-function buildGluedWoodRegisteredUseAnswer(facts) {
-  const uses = buildGluedWoodNaturalUseList((facts && facts.applications) || [], 4);
-  return uses
-    ? '등록된 활용 예에는 ' + uses + '이 포함됩니다.'
-    : '상품에 등록된 활용 용도와 필요한 규격을 기준으로 선택합니다.';
-}
-
 function buildGluedWoodConsultationFAQItems(facts, items) {
-  const hasSurfaceOptions = facts && facts.surfaceOptions && facts.surfaceOptions.length > 0;
+  const hasKnotOptionComparison = getGluedWoodKnotOptionComparison(facts && facts.surfaceOptions).length === 2;
+  const knotOptionAnswer = '유절은 옹이가 자연스럽게 드러나고, 무절은 눈에 띄는 옹이가 적어 비교적 정돈된 표면으로 구분합니다.';
   if (!facts) return items(
-    '집성 방식은 어떻게 다른가요?',
-    '상품에 적용된 집성 방식에 따라 접합부가 보이는 위치가 달라집니다.',
-    '표면은 무엇을 보면 되나요?',
-    '노출할 면의 색감과 나뭇결, 접합부 상태를 중심으로 살펴봅니다.',
-    '어떤 용도로 사용할 수 있나요?',
-    '상품에 등록된 활용 용도와 필요한 규격을 기준으로 선택합니다.'
+    '재단 전에 무엇을 확인해야 하나요?',
+    '노출할 면과 필요한 규격을 먼저 정한 뒤 접합부 위치를 함께 확인하세요.',
+    '노출면은 어떻게 정하나요?',
+    '색감과 나뭇결의 편차가 보이는 면을 기준으로 사용할 방향을 정합니다.',
+    '표면 상태는 어떻게 살펴보나요?',
+    '옹이와 접합선, 재단면이 작업 기준에 맞는지 확인하세요.'
   );
 
   if (facts.jointType === 'TOP_FINGER') {
     return items(
-      '솔리드와 차이가 있나요?',
-      '솔리드는 원목 부재를 나란히 접합한 방식이고, 탑핑거는 짧은 원목 부재를 핑거 이음으로 이어 판재 길이를 구성합니다.',
-      '핑거 이음은 많이 보이나요?',
-      '상판의 연결부에서만 보이며, 넓은 면을 가로지르는 반복 무늬처럼 보이지 않도록 구성합니다.',
-      '상판 제작에도 사용하나요?',
-      buildGluedWoodRegisteredUseAnswer(facts)
+      '상판의 핑거 이음은 어떻게 보이나요?',
+      '짧은 맞물림이 상판의 한 연결부에만 보이며, 긴 반복 무늬처럼 이어지지 않습니다.',
+      '이음 부근의 나뭇결은 어떻게 보이나요?',
+      '연결부 양쪽은 같은 결 방향과 색감이 자연스럽게 이어지도록 구성합니다.',
+      hasKnotOptionComparison ? '유절과 무절은 어떻게 다른가요?' : '재단 전에 확인할 부분은 무엇인가요?',
+      hasKnotOptionComparison
+        ? knotOptionAnswer
+        : '필요한 규격과 노출 방향을 정한 뒤 이음 위치가 작업 기준에 맞는지 확인하세요.'
     );
   }
 
   if (facts.jointType === 'SIDE_FINGER') {
     return items(
-      '측면 핑거는 어디에서 보이나요?',
+      '측면 핑거 이음은 어디에서 보이나요?',
       '긴 측면의 한 원목 부재 연결부에만 국소적으로 보입니다.',
-      '노출면에서는 어떻게 보이나요?',
-      '상판에서는 연결선이 크게 드러나지 않아 일반적인 원목 표면처럼 보입니다.',
-      '가구 제작에도 사용하나요?',
-      buildGluedWoodRegisteredUseAnswer(facts)
+      '상판과 측면의 외관은 어떻게 다른가요?',
+      '상판에서는 연결선이 크게 드러나지 않고, 측면에서만 이음 위치를 확인할 수 있습니다.',
+      hasKnotOptionComparison ? '유절과 무절은 어떻게 다른가요?' : '재단 방향에 따라 연결부는 어떻게 보이나요?',
+      hasKnotOptionComparison
+        ? knotOptionAnswer
+        : '측면을 노출하는 재단이라면 연결부 위치가 남는 방향인지 먼저 확인하세요.'
     );
   }
 
   if (facts.jointType === 'SOLID') {
     return items(
-      '핑거 이음이 없나요?',
-      '솔리드 구조는 핑거 이음 없이 원목 부재를 나란히 접합한 방식입니다.',
-      hasSurfaceOptions ? '유절과 무절은 어떻게 다른가요?' : '접합선은 어떻게 보이나요?',
-      hasSurfaceOptions
-        ? facts.surfaceOptions.map(function (option) { return option.title; }).join('·') + '은 옹이 노출 여부와 표면 상태에 따라 구분합니다.'
-        : '원목 부재를 나란히 잇는 접합선이 상판에 자연스럽게 드러납니다.',
-      '어떤 작업에 많이 사용하나요?',
-      buildGluedWoodRegisteredUseAnswer(facts)
+      '핑거 이음이 없는지 어떻게 확인하나요?',
+      '솔리드 집성은 핑거 맞물림 없이 원목 부재를 나란히 이어 만든 방식입니다.',
+      hasKnotOptionComparison ? '유절과 무절은 어떻게 다른가요?' : '색감과 나뭇결은 어떻게 고르나요?',
+      hasKnotOptionComparison
+        ? knotOptionAnswer
+        : '원목 부재마다 보이는 색감과 결의 차이를 기준으로 노출할 면을 정하세요.',
+      '주문 전에 확인할 항목은 무엇인가요?',
+      '필요한 규격과 재단 치수, 노출할 면의 접합선 위치를 함께 확인하세요.'
     );
   }
 
   return items(
-    '집성 방식은 어떻게 다른가요?',
-    '상품에 적용된 집성 방식에 따라 접합부가 보이는 위치가 달라집니다.',
-    '표면은 무엇을 보면 되나요?',
-    '노출할 면의 색감과 나뭇결, 접합부 상태를 중심으로 살펴봅니다.',
-    '어떤 용도로 사용할 수 있나요?',
-    buildGluedWoodRegisteredUseAnswer(facts)
+    '재단 전에 무엇을 확인해야 하나요?',
+    '필요한 규격과 노출할 면을 먼저 정한 뒤 접합부 위치를 확인하세요.',
+    '노출면은 어떻게 정하나요?',
+    '색감과 나뭇결, 옹이 상태를 함께 살펴보고 사용할 방향을 정합니다.',
+    '표면 상태는 어떻게 살펴보나요?',
+    '옹이와 접합선, 재단면이 작업 기준에 맞는지 확인하세요.'
   );
 }
 
@@ -4044,8 +4042,8 @@ function buildGluedWoodSchemaDescription(data) {
   const facts = buildGluedWoodHtmlFacts(data);
   if (!facts) return '';
   return [
+    buildGluedWoodColorSentence(facts),
     buildGluedWoodJointSentence(facts),
-    buildGluedWoodAppearanceSentence(facts),
     buildGluedWoodUseSentence(facts.applications, 4, facts)
   ].filter(Boolean).join(' ');
 }
@@ -5027,8 +5025,7 @@ function buildProductIntroductionFromKnowledge(data, fallback) {
       : definitionSentence;
     return cleanHumanWritingText([
       first,
-      buildGluedWoodIntroductionReasonSentence(facts),
-      buildGluedWoodIntroductionUseSentence(facts)
+      buildGluedWoodIntroductionReasonSentence(facts)
     ].filter(Boolean).join('<br><br>'));
   }
   if (knowledge.productGroup !== 'PLYWOOD') return cleanHumanWritingText(fallback);
