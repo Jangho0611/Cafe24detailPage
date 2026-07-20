@@ -3513,6 +3513,14 @@ function getApprovedGluedWoodSurfaceOptions(approved) {
   });
 }
 
+function getGluedWoodKnotOptionComparison(surfaceOptions) {
+  const options = (surfaceOptions || []).filter(Boolean);
+  const knotty = options.find(function (option) { return cleanEntityValue(option.title) === '유절'; });
+  const knotless = options.find(function (option) { return cleanEntityValue(option.title) === '무절'; });
+  // 유절·무절이 모두 승인된 동일 상품에서만 비교 이미지를 허용한다.
+  return knotty && knotless ? [knotty, knotless] : [];
+}
+
 function splitGluedWoodAppearanceAxes(appearance, hasColorCopy) {
   const source = appearance || {};
   return {
@@ -3631,7 +3639,8 @@ function joinGluedWoodApplications(applications, limit) {
 }
 
 function buildGluedWoodNaturalUseList(applications, limit) {
-  const items = (applications || []).filter(Boolean).slice(0, limit || 4);
+  // Type C의 용도 문장은 대표 용도만 짧게 보여 준다. 이 함수는 소개·FAQ·Schema가 공통으로 사용한다.
+  const items = (applications || []).filter(Boolean).slice(0, Math.min(limit || 4, 2));
   if (items.length === 0) return '';
   if (items.length === 1) return items[0];
   if (items.length === 2) return items[0] + getAndParticle(items[0]) + ' ' + items[1];
@@ -4068,7 +4077,17 @@ function buildGluedWoodTypeCUIBlocks(data, profile) {
     });
   });
   const referenceFacts = classifyGluedWoodReferenceFacts(data);
-  const surfaceOptions = getApprovedGluedWoodSurfaceOptions(approved).map(function (option, index) {
+  const approvedSurfaceOptions = getApprovedGluedWoodSurfaceOptions(approved);
+  const knotOptionComparison = getGluedWoodKnotOptionComparison(approvedSurfaceOptions).map(function (option, index) {
+    return {
+      title: option.title,
+      caption: option.caption,
+      imageRole: 'real_surface_option_comparison_photo',
+      position: 'below_joint_' + (index === 0 ? 'left' : 'right'),
+      forbidden: ['QUALITY_RANKING', 'PERFORMANCE_RANKING', 'INVENTED_KNOT_LIMIT']
+    };
+  });
+  const surfaceOptions = (knotOptionComparison.length > 0 ? [] : approvedSurfaceOptions).map(function (option, index) {
     return {
       title: option.title,
       caption: option.caption,
@@ -4110,6 +4129,7 @@ function buildGluedWoodTypeCUIBlocks(data, profile) {
       forbidden: ['ADDITIONAL_COPY', 'HEALTH_CLAIM', 'PERFORMANCE_CLAIM', 'MARKETING_CLAIM']
     },
     surfaceOptions: surfaceOptions,
+    knotOptionComparison: knotOptionComparison,
     surfaceFacts: surfaceFacts,
     jointSummary: jointSummary,
     joint: {
@@ -4147,12 +4167,18 @@ function buildGluedWoodTypeCUIBlockPrompt(data, profile) {
     ui.surfaceOptions.reduce(function (lines, option) {
       return lines.concat([option.title, option.caption]);
     }, []),
+    ui.knotOptionComparison.reduce(function (lines, option) {
+      return lines.concat([option.title, option.caption]);
+    }, []),
     [ui.jointSummary.title, ui.jointSummary.caption, ui.joint.title, ui.joint.detailCaption],
     ui.applications.map(function (application) { return application.caption; })
   ).filter(Boolean).map(function (text) { return '"' + text + '"'; }).join('\n');
   const surfaceLayout = ui.surfaceOptions.length > 0
     ? 'Keep ' + ui.surfaceOptions.length + ' approved real surface option photo block(s) in the existing surface option area.'
     : 'No surface option photo block is required.';
+  const knotOptionComparisonLayout = ui.knotOptionComparison.length === 2
+    ? '- BELOW_JOINT: place one side-by-side real-surface comparison photo block directly below the joint structure image, using only the approved "유절" and "무절" labels and captions. Keep this as a surface-choice comparison only; do not imply quality, price, performance or ranking.'
+    : '';
   const applicationLayout = ui.applications.length > 1
     ? 'BOTTOM_25: group the approved application captions into two balanced real-photo areas without adding another use.'
     : ui.applications.length === 1
@@ -4210,9 +4236,10 @@ RENDER CONTRACT
 
 FIXED UI BLOCKS
 - TOP_55: product title, one dominant full-product photo, the approved catalog subtitle, and exactly ${ui.hero.features.length} valid product feature card(s). Use only color, grain or pattern, surface texture, and product-specific material characteristics. Do not render a joint structure, joint type, or generic fallback card in this block. When there are three valid cards, use a balanced three-card arrangement with no empty fourth slot and keep the existing text scale.
-- MIDDLE_LEFT_10: one compact common joint summary using "${ui.jointSummary.title}" and "${ui.jointSummary.caption}". ${surfaceLayout}
-- MIDDLE_RIGHT_10: one joint structure photo or closeup with the approved structure-specific joint title and the detailed joint caption (jointDetailCaption) only.
-- ${applicationLayout}
+  - MIDDLE_LEFT_10: one compact common joint summary using "${ui.jointSummary.title}" and "${ui.jointSummary.caption}". ${surfaceLayout}
+  - MIDDLE_RIGHT_10: one joint structure photo or closeup with the approved structure-specific joint title and the detailed joint caption (jointDetailCaption) only.
+  ${knotOptionComparisonLayout}
+  - ${applicationLayout}
 - Keep the visual hierarchy: product → surface option → joint structure → applications.
 - Real product photography first; restrained catalog grid; white background; large readable Korean typography.
 - Keep all Type C feature titles to one line and bodies to no more than two lines at one consistent existing text scale; never reduce text size, card size or spacing to fit extra copy.
