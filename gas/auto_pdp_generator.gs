@@ -234,7 +234,7 @@ ${aiSummaryHtml}
     <tr><th>두께옵션</th><td>${data.thickness}</td></tr>
 ${gradeRowHtml}
 ${gluedWoodSpecRows}
-    <tr><th>제조사</th><td>${data.maker}</td></tr>
+${cleanEntityValue(data.maker) ? `    <tr><th>제조사</th><td>${escapeHtml(data.maker)}</td></tr>` : ''}
     <tr><th>출고안내</th><td>${getStockStatusText(data.stockType)}</td></tr>
   </table>
   <div class="ds-section-title">${sectionTitle}</div>
@@ -1325,6 +1325,14 @@ function getSubjectParticle(text) {
   return ((lastChar - 0xAC00) % 28) === 0 ? '는' : '은';
 }
 
+function getNominativeParticle(text) {
+  const value = String(text || '').trim();
+  if (!value) return '이';
+  const lastChar = value.charCodeAt(value.length - 1);
+  if (lastChar < 0xAC00 || lastChar > 0xD7A3) return '가';
+  return ((lastChar - 0xAC00) % 28) === 0 ? '가' : '이';
+}
+
 function getAndParticle(text) {
   const value = String(text || '').trim();
   if (!value) return '와';
@@ -1487,26 +1495,8 @@ function buildProductSpecificFAQItems(entity) {
   }
 
   if (knowledge.gluedWood) {
-    const species = knowledge.gluedWood.species;
     const facts = buildGluedWoodHtmlFacts(entity);
-    const productLabel = productName;
-    const firstAnswer = facts && facts.jointCaption
-      ? buildGluedWoodJointSentence(facts) + ' ' + ensureSentence(facts.heroCopy || '목재 표면과 집성 구조를 함께 보는 제품입니다')
-      : '여러 목재 스트립을 폭 방향으로 접합한 집성판입니다.';
-    const optionAnswer = facts && facts.surfaceOptions.length > 0
-      ? facts.surfaceOptions.map(function (option) { return option.title; }).join('·') + '로 구분되며 노출할 면의 옹이와 표면 상태를 살펴봅니다.'
-      : species.identificationLevel === 'GROUP'
-      ? species.standardName + '은 여러 수종을 포함할 수 있는 계열 명칭이며 실제 제품의 색감과 무늬를 중심으로 봅니다.'
-      : '노출할 면의 색감과 나뭇결, 접합부 상태를 중심으로 살펴봅니다.';
-    const useText = facts ? joinGluedWoodApplications(facts.applications, 6) : '';
-    return items(
-      productLabel + getSubjectParticle(productLabel) + ' 어떤 제품인가요?',
-      firstAnswer,
-      facts && facts.surfaceOptions.length > 0 ? '표면 옵션은 어떻게 구분하나요?' : species.identificationLevel === 'GROUP' ? species.standardName + '은 하나의 수종인가요?' : '표면은 어떤 부분을 보면 되나요?',
-      optionAnswer,
-      '어떤 용도로 쓰나요?',
-      useText ? buildGluedWoodUseSentence(facts.applications, 6) : '상품에 표시된 제작 용도를 기준으로 선택합니다.'
-    );
+    return buildGluedWoodConsultationFAQItems(facts, items);
   }
 
   if (knowledge.isGeneralImportedPlywood && knowledge.generalPlywood) {
@@ -2655,22 +2645,7 @@ function buildDefaultNotes(data) {
   const knowledge = buildProductKnowledgeContext(data);
   if (knowledge.gluedWood) {
     const facts = buildGluedWoodHtmlFacts(data);
-    const notes = [
-      '• 사용할 용도에 맞는 수종 선택',
-      '• 솔리드·사이드핑거 등 집성 방식 구분'
-    ];
-    if (facts && facts.surfaceOptions.length > 0) notes.push('• 유절·무절 등 표면 옵션 확인');
-    if (facts && facts.approved) {
-      const hasKnots = (facts.appearance.knots || []).length > 0;
-      const hasGrain = (facts.appearance.grain || []).length > 0;
-      notes.push(hasKnots
-        ? '• 노출할 면의 색감과 옹이 상태 살펴보기'
-        : hasGrain
-        ? '• 노출할 면의 색감과 나뭇결 살펴보기'
-        : '• 노출할 면의 실제 표면 상태 살펴보기');
-    }
-    notes.push('• 필요한 규격·두께와 재단 치수 정하기');
-    return notes.slice(0, 5);
+    return buildGluedWoodPurchaseNotes(facts);
   }
   if (knowledge.isGeneralImportedPlywood && knowledge.generalPlywood) {
     return [
@@ -3062,85 +3037,85 @@ function getSelectionInfographicProfile(data) {
   const gluedWoodProfiles = {
     '고무나무 집성판 탑핑거': ['TOP_FINGER', ['균일한 밝은 색감', '가공·재단 작업성', '상판 제작 시 선택하기 쉬운 실용성'], ['밝고 고른 표면', '탑핑거 접합은 보조 표현'], ['카페 테이블 상판', '주방 상판']],
     '라디에타파인 집성판 탑핑거': ['TOP_FINGER', ['밝고 깨끗한 색감', '도장 마감에 어울리는 표면', '가구 상판·전면재 제작'], ['미백색 표면', '도장 전후 마감 이미지'], ['모던 가구 상판', '서랍 가구 전면재']],
-    '라디에타파인 계단재': ['STAIR', ['계단 전용 규격', '보행 하중을 고려한 두께', '30mm·38mm 두께 선택'], ['계단판 완제품', '계단에 설치된 상태'], ['계단판', '챌판']],
-    '삼나무 집성판 솔리드': ['SOLID', ['자연스러운 원목 느낌', '유절 표면의 개성', '따뜻한 인테리어 감성'], ['붉은 결·옹이가 보이는 표면', '폭 방향 솔리드 집성은 보조 표현'], ['옷장 내부 가구', '인테리어 가구']],
+    '라디에타파인 계단재': ['STAIR', ['밝은 미백색과 연한 크림색의 원목 색감', '은은하고 곧게 이어지는 소나무 결', '여러 개의 긴 원목을 나란히 이어 만든 집성판'], ['밝은 원목 색감', '곧게 이어지는 소나무 결'], ['계단판', '챌판']],
+    '삼나무 집성판 솔리드': ['SOLID', ['자연스러운 원목 느낌', '유절 표면의 개성', '따뜻한 인테리어 감성'], ['붉은 결·옹이가 보이는 모습', '솔리드 집성은 보조 표현'], ['옷장 내부 가구', '인테리어 가구']],
     '쏘노클린 집성판 사이드핑거': ['SIDE_FINGER', ['자줏빛·검붉은 디자인 패턴', '표면을 드러내는 노출 마감', '포인트 가구 선택'], ['색조가 교차하는 표면 패턴', '완성 가구의 노출면'], ['디자인 가구 상판', '포인트 월']],
-    '아카시아 집성판 사이드핑거': ['SIDE_FINGER', ['심재와 변재의 모자이크 무늬', '빈티지한 표면 분위기', '카페·인테리어 상판 선택'], ['짙고 밝은 목재 조각이 교차하는 표면', '노출 상판'], ['카페 카운터', '인테리어 테이블']],
+    '아카시아 집성판 사이드핑거': ['SIDE_FINGER', ['원목마다 색이 조금씩 다른 자연스러운 무늬', '빈티지한 원목 분위기', '카페·인테리어 상판 선택'], ['짙고 밝은 원목 조각이 어우러진 모습', '노출 상판'], ['카페 카운터', '인테리어 테이블']],
     '엘더 집성판 사이드핑거': ['SIDE_FINGER', ['따뜻한 붉은 황색', '비교적 고르게 이어지는 색조', '도어·프레임 노출 마감'], ['은은하고 따뜻한 표면 톤', '가구 도어 노출면'], ['수제 가구 도어', '침대 프레임']],
     '티크 집성판 사이드핑거': ['SIDE_FINGER', ['골드브라운 색감', '천연 유분이 있는 목재 표면', '고급 상판의 노출 마감'], ['골드브라운 표면과 자연스러운 광택', '노출 상판'], ['카운터 상판', '내장 가구']],
     '탄화 애쉬(물푸레나무) 집성판': ['SOLID', ['탄화 전후의 색감 변화', '진한 갈색의 포인트 표면', '탄화 처리에 따른 치수 안정성 고려'], ['일반 애쉬와 탄화 애쉬의 색감 비교', '탄화 후 표면'], ['테이블 상판', '포인트 월']],
     '멀바우 집성판 사이드핑거': ['SIDE_FINGER', ['중후한 붉은 갈색', '무겁고 치밀한 하드우드 느낌', '중량감 있는 상업 공간 상판'], ['짙은 적갈색 표면', '두꺼운 상판의 존재감'], ['대형 테이블', '진열대 상판']],
     '오크 집성판 사이드핑거': ['SIDE_FINGER', ['굵고 선명한 타이거 패턴', '클래식한 원목 가구 분위기', '결을 드러내는 노출 마감'], ['호반문이 보이는 표면', '가구 도어·상판 노출면'], ['가구 도어', '책상 상판']],
-    '오동나무 집성판 솔리드': ['SOLID', ['가벼운 목재 특성', '재단·가공 편의', '가구와 선반 제작용 선택'], ['밝고 가벼운 목재 표면', '폭 방향 솔리드 집성은 보조 표현'], ['가구 제작', '선반 제작']],
-    '레드파인 집성판 솔리드': ['SOLID', ['자연스러운 붉은 소나무 결', '유절 원목 분위기', '가구·선반 제작 범용성'], ['붉은 결과 옹이가 보이는 표면', '폭 방향 솔리드 집성은 보조 표현'], ['가구 제작', '선반·인테리어 마감']]
+    '오동나무 집성판 솔리드': ['SOLID', ['가벼운 목재 특성', '재단·가공 편의', '가구와 선반 제작용 선택'], ['밝고 가벼운 원목 느낌', '솔리드 집성은 보조 표현'], ['가구 제작', '선반 제작']],
+    '레드파인 집성판 솔리드': ['SOLID', ['자연스러운 붉은 소나무 결', '유절 원목 분위기', '가구·선반 제작 범용성'], ['붉은 결·옹이가 보이는 모습', '솔리드 집성은 보조 표현'], ['가구 제작', '선반·인테리어 마감']]
   };
   const gluedWoodTypeCOverrides = {
     '고무나무 집성판 탑핑거': {
-      title: '고무나무 집성판의 밝고 균일한 표면', speciesTitle: '고무나무', appearance: ['밝은 황갈색과 연한 베이지의 비교적 균일한 바탕색', '차분하고 고른 나뭇결'],
+      title: '밝고 따뜻한 원목 색감', speciesTitle: '고무나무', appearance: ['밝고 따뜻한 베이지 계열의 원목 색감', '차분한 원목 결이 살아있는 모습'],
       applications: ['테이블 상판', '가구 상판', '주방 상판'], selections: ['상판 제작 시 가공 조건', '표면 마감 방식'],
       joint: '탑핑거 접합부는 작은 보조 확대 1개로만 표현한다.', guard: '과도한 노란색, 강한 옹이와 진한 적갈색을 생성하지 않는다.'
     },
     '라디에타파인 집성판 탑핑거': {
-      title: '라디에타파인 집성판의 밝은 목재 질감', speciesTitle: '라디에타파인', appearance: ['밝은 미백색과 연한 크림색 바탕', '은은하고 부드러운 소나무 결'],
+      title: '밝은 원목 느낌', speciesTitle: '라디에타파인', appearance: ['밝은 미백색과 연한 크림색의 원목 색감', '은은하고 부드러운 소나무 결'],
       applications: ['책상 상판', '선반', '가구 프레임'], selections: ['도장·마감 방식', '노출할 표면 상태'],
       joint: '탑핑거 접합은 표면보다 작게 보조 설명한다.', guard: '주황색, 진한 옹이와 고무나무의 균일한 활엽수 결을 혼합하지 않는다.'
     },
     '라디에타파인 계단재': {
-      title: '라디에타파인 계단재의 계단 적용 특징', speciesTitle: '라디에타파인 계단재', appearance: ['밝은 미백색과 연한 크림색의 설치된 계단', '은은한 소나무 결이 보이는 디딤판과 챌판'],
+      title: '밝은 원목 색감과 소나무 결', speciesTitle: '라디에타파인 계단재', appearance: ['밝은 미백색과 연한 크림색의 원목 색감', '은은하고 곧게 이어지는 소나무 결', '여러 개의 긴 원목을 나란히 이어 만든 집성판'],
       applications: ['복층 공간의 설치된 계단', '계단 디딤판과 챌판'], selections: ['30mm / 38mm 두께 선택', '적용할 계단 위치'],
-      joint: '폭 방향 집성은 설치된 계단 이미지 아래의 작은 보조 정보로만 표시한다.', guard: '일반 상판, 테이블, 평판 상품 이미지를 메인으로 만들거나 주황색으로 과장하지 않는다.',
+      joint: '여러 개의 긴 원목을 나란히 이어 만든 집성판으로만 설명한다.', guard: '일반 상판, 테이블, 평판 상품 이미지를 메인으로 만들거나 주황색으로 과장하지 않는다.',
       structureLibrary: 'TOP_FINGER'
     },
     '삼나무 집성판 솔리드': {
-      title: '삼나무 집성판의 자연스러운 유절 표면', speciesTitle: '삼나무', appearance: ['밝은 베이지와 옅은 황갈색 바탕', '붉은빛은 일부 결·옹이 주변에만 약하게 나타나는 자연스러운 유절 표면', '다양한 폭의 긴 원목 스트립이 끊김 없이 이어지는 표면'],
+      title: '옹이가 자연스럽게 보이는 원목', speciesTitle: '삼나무', appearance: ['밝고 따뜻한 베이지 계열의 원목 색감', '붉은빛은 일부 결·옹이 주변에만 약하게 보이는 원목', '여러 개의 긴 원목을 나란히 이어 만든 집성판'],
       applications: ['옷장 내부 가구', '원목 감성 인테리어 가구'], selections: ['옹이와 색상 편차 확인', '노출할 표면 선택'],
       joint: '솔리드 폭 방향 집성은 작은 보조 개념도로만 표현한다.', guard: '붉은기는 옹이 주변과 일부 결에만 약하게 둔다. 상면 스트립 위치와 전면 단면의 접합선은 자연스럽게 이어져야 하며 제품 전체를 붉은색·주황색으로 만들거나 균일한 무절 표면으로 바꾸지 않는다.'
     },
     '쏘노클린 집성판 사이드핑거': {
-      title: '쏘노클린 집성판의 자연스러운 브라운 스트립', speciesTitle: '쏘노클린', appearance: ['중간 밝기의 따뜻한 브라운 바탕', '밝은 브라운·회갈색·중간 브라운 스트립의 자연스러운 혼합과 일부 짙은 브라운 스트립', '스트립별 색상과 결이 지나치게 균일하지 않은 실제 제품 표면'],
+      title: '따뜻한 브라운 계열의 자연스러운 원목 색감', speciesTitle: '쏘노클린', appearance: ['중간 밝기의 따뜻한 브라운 원목 색감', '원목마다 색이 조금씩 다른 자연스러운 무늬', '실제 원목 느낌이 살아있는 모습'],
       applications: ['포인트 테이블', '디자인 가구와 포인트 월'], selections: ['검붉은 패턴의 노출 방향', '공간과 어울리는 색조'],
       joint: '측면 핑거조인트는 가장 작은 보조 확대에만 사용한다.', guard: '일반 쏘노클린 판매 제품을 기준으로 자연광 아래 저채도·무도장·무광 표면을 유지한다. 쏘노클린 지브라 수준의 강한 명암 대비, 전체 진갈색·초콜릿색·검정·보라·자주색·와인색·다크월넛과 월넛 표면, 검정에 가까운 스트립 과다, 염색·스테인·고광택을 생성하지 않는다.'
     },
     '아카시아 집성판 사이드핑거': {
-      title: '아카시아 집성판의 모자이크 나뭇결', speciesTitle: '아카시아', appearance: ['길이 방향으로 이어지는 길고 좁으며 폭과 길이가 완전히 균일하지 않은 원목 스트립', '밝은 크림·황갈색 변재와 중간 갈색 심재가 불규칙하게 섞인 자연스러운 패치워크형 모자이크 표면', '일부 옹이와 자연스러운 색상 편차가 보이는 저채도·무도장·무광 실물 촬영 표면'],
+      title: '색 차이가 살아있는 나뭇결', speciesTitle: '아카시아', appearance: ['밝은 크림·황갈색과 중간 갈색이 어우러진 원목 색감', '원목마다 결과 색이 조금씩 다른 자연스러운 무늬', '실제 원목 느낌이 살아있는 모습'],
       applications: ['카페 카운터', '인테리어 테이블'], selections: ['심재·변재 색상 편차', '노출할 모자이크 무늬'],
-      joint: '상판에는 Finger Joint를 생성하지 않고 긴 스트립만 자연스럽게 이어지게 한다. 실제 SIDE FINGER 맞물림은 모서리가 아닌 측면(face) 전체 면적과 그 확대에서만 명확히 표시한다.',
+      joint: '측면의 한 원목 부재 한 곳에만 작은 핑거 이음이 약하게 보이게 한다. 확대는 그 동일한 측면 한 곳만 보여준다.',
       guard: '상면과 전면 단면의 스트립 위치를 자연스럽게 연결한다. 지나치게 노란 표면, 회색으로 탈색된 표면, 오크·고무나무처럼 균일한 표면, 합판 적층선, 벽돌형 짧은 블록 반복, 상판 Finger Joint, 굵은 사각 톱니, 직각 블록과 모서리 한 줄 핑거를 생성하지 않는다.',
-      structureVisualOverride: '아카시아 전용: 상판은 폭과 길이가 완전히 균일하지 않은 길고 좁은 스트립이 길이 방향으로 이어지고 폭 방향으로 나란히 집성된 실제 제품 표면을 유지한다. 상판에는 Finger Joint를 만들지 않고 측면(face) 전체 면적에서 매우 촘촘한 ㅅ형 삼각 맞물림이 보이는 실제 SIDE FINGER 형상과 그 확대만 보여준다.'
+      structureVisualOverride: '아카시아 전용: 실제 원목의 색 차이와 결을 유지한다. 측면의 한 원목 부재 한 곳에만 작은 핑거 이음을 두고, 확대는 그 동일한 측면 한 곳만 보여준다.'
     },
     '엘더 집성판 사이드핑거': {
-      title: '엘더 집성판의 따뜻하고 균일한 색감', speciesTitle: '엘더', appearance: ['따뜻한 연황색과 연갈색 바탕', '비교적 고르게 이어지는 은은한 나뭇결'],
+      title: '따뜻한 연황색과 연갈색 원목 색감', speciesTitle: '엘더', appearance: ['따뜻한 연황색과 연갈색 바탕', '비교적 고르게 이어지는 은은한 나뭇결'],
       applications: ['수제 가구 도어', '가구 전면재와 침대 프레임'], selections: ['도어 노출면의 색조', '후속 마감 방식'],
       joint: '측면 핑거조인트는 표면 안내 뒤의 보조 정보로만 둔다.', guard: '오크 호반문, 강한 명암 대비와 과장된 붉은색을 혼합하지 않는다.'
     },
     '티크 집성판 사이드핑거': {
-      title: '티크 집성판의 골드브라운 나뭇결', speciesTitle: '티크', appearance: ['자연스러운 골드브라운과 황갈색 바탕', '천연 유분감이 은은하게만 느껴지는 나뭇결'],
+      title: '골드브라운 원목 색감과 나뭇결', speciesTitle: '티크', appearance: ['자연스러운 골드브라운과 황갈색 바탕', '천연 유분감이 은은하게만 느껴지는 나뭇결'],
       applications: ['카운터 상판', '내장 가구'], selections: ['노출면의 색조와 결', '후속 마감 방식'],
       joint: '측면 핑거조인트는 작은 보조 확대에만 표시한다.', guard: '진한 오렌지색과 고광택을 피하고 방수·방충 성능, 변형 없음과 부패 걱정 없음으로 단정하지 않는다.'
     },
     '탄화 애쉬(물푸레나무) 집성판': {
-      title: '탄화 애쉬의 탄화 전후 색감', speciesTitle: '탄화 애쉬', appearance: ['일반 애쉬의 밝은 회갈색', '완전 검정색이 아닌 탄화 애쉬의 진한 중갈색과 선명한 결'],
+      title: '탄화 전후로 달라지는 원목 색감', speciesTitle: '탄화 애쉬', appearance: ['일반 애쉬의 밝은 회갈색', '완전 검정색이 아닌 탄화 애쉬의 진한 중갈색과 선명한 결'],
       applications: ['레스토랑 테이블 상판', '주거 공간 포인트 월'], selections: ['탄화 전후 색감 차이', '공간에 맞는 노출면 선택'],
       joint: '솔리드 집성 방식은 작은 보조 정보로만 표현한다.', guard: '함수율과 치수 안정성을 비교 우위 카드로 만들지 않고 무첨가·영구 안정성을 단정하지 않는다.',
       colorCompare: true
     },
     '멀바우 집성판 사이드핑거': {
-      title: '멀바우 집성판의 묵직한 적갈색', speciesTitle: '멀바우', appearance: ['중간 짙기의 브라운에 묵직한 적갈색이 더해진 바탕', '자연스럽고 치밀한 하드우드 결'],
+      title: '중간 톤의 브라운과 적갈색 원목 색감', speciesTitle: '멀바우', appearance: ['중간 톤의 브라운 바탕에\n묵직한 적갈색이 더해진 색감', '자연스럽고 치밀한 하드우드 결이\n표면에 깊이감 있게 드러나는 무늬'],
       applications: ['상업 공간 대형 테이블', '중량감 있는 진열대 상판'], selections: ['상판의 색조와 존재감', '설치 공간과 규격 확인'],
       joint: '측면 핑거조인트는 모서리의 작은 보조 확대만 사용한다.', guard: '검정색·와인색으로 과장하지 않고 수축·팽창 없음과 변형 없음 같은 절대 표현을 사용하지 않는다.'
     },
     '오크 집성판 사이드핑거': {
-      title: '오크 집성판의 호반문과 굵은 나뭇결', speciesTitle: '오크', appearance: ['연한 황갈색과 중간 브라운 바탕', '첫 화면에서 명확히 보이는 굵은 결·호반문·타이거 패턴'],
+      title: '호반문과 굵은 나뭇결이 보이는 원목', speciesTitle: '오크', appearance: ['연한 황갈색과 중간 브라운이 어우러진\n밝고 따뜻한 색감', '굵은 결과 호반문이 자연스럽게 드러나\n오크 특유의 표면감을 보여주는 무늬'],
       applications: ['가구 도어', '서재 책상 상판'], selections: ['호반문이 드러나는 노출면', '가구의 결 방향'],
       joint: '측면 핑거조인트는 타이거 패턴보다 작게 보조 설명한다.', guard: '과도한 검은 줄무늬, 고광택과 임의 촉감 설명을 생성하지 않는다.'
     },
     '오동나무 집성판 솔리드': {
-      title: '오동나무 집성판의 밝고 가벼운 외관', speciesTitle: '오동나무', appearance: ['매우 밝은 황백색과 연한 베이지 바탕', '가볍고 부드러운 인상의 단순한 나뭇결'],
+      title: '밝고 가벼운 원목 느낌', speciesTitle: '오동나무', appearance: ['매우 밝은 황백색과 연한 베이지 바탕', '가볍고 부드러운 인상의 단순한 나뭇결'],
       applications: ['가구 제작', '선반 제작'], selections: ['경량이 필요한 제작물', '재단·가공 조건'],
       joint: '폭 방향 솔리드 집성은 가장 작은 보조 정보로만 표시한다.', guard: '금지된 집성 용어를 사용하지 않고 삼나무처럼 붉은 결과 옹이를 혼합하지 않는다.'
     },
     '레드파인 집성판 솔리드': {
-      title: '레드파인 집성판의 소나무 결과 옹이', speciesTitle: '레드파인', appearance: ['밝은 황갈색과 연한 적갈색의 소나무 톤', '자연스러운 옹이와 소나무 결이 보이는 유절 표면'],
+      title: '소나무 결과 옹이가 보이는 원목', speciesTitle: '레드파인', appearance: ['밝은 황갈색과 연한 적갈색의 소나무 톤', '자연스러운 옹이와 소나무 결이 보이는 유절 표면'],
       applications: ['가구와 선반 제작', '테이블 상판'], selections: ['옹이와 표면 상태', '가구·선반·상판의 적용 위치'],
       joint: '폭 방향 솔리드 집성은 작은 보조 개념도로만 표현한다.', guard: '제품 전체를 진한 붉은색으로 만들지 않고 다른 제품군의 재료·코어·보드 구조를 포함하지 않는다.'
     }
@@ -3272,22 +3247,25 @@ function getSelectionInfographicProfile(data) {
 const GLUED_WOOD_JOINT_TYPE_KNOWLEDGE = {
   SOLID: {
     title: '솔리드 집성',
-    description: '긴 목재 스트립을 폭 방향으로 이어 만든 집성판',
+    description: '여러 원목을 나란히 이어 만든\n집성 구조',
+    detailCaption: '여러 원목이 나란히 이어진 접합선이 상판에 자연스럽게 보이는 구조입니다.',
     visualBan: '핑거조인트와 톱니형 접합을 표현하지 않는다.'
   },
   SIDE_FINGER: {
     title: '사이드핑거 집성',
-    description: '목재 스트립의 길이 이음부를 긴 측면에서 보여주는 핑거조인트 방식',
+    description: '원목을 길이 방향으로 이어 만든\n집성 구조',
+    detailCaption: '측면의 한 원목 부재에서만\n짧은 핑거 이음이 국소적으로 보입니다.',
     visualBan: '상품명 근거 없이 상판에 핑거조인트를 만들지 않는다.'
   },
   TOP_FINGER: {
     title: '탑핑거 집성',
-    description: '목재 스트립의 길이를 연장하기 위해 상판 길이 이음부를 핑거조인트로 연결한 방식',
+    description: '짧은 원목을 이어\n하나의 판재로 만든 집성 구조',
+    detailCaption: '상판에서 여러 원목 부재의 연결선이 이어져 보이는 집성 방식',
     visualBan: '측면 전용 접합으로 바꾸지 않는다.'
   },
   UNKNOWN: {
     title: '집성판 구조',
-    description: '여러 목재 부재를 폭 방향으로 이어 만든 판재',
+    description: '여러 목재 부재를 이어 만든 집성 구조',
     visualBan: '특정 핑거 위치와 방향을 생성하지 않는다.'
   }
 };
@@ -3356,6 +3334,8 @@ function normalizeGluedWoodApplicationFacts(value) {
     .replace(/고급\s*/g, '')
     .replace(/원목\s*/g, '')
     .replace(/다양한\s*/g, '')
+    .replace(/제작\s*시공/g, '제작')
+    .replace(/마감재\s*작업/g, '마감 작업')
     .replace(/\s*같은\s*/g, ', ')
     .replace(/\s{2,}/g, ' ')
     .trim();
@@ -3381,6 +3361,148 @@ function resolveApprovedGluedWoodTypeCCopy(data) {
   return copy ? JSON.parse(JSON.stringify(copy)) : null;
 }
 
+function normalizeGluedWoodTypeCProductProfileKey(value) {
+  return cleanEntityValue(value).toLowerCase().replace(/[‐‑–—]/g, '-').replace(/\s+/g, '');
+}
+
+function resolveGluedWoodTypeCProductProfile(data) {
+  if (typeof GLUED_WOOD_TYPE_C_PRODUCT_PROFILES === 'undefined') return null;
+  const normalizedProductName = normalizeGluedWoodTypeCProductProfileKey(data && data.productName);
+  if (!normalizedProductName) return null;
+  const matchedKey = Object.keys(GLUED_WOOD_TYPE_C_PRODUCT_PROFILES).find(function (key) {
+    return normalizeGluedWoodTypeCProductProfileKey(key) === normalizedProductName;
+  });
+  return matchedKey ? {
+    key: matchedKey,
+    profile: GLUED_WOOD_TYPE_C_PRODUCT_PROFILES[matchedKey]
+  } : null;
+}
+
+function selectGluedWoodTypeCProfileCaption(productProfile, captions) {
+  const variants = Array.isArray(captions) ? captions.filter(Boolean) : [];
+  if (variants.length <= 1) return variants[0] || '';
+  const key = normalizeGluedWoodTypeCProductProfileKey(productProfile && productProfile.key);
+  const seed = key.split('').reduce(function (sum, character) {
+    return ((sum * 31) + character.charCodeAt(0)) >>> 0;
+  }, 0);
+  return variants[seed % variants.length];
+}
+
+function buildGluedWoodTypeCProfileTopFeature(productProfile) {
+  const signatureFeature = productProfile && productProfile.profile && productProfile.profile.signatureFeature;
+  if (signatureFeature && cleanEntityValue(signatureFeature.title) && cleanEntityValue(signatureFeature.caption)) {
+    return {
+      title: cleanEntityValue(signatureFeature.title),
+      caption: cleanEntityValue(signatureFeature.caption)
+    };
+  }
+  const physicalFacts = productProfile && productProfile.profile && Array.isArray(productProfile.profile.physical)
+    ? productProfile.profile.physical.map(cleanEntityValue).filter(Boolean)
+    : [];
+  const supportedFacts = physicalFacts.filter(function (fact) {
+    return !/수종 구성|제품별|편차/.test(fact);
+  });
+  const evidence = supportedFacts.join(' ');
+  if (!evidence) return null;
+
+  const hasNaturalOil = /자연\s*유분/.test(evidence);
+  const hasHardness = /단단|하드우드/.test(evidence);
+  const hasDensity = /치밀|밀도감/.test(evidence);
+  const hasWeight = /무게감|무겁/.test(evidence);
+  const hasLightness = /가벼운|매우\s*가벼운/.test(evidence);
+  const hasSoftTexture = /부드러운/.test(evidence);
+  const hasFineTexture = /고운|매끈한/.test(evidence);
+  const hasEvenStructure = /고른 조직/.test(evidence);
+  const hasWoodScent = /(?:목재|나무)\s*향|향기/.test(evidence);
+
+  if (hasWoodScent) return { title: '은은한 목재 향', caption: '은은한 목재 향이 자연스럽게\n느껴지는 원목' };
+  if (hasNaturalOil) return {
+    title: '자연 유분',
+    caption: selectGluedWoodTypeCProfileCaption(productProfile, [
+      '자연 유분이 은은하게 남아 있는\n원목의 고유한 특성',
+      '은은한 유분감이 자연스럽게\n드러나는 목재'
+    ])
+  };
+  if ((hasHardness || hasDensity) && hasWeight) {
+    return {
+      title: '치밀한 목재',
+      caption: selectGluedWoodTypeCProfileCaption(productProfile, [
+        '무게감 있고 치밀한 조직이 특징인\n단단한 목재',
+        '묵직하고 단단한 조직이 돋보이는\n치밀한 목재',
+        '단단하고 무게감 있는 조직이 특징인\n치밀한 목재'
+      ])
+    };
+  }
+  if (hasHardness && hasDensity) return { title: '단단한 목재', caption: selectGluedWoodTypeCProfileCaption(productProfile, ['단단하고 밀도감 있는 조직이\n안정적으로 이어지는 목재', '치밀하고 단단한 조직이\n특징인 원목']) };
+  if (hasHardness) return { title: '단단한 목재', caption: selectGluedWoodTypeCProfileCaption(productProfile, ['단단하고 비교적 고른 조직이 특징인\n목재', '단단한 조직감을 갖춘\n고른 조직의 목재']) };
+  if (hasDensity) return { title: '치밀한 조직', caption: selectGluedWoodTypeCProfileCaption(productProfile, ['밀도감 있는 조직이 비교적 고르게\n이어지는 목재', '치밀한 조직이 자연스럽게\n드러나는 원목']) };
+  if (hasLightness && hasSoftTexture) return { title: '가벼운 목재', caption: selectGluedWoodTypeCProfileCaption(productProfile, ['가벼운 조직과 부드러운 질감이\n특징인 원목', '가볍고 부드러운 조직감이\n자연스럽게 살아 있는 목재', '부드러운 질감이 자연스럽게 살아 있는\n가벼운 목재']) };
+  if (hasLightness) return { title: '가벼운 조직', caption: selectGluedWoodTypeCProfileCaption(productProfile, ['가벼운 조직이 특징으로 드러나는\n원목', '가벼운 조직 특성이 자연스럽게\n살아 있는 목재']) };
+  if (hasSoftTexture && hasFineTexture) return { title: '고운 질감', caption: selectGluedWoodTypeCProfileCaption(productProfile, ['부드럽고 고운 질감이 자연스럽게\n드러나는 목재', '고운 질감과 부드러운 조직이\n특징인 원목']) };
+  if (hasSoftTexture) return { title: '부드러운 질감', caption: selectGluedWoodTypeCProfileCaption(productProfile, ['부드러운 목재 질감이 특징으로\n드러나는 원목', '부드러운 질감이 자연스럽게\n살아 있는 목재']) };
+  if (hasFineTexture) return { title: '고운 질감', caption: selectGluedWoodTypeCProfileCaption(productProfile, ['고운 목재 질감이 자연스럽게\n드러나는 원목', '고운 조직감이 특징인\n원목']) };
+  if (hasEvenStructure) return { title: '고른 조직', caption: selectGluedWoodTypeCProfileCaption(productProfile, ['비교적 고른 조직이 특징인\n원목', '고른 조직이 자연스럽게\n드러나는 목재']) };
+  return null;
+}
+
+function buildGluedWoodTopFeatureItems(displayKnowledge, appearanceAxes, uniqueTopFeature) {
+  const items = [];
+  const heroCopy = cleanEntityValue(displayKnowledge && displayKnowledge.heroCopy);
+  if (heroCopy) items.push({ title: '색감', caption: heroCopy });
+  (appearanceAxes && appearanceAxes.hero || []).map(cleanEntityValue).filter(Boolean).forEach(function (caption) {
+    items.push({ title: '결·무늬', caption: caption });
+  });
+  if (uniqueTopFeature && uniqueTopFeature.title && uniqueTopFeature.caption) {
+    items.push({ title: uniqueTopFeature.title, caption: uniqueTopFeature.caption });
+  }
+  return items.filter(function (item, index, source) {
+    return source.findIndex(function (candidate) {
+      return candidate.title === item.title || candidate.caption === item.caption;
+    }) === index;
+  }).slice(0, 4);
+}
+
+function buildGluedWoodUniqueTopFeature(productProfile, profile, displayKnowledge) {
+  // H/J/K는 구조 확대의 근거로만 남기고, 상단에는 제품 자체의 승인된 특징만 사용한다.
+  const profileFeature = buildGluedWoodTypeCProfileTopFeature(productProfile);
+  if (profileFeature) return profileFeature;
+  const appearance = displayKnowledge && displayKnowledge.appearance ? displayKnowledge.appearance : {};
+  const occupied = [].concat(appearance.color || [], appearance.grain || [], displayKnowledge && displayKnowledge.heroCopy || [])
+    .map(cleanEntityValue)
+    .filter(Boolean)
+    .join(' ');
+  const candidates = [].concat(
+    profile && Array.isArray(profile.reasons) ? profile.reasons : [],
+    appearance.knots || [],
+    appearance.texture || [],
+    appearance.scent || [],
+    appearance.workability || []
+  ).map(cleanEntityValue).filter(Boolean);
+  const productSpecific = candidates.find(function (item) {
+    if (/가구|인테리어|상판|선반|도어|프레임|카운터|제작|공간|노출 마감|표면 인상|실제 원목 느낌|제품별로|색감|색상|색조|색 차이|갈색|베이지|황갈색|적갈색|결|무늬|호반문|타이거/.test(item)) return false;
+    if (!/옹이|유절|무절|무도장|치밀|단단|하드우드|묵직|무게감|중량|내구|유분|향|가공성|절삭|샌딩/.test(item)) return false;
+    return occupied.indexOf(item) === -1;
+  });
+  if (!productSpecific) return null;
+
+  const hasDenseStructure = /치밀|하드우드|단단/.test(productSpecific);
+  const hasWeight = /무겁|묵직|무게감|중량/.test(productSpecific);
+  if (hasDenseStructure && hasWeight) {
+    return {
+      title: '치밀한 목재',
+      caption: '무게감 있고 치밀한 조직이 특징인\n단단한 목재'
+    };
+  }
+  if (hasDenseStructure) return { title: '치밀한 목재', caption: '치밀한 조직이 자연스럽게 드러나는\n단단한 목재' };
+  if (/옹이|유절/.test(productSpecific)) return { title: '자연스러운 옹이', caption: '옹이가 자연스럽게 드러나는\n원목 표면의 특징' };
+  if (/무절/.test(productSpecific)) return { title: '정돈된 원목 표면', caption: '옹이가 적어 깔끔하게 보이는\n정돈된 원목 표면' };
+  if (/무도장/.test(productSpecific)) return { title: '자연스러운 원목 표면', caption: '가공 전 원목의 결이 살아있는\n자연스러운 표면' };
+  if (/유분/.test(productSpecific)) return { title: '은은한 유분감', caption: '자연스러운 유분감이 은은하게\n드러나는 원목 표면' };
+  if (/(?:나무|목재)\s*향|향기/.test(productSpecific)) return { title: '은은한 나무 향', caption: '은은한 나무 향이 느껴지는\n원목의 특징' };
+  if (/가공성|절삭|샌딩/.test(productSpecific)) return { title: '가공 특성', caption: '목재의 가공 특성을 살펴보고\n용도에 맞춰 고를 수 있는 판재' };
+  return null;
+}
+
 function getApprovedGluedWoodSurfaceOptions(approved) {
   if (!approved || !Array.isArray(approved.surfaceOptions)) return [];
   // 표면 옵션은 상품명·일반 수종 지식이 아니라 승인 Product Knowledge에만 근거한다.
@@ -3391,11 +3513,11 @@ function getApprovedGluedWoodSurfaceOptions(approved) {
   });
 }
 
-function splitGluedWoodAppearanceAxes(appearance) {
+function splitGluedWoodAppearanceAxes(appearance, hasColorCopy) {
   const source = appearance || {};
   return {
-    // Hero subtitle is the color/grain axis. Do not repeat either in Surface Facts.
-    hero: [].concat(source.color || [], source.grain || []).filter(Boolean).slice(0, 2),
+    // Hero subtitle states color first; the next line may state grain or pattern only.
+    hero: [].concat(hasColorCopy ? [] : (source.color || []), source.grain || []).filter(Boolean).slice(0, 2),
     surface: [].concat(source.knots || [], source.texture || [], source.scent || [], source.workability || [])
       .filter(function (item, index, items) { return item && items.indexOf(item) === index; })
       .slice(0, 4)
@@ -3415,7 +3537,7 @@ function resolveSafeGluedWoodTypeCFallback(data, profile, jointType, species) {
     const speciesTitle = cleanEntityValue(typeC.speciesTitle) || cleanEntityValue(profile.productTitle) || cleanEntityValue(data && data.productName);
     return {
       title: cleanEntityValue(data && data.productName),
-      heroCopy: speciesTitle + '의 ' + safeFacts[0],
+      heroCopy: safeFacts[0],
       appearance: {
         color: safeFacts.slice(0, 1),
         grain: safeFacts.slice(1, 2),
@@ -3428,6 +3550,7 @@ function resolveSafeGluedWoodTypeCFallback(data, profile, jointType, species) {
       jointType: jointType,
       jointTitle: jointKnowledge.title,
       jointCaption: jointKnowledge.description,
+      jointDetailCaption: jointKnowledge.detailCaption || jointKnowledge.description,
       identificationLevel: species ? species.identificationLevel : 'UNKNOWN',
       restrictions: ['H/K 원문 출력 금지', '검증되지 않은 수종 특징·용도·성능 생성 금지'],
       source: 'VERIFIED_EXACT_PROFILE_FACTS'
@@ -3442,6 +3565,7 @@ function resolveSafeGluedWoodTypeCFallback(data, profile, jointType, species) {
       jointType: jointType,
       jointTitle: jointKnowledge.title,
       jointCaption: jointKnowledge.description,
+      jointDetailCaption: jointKnowledge.detailCaption || jointKnowledge.description,
       identificationLevel: species.identificationLevel,
       restrictions: ['제품 편차 유지', 'H/K 원문 출력 금지', '용도·성능 임의 생성 금지'],
       source: 'VERIFIED_SPECIES_MASTER'
@@ -3455,6 +3579,7 @@ function resolveSafeGluedWoodTypeCFallback(data, profile, jointType, species) {
     jointType: jointType,
     jointTitle: jointKnowledge.title,
     jointCaption: jointType === 'UNKNOWN' ? '' : jointKnowledge.description,
+    jointDetailCaption: jointType === 'UNKNOWN' ? '' : (jointKnowledge.detailCaption || jointKnowledge.description),
     identificationLevel: species ? species.identificationLevel : 'UNKNOWN',
     restrictions: ['사진 영역 확대', '빈 설명 카드 금지', 'H/K 원문 출력 금지'],
     source: 'SAFE_COMMON_FALLBACK'
@@ -3463,6 +3588,10 @@ function resolveSafeGluedWoodTypeCFallback(data, profile, jointType, species) {
 
 function buildGluedWoodHtmlFacts(data) {
   const approved = resolveApprovedGluedWoodTypeCCopy(data);
+  const typeCProductProfile = resolveGluedWoodTypeCProductProfile(data);
+  const profileSurface = typeCProductProfile && typeCProductProfile.profile && Array.isArray(typeCProductProfile.profile.surface)
+    ? typeCProductProfile.profile.surface.map(cleanEntityValue).filter(Boolean)
+    : [];
   const knowledge = resolveGluedWoodProductKnowledge(data);
   if (!knowledge) return null;
   const jointType = resolveGluedWoodJointTypeFromProductName(data);
@@ -3474,23 +3603,41 @@ function buildGluedWoodHtmlFacts(data) {
         return getGluedWoodApplicationDedupKey(candidate) === getGluedWoodApplicationDedupKey(item);
       }) === index;
     });
+  const verifiedUses = applications.length === 0 ? resolveVerifiedGluedWoodProductUses(data) : null;
+  const resolvedApplications = applications.length > 0
+    ? applications
+    : verifiedUses
+    ? [verifiedUses.use1, verifiedUses.use2].map(normalizeGluedWoodApplicationFacts).reduce(function (items, group) { return items.concat(group); }, [])
+    : [];
   return {
     approved: approved,
     productName: cleanEntityValue(data && data.productName),
+    productProfile: typeCProductProfile,
     species: knowledge.species,
     jointType: jointType,
     jointLabel: jointType === 'SOLID' ? '솔리드' : jointType === 'SIDE_FINGER' ? '사이드핑거' : jointType === 'TOP_FINGER' ? '탑핑거' : '',
     jointTitle: approved ? approved.jointTitle : GLUED_WOOD_JOINT_TYPE_KNOWLEDGE[jointType].title,
     jointCaption: approved ? approved.jointCaption : '',
-    heroCopy: approved ? approved.heroCopy : '',
-    appearance: approved && approved.appearance ? approved.appearance : { color: [], grain: [], knots: [], texture: [], scent: [], workability: [] },
+    heroCopy: approved ? approved.heroCopy : profileSurface[0] || '',
+    appearance: approved && approved.appearance ? approved.appearance : { color: profileSurface.slice(0, 1), grain: profileSurface.slice(1, 2), knots: [], texture: [], scent: [], workability: [] },
+    researchNote: approved ? cleanEntityValue(approved.researchNote) : '',
     surfaceOptions: getApprovedGluedWoodSurfaceOptions(approved),
-    applications: applications
+    applications: resolvedApplications
   };
 }
 
 function joinGluedWoodApplications(applications, limit) {
   return (applications || []).slice(0, limit || 5).join('·');
+}
+
+function buildGluedWoodNaturalUseList(applications, limit) {
+  const items = (applications || []).filter(Boolean).slice(0, limit || 4);
+  if (items.length === 0) return '';
+  if (items.length === 1) return items[0];
+  if (items.length === 2) return items[0] + getAndParticle(items[0]) + ' ' + items[1];
+  const last = items[items.length - 1];
+  const previous = items[items.length - 2];
+  return items.slice(0, -1).join(', ') + getAndParticle(previous) + ' ' + last;
 }
 
 function ensureSentence(text) {
@@ -3499,28 +3646,348 @@ function ensureSentence(text) {
   return /[.!?]$/.test(value) ? value : value + '.';
 }
 
-function buildGluedWoodUseSentence(applications, limit) {
-  const useText = joinGluedWoodApplications(applications, limit);
+function resolveGluedWoodWritingStyle(facts) {
+  const profile = facts && facts.productProfile && facts.productProfile.profile;
+  const evidence = profile && Array.isArray(profile.physical)
+    ? profile.physical.map(cleanEntityValue).join(' ')
+    : '';
+  if (/(?:목재|나무)\s*향|향기|고운|매끈한/.test(evidence)) return 'FINE';
+  if (/자연\s*유분/.test(evidence)) return 'OIL';
+  if (/(?:단단|치밀|밀도감|하드우드|무게감|무겁)/.test(evidence)) return 'DENSE';
+  if (/(?:가벼운|부드러운)/.test(evidence)) return 'LIGHT';
+  return 'STANDARD';
+}
+
+function getGluedWoodUseEnding(style, role) {
+  const endings = {
+    DENSE: { overview: '주로 사용합니다', introduction: '적합합니다', faq: '두루 활용합니다' },
+    LIGHT: { overview: '자주 사용합니다', introduction: '많이 활용합니다', faq: '두루 활용합니다' },
+    FINE: { overview: '자주 활용합니다', introduction: '적합합니다', faq: '주로 활용합니다' },
+    OIL: { overview: '자주 사용합니다', introduction: '많이 활용합니다', faq: '주로 사용합니다' },
+    STANDARD: { overview: '주로 사용합니다', introduction: '자주 활용합니다', faq: '두루 활용합니다' }
+  };
+  const selected = endings[style] || endings.STANDARD;
+  return selected[role] || selected.overview;
+}
+
+function buildGluedWoodUseSentence(applications, limit, facts) {
+  const usePhrase = buildGluedWoodUsePhrase(applications, limit, facts, 'overview');
+  return usePhrase ? ensureSentence(usePhrase) : '';
+}
+
+function buildGluedWoodUsePhrase(applications, limit, facts, role) {
+  const useText = buildGluedWoodNaturalUseList(applications, limit || 4);
   if (!useText) return '';
-  return ensureSentence(useText + (/작업$/.test(useText) ? '에 쓰입니다' : ' 작업에 쓰입니다'));
+  const ending = getGluedWoodUseEnding(resolveGluedWoodWritingStyle(facts), role || 'overview');
+  return /(?:제작|시공|작업|마감)$/.test(useText)
+    ? useText + '에 ' + ending
+    : useText + ' 제작에 ' + ending;
+}
+
+function buildGluedWoodFAQUseSentence(applications, limit, facts) {
+  const usePhrase = buildGluedWoodUsePhrase(applications, limit, facts, 'faq');
+  return usePhrase ? ensureSentence(usePhrase) : '';
+}
+
+function buildGluedWoodIntroductionUseSentence(facts) {
+  const usePhrase = buildGluedWoodUsePhrase(
+    buildGluedWoodCompactApplications((facts && facts.applications) || [], 4),
+    4,
+    facts,
+    'introduction'
+  );
+  return usePhrase ? ensureSentence(usePhrase) : '';
+}
+
+function buildGluedWoodCompactApplications(applications, limit) {
+  const items = (applications || []).filter(Boolean).slice(0, limit || 4);
+  const topItems = items.filter(function (item) { return /\s*상판$/.test(item); });
+  if (topItems.length < 2) return items;
+
+  const compactTop = topItems.map(function (item, index) {
+    const base = item.replace(/\s*상판$/, '').trim();
+    if (base === '주방') return '주방용 상판';
+    return index === topItems.length - 1 ? item : base;
+  }).join(', ');
+  let compacted = false;
+  return items.reduce(function (result, item) {
+    if (/\s*상판$/.test(item)) {
+      if (!compacted) {
+        result.push(compactTop);
+        compacted = true;
+      }
+      return result;
+    }
+    result.push(item);
+    return result;
+  }, []);
+}
+
+function buildGluedWoodIntroductionReasonSentence(facts) {
+  if (!facts) return '필요한 규격의 원목 판재를 구성할 때 선택합니다.';
+  if (facts.jointType === 'TOP_FINGER') {
+    return '필요한 길이의 판재를 안정적으로 구성하기 좋으며, 상판에서는 핑거 이음이 국소적으로 나타나는 특징이 있습니다.';
+  }
+  if (facts.jointType === 'SIDE_FINGER') {
+    return '상판의 연결선을 덜 드러내고 측면에서 연결부를 확인할 수 있도록 구성한 방식입니다.';
+  }
+  if (facts.jointType === 'SOLID') {
+    return '핑거 이음 없이 원목 부재를 나란히 이어 넓은 판재를 구성할 때 선택합니다.';
+  }
+  return '필요한 규격의 원목 판재를 구성할 때 선택합니다.';
+}
+
+function buildGluedWoodPurchaseNotes(facts) {
+  const optionText = facts && facts.surfaceOptions && facts.surfaceOptions.length > 0
+    ? facts.surfaceOptions.map(function (option) { return option.title; }).join('·')
+    : '';
+  const notesByJoint = {
+    TOP_FINGER: [
+      '• 상판에서 핑거 이음이 보이는 정도를 확인하세요.',
+      '• 노출면이라면 색감 차이도 함께 살펴보세요.',
+      '• 사용할 규격과 재단 치수는 작업 전에 정하면 좋습니다.',
+      '• 탑핑거 구조가 필요한 판재 길이와 작업 목적에 맞는지 확인하세요.'
+    ],
+    SIDE_FINGER: [
+      '• 측면의 한 원목 부재에 보이는 핑거 이음 위치를 확인하세요.',
+      '• 상판 노출면에서는 이음선이 얼마나 보이는지 살펴보세요.',
+      '• 사용할 규격과 재단 치수는 작업 전에 정하면 좋습니다.',
+      '• 사이드핑거 구조가 노출 방향과 작업 목적에 맞는지 확인하세요.'
+    ],
+    SOLID: [
+      '• 핑거 이음 없이 나란히 이어진 접합선을 확인하세요.',
+      '• 노출면에서는 원목마다 보이는 색감과 결의 차이를 살펴보세요.',
+      '• 사용할 규격과 재단 치수는 작업 전에 정하면 좋습니다.',
+      '• 솔리드 구조가 필요한 판재 폭과 작업 목적에 맞는지 확인하세요.'
+    ],
+    UNKNOWN: [
+      '• 제품에 적용된 집성 방식과 접합부 위치를 확인하세요.',
+      '• 노출면의 색감과 나뭇결을 함께 살펴보세요.',
+      '• 사용할 규격과 재단 치수는 작업 전에 정하면 좋습니다.'
+    ]
+  };
+  const notes = (notesByJoint[(facts && facts.jointType) || 'UNKNOWN'] || notesByJoint.UNKNOWN).slice();
+  if (optionText) {
+    notes.splice(2, 0, '• ' + optionText + ' 중 노출면에 맞는 표면 옵션을 선택하세요.');
+  }
+  return notes.slice(0, 5);
+}
+
+function buildGluedWoodRegisteredUseAnswer(facts) {
+  const uses = buildGluedWoodNaturalUseList((facts && facts.applications) || [], 4);
+  return uses
+    ? '등록된 활용 예에는 ' + uses + '이 포함됩니다.'
+    : '상품에 등록된 활용 용도와 필요한 규격을 기준으로 선택합니다.';
+}
+
+function buildGluedWoodConsultationFAQItems(facts, items) {
+  const hasSurfaceOptions = facts && facts.surfaceOptions && facts.surfaceOptions.length > 0;
+  if (!facts) return items(
+    '집성 방식은 어떻게 다른가요?',
+    '상품에 적용된 집성 방식에 따라 접합부가 보이는 위치가 달라집니다.',
+    '표면은 무엇을 보면 되나요?',
+    '노출할 면의 색감과 나뭇결, 접합부 상태를 중심으로 살펴봅니다.',
+    '어떤 용도로 사용할 수 있나요?',
+    '상품에 등록된 활용 용도와 필요한 규격을 기준으로 선택합니다.'
+  );
+
+  if (facts.jointType === 'TOP_FINGER') {
+    return items(
+      '솔리드와 차이가 있나요?',
+      '솔리드는 원목 부재를 나란히 접합한 방식이고, 탑핑거는 짧은 원목 부재를 핑거 이음으로 이어 판재 길이를 구성합니다.',
+      '핑거 이음은 많이 보이나요?',
+      '상판의 연결부에서만 보이며, 넓은 면을 가로지르는 반복 무늬처럼 보이지 않도록 구성합니다.',
+      '상판 제작에도 사용하나요?',
+      buildGluedWoodRegisteredUseAnswer(facts)
+    );
+  }
+
+  if (facts.jointType === 'SIDE_FINGER') {
+    return items(
+      '측면 핑거는 어디에서 보이나요?',
+      '긴 측면의 한 원목 부재 연결부에만 국소적으로 보입니다.',
+      '노출면에서는 어떻게 보이나요?',
+      '상판에서는 연결선이 크게 드러나지 않아 일반적인 원목 표면처럼 보입니다.',
+      '가구 제작에도 사용하나요?',
+      buildGluedWoodRegisteredUseAnswer(facts)
+    );
+  }
+
+  if (facts.jointType === 'SOLID') {
+    return items(
+      '핑거 이음이 없나요?',
+      '솔리드 구조는 핑거 이음 없이 원목 부재를 나란히 접합한 방식입니다.',
+      hasSurfaceOptions ? '유절과 무절은 어떻게 다른가요?' : '접합선은 어떻게 보이나요?',
+      hasSurfaceOptions
+        ? facts.surfaceOptions.map(function (option) { return option.title; }).join('·') + '은 옹이 노출 여부와 표면 상태에 따라 구분합니다.'
+        : '원목 부재를 나란히 잇는 접합선이 상판에 자연스럽게 드러납니다.',
+      '어떤 작업에 많이 사용하나요?',
+      buildGluedWoodRegisteredUseAnswer(facts)
+    );
+  }
+
+  return items(
+    '집성 방식은 어떻게 다른가요?',
+    '상품에 적용된 집성 방식에 따라 접합부가 보이는 위치가 달라집니다.',
+    '표면은 무엇을 보면 되나요?',
+    '노출할 면의 색감과 나뭇결, 접합부 상태를 중심으로 살펴봅니다.',
+    '어떤 용도로 사용할 수 있나요?',
+    buildGluedWoodRegisteredUseAnswer(facts)
+  );
 }
 
 function buildGluedWoodJointSentence(facts) {
-  if (!facts || !facts.jointTitle || !facts.jointCaption) return '';
-  return ensureSentence(facts.jointTitle + getSubjectParticle(facts.jointTitle) + ' ' + facts.jointCaption + ' 방식입니다');
+  if (!facts) return '';
+  if (facts.jointType === 'TOP_FINGER') return '상판에서 짧은 핑거 이음이 보이는 탑핑거 집성판입니다.';
+  if (facts.jointType === 'SIDE_FINGER') return '측면의 한 원목 부재에서 핑거 이음이 보이는 사이드핑거 집성판입니다.';
+  if (facts.jointType === 'SOLID') return '여러 원목을 나란히 이어 만든 솔리드 집성판입니다.';
+  return facts.jointTitle ? ensureSentence(facts.jointTitle + ' 방식의 집성판입니다') : '';
+}
+
+function buildGluedWoodFAQDefinitionSentence(facts) {
+  if (!facts) return '';
+  if (facts.jointType === 'TOP_FINGER') return '짧은 원목 부재를 탑핑거 방식으로 연결한 집성판입니다.';
+  if (facts.jointType === 'SIDE_FINGER') return '원목 부재를 길이 방향으로 연결한 사이드핑거 집성판입니다.';
+  if (facts.jointType === 'SOLID') return '여러 원목을 나란히 이어 만든 솔리드 집성판입니다.';
+  return '여러 원목을 이어 만든 집성판입니다.';
+}
+
+function buildGluedWoodIntroductionDefinitionSentence(facts) {
+  const style = resolveGluedWoodWritingStyle(facts);
+  if (!facts) return '원목을 이어 만든 집성판입니다.';
+  const definitions = {
+    TOP_FINGER: {
+      DENSE: '여러 원목 조각을 핑거 방식으로 연결해 만든 집성판입니다.',
+      LIGHT: '짧은 원목을 핑거 방식으로 접합해 만든 집성판입니다.',
+      FINE: '짧은 원목 부재를 핑거 이음으로 연결해 만든 집성판입니다.',
+      OIL: '짧은 원목 부재를 핑거 방식으로 연결해 만든 집성판입니다.',
+      STANDARD: '짧은 원목 부재를 핑거 방식으로 연결해 만든 집성판입니다.'
+    },
+    SIDE_FINGER: {
+      DENSE: '원목 부재를 길이 방향으로 이어 구성한 집성판입니다.',
+      LIGHT: '길이를 맞춘 원목 부재를 이어 만든 집성판입니다.',
+      FINE: '원목 부재를 길게 이어 완성한 집성판입니다.',
+      OIL: '원목 부재를 길이 방향으로 연결한 집성판입니다.',
+      STANDARD: '원목 부재를 길이 방향으로 이어 만든 집성판입니다.'
+    },
+    SOLID: {
+      DENSE: '여러 원목 부재를 접합해 완성한 솔리드 집성판입니다.',
+      LIGHT: '원목을 나란히 접합해 넓게 만든 솔리드 집성판입니다.',
+      FINE: '원목 부재를 나란히 이어 구성한 솔리드 집성판입니다.',
+      OIL: '여러 원목을 나란히 이어 만든 솔리드 집성판입니다.',
+      STANDARD: '여러 원목을 나란히 이어 만든 집성판입니다.'
+    }
+  };
+  if (definitions[facts.jointType]) return definitions[facts.jointType][style] || definitions[facts.jointType].STANDARD;
+  return buildGluedWoodFAQDefinitionSentence(facts);
+}
+
+function normalizeGluedWoodAppearanceFact(value) {
+  return cleanEntityValue(value).replace(/결과\s*색의 대비/g, '결 패턴과 색의 대비');
+}
+
+function joinGluedWoodAppearanceFacts(first, second) {
+  if (!first || !second) return '';
+  if (/바탕$/.test(first)) return first + '에 ' + second;
+  return first + getAndParticle(first) + ' ' + second;
+}
+
+function buildGluedWoodAppearanceSentence(facts) {
+  if (!facts) return '';
+  const appearance = facts.appearance || {};
+  const source = []
+    .concat(facts.heroCopy || [], appearance.grain || [], appearance.texture || [])
+    .map(normalizeGluedWoodAppearanceFact)
+    .filter(function (item, index, items) {
+      return item && items.indexOf(item) === index && !/표면 인상/.test(item);
+    })
+    .slice(0, 2);
+  if (!source.length) return '';
+  if (source.length === 1) return ensureSentence(source[0] + getNominativeParticle(source[0]) + ' 특징입니다');
+  return ensureSentence(joinGluedWoodAppearanceFacts(source[0], source[1]) + getNominativeParticle(source[1]) + ' 특징입니다');
+}
+
+function buildGluedWoodFAQAppearanceSentence(facts) {
+  if (!facts) return '';
+  const appearance = facts.appearance || {};
+  const color = normalizeGluedWoodAppearanceFact(facts.heroCopy).replace(/\s*원목 색감$/, ' 색조');
+  const grain = normalizeGluedWoodAppearanceFact((appearance.grain || [])[0]);
+  if (color && grain) return ensureSentence(joinGluedWoodAppearanceFacts(color, grain) + getNominativeParticle(grain) + ' 특징입니다');
+  if (color) return ensureSentence(color + getNominativeParticle(color) + ' 특징입니다');
+  if (grain) return ensureSentence(grain + getNominativeParticle(grain) + ' 특징입니다');
+  return '';
+}
+
+function buildGluedWoodColorSentence(facts) {
+  const color = cleanEntityValue(facts && facts.heroCopy);
+  if (!color) return '';
+  const style = resolveGluedWoodWritingStyle(facts);
+  const endings = {
+    DENSE: '선명하게 드러납니다',
+    LIGHT: '부드럽게 드러납니다',
+    FINE: '맑게 돋보입니다',
+    OIL: '차분하게 조화를 이룹니다',
+    STANDARD: '잘 드러납니다'
+  };
+  const appearance = /원목 색감$/.test(color)
+    ? color.replace(/\s*원목 색감$/, ' 색감')
+    : color;
+  return ensureSentence(appearance + getNominativeParticle(appearance) + ' ' + (endings[style] || endings.STANDARD));
+}
+
+function buildGluedWoodAppearanceAndUseSentence(facts) {
+  const appearance = (facts && facts.appearance) || {};
+  const color = cleanEntityValue(facts && facts.heroCopy);
+  const grain = normalizeGluedWoodAppearanceFact((appearance.grain || [])[0] || '');
+  const texture = normalizeGluedWoodAppearanceFact((appearance.texture || [])[0] || '');
+  const detail = grain || texture;
+  const usePhrase = buildGluedWoodUsePhrase((facts && facts.applications) || [], 4, facts, 'introduction');
+  let appearancePhrase = '';
+
+  if (color && detail) {
+    const combined = joinGluedWoodAppearanceFacts(color, detail);
+    appearancePhrase = /(?:색 차이|대비)/.test(combined)
+      ? combined + getNominativeParticle(detail) + ' 뚜렷하게 드러나'
+      : combined + getNominativeParticle(detail) + getGluedWoodAppearanceEnding(resolveGluedWoodWritingStyle(facts));
+  } else if (color) {
+    appearancePhrase = color + getNominativeParticle(color) + ' 잘 드러나';
+  } else if (detail) {
+    appearancePhrase = detail + getNominativeParticle(detail) + ' 돋보이며';
+  }
+
+  if (appearancePhrase && usePhrase) return ensureSentence(appearancePhrase + ' ' + usePhrase);
+  if (appearancePhrase) return completeGluedWoodAppearancePhrase(appearancePhrase);
+  return usePhrase ? ensureSentence(usePhrase) : '';
+}
+
+function completeGluedWoodAppearancePhrase(phrase) {
+  const completed = String(phrase || '')
+    .replace(/드러나$/, '드러납니다')
+    .replace(/어우러져$/, '어우러집니다')
+    .replace(/이루며$/, '이룹니다')
+    .replace(/돋보이며$/, '돋보입니다');
+  return ensureSentence(completed);
+}
+
+function getGluedWoodAppearanceEnding(style) {
+  const endings = {
+    DENSE: ' 선명하게 드러나',
+    LIGHT: ' 부드럽게 조화를 이루며',
+    FINE: ' 고르게 어우러져',
+    OIL: ' 차분하게 조화를 이루며',
+    STANDARD: ' 잘 어우러져'
+  };
+  return endings[style] || endings.STANDARD;
 }
 
 function buildGluedWoodSurfaceSentence(facts, limit) {
   if (!facts) return '';
   const appearance = facts.appearance || {};
-  const source = []
-    .concat(appearance.color || [], appearance.grain || [], appearance.knots || [], appearance.texture || [])
-    .filter(function (item, index, items) {
-      return item && items.indexOf(item) === index && (!facts.heroCopy || facts.heroCopy.indexOf(item) === -1);
-    })
-    .slice(0, limit || 3);
+  const source = [].concat(appearance.grain || [], appearance.knots || [], appearance.texture || [])
+    .filter(function (item, index, items) { return item && items.indexOf(item) === index && !/표면 인상/.test(item); })
+    .slice(0, limit || 2);
   if (!source.length) return '';
-  return ensureSentence('대표적인 표면 특징은 ' + source.join('·') + '입니다');
+  return ensureSentence(source.join('과 ') + '이 특징입니다');
 }
 
 function buildGluedWoodInfographicAlt(data) {
@@ -3544,19 +4011,12 @@ function buildGluedWoodInfographicAlt(data) {
 function buildGluedWoodAISummary(data) {
   const facts = buildGluedWoodHtmlFacts(data);
   if (!facts) return [];
-  const appearance = facts.appearance;
   const lines = [];
-  if (facts.heroCopy) lines.push(facts.heroCopy + (/[.!?]$/.test(facts.heroCopy) ? '' : '.'));
-  const scent = (appearance.scent || [])[0] || '';
-  const workability = (appearance.workability || [])[0] || '';
-  if (scent && facts.jointTitle) {
-    lines.push(scent + '과 ' + facts.jointTitle + ' 구조가 특징입니다.');
-  } else if (workability && facts.jointTitle) {
-    lines.push(workability + '이며, 목재 스트립은 ' + facts.jointTitle + ' 방식으로 연결합니다.');
-  } else if (facts.jointTitle) {
-    lines.push(facts.jointTitle + ' 방식으로 목재 스트립을 연결합니다.');
-  }
-  const useSentence = buildGluedWoodUseSentence(facts.applications, 6);
+  const colorSentence = buildGluedWoodColorSentence(facts);
+  if (colorSentence) lines.push(colorSentence);
+  const jointSentence = buildGluedWoodJointSentence(facts);
+  if (jointSentence) lines.push(jointSentence);
+  const useSentence = buildGluedWoodUseSentence(facts.applications, 4, facts);
   if (useSentence) lines.push(useSentence);
   return lines.slice(0, 3).map(cleanHumanWritingText);
 }
@@ -3574,18 +4034,11 @@ function buildGluedWoodSpecRowsHtml(data) {
 function buildGluedWoodSchemaDescription(data) {
   const facts = buildGluedWoodHtmlFacts(data);
   if (!facts) return '';
-  const appearanceFacts = []
-    .concat((facts.appearance.color || []).slice(0, 1), (facts.appearance.knots || []).slice(0, 1), (facts.appearance.grain || []).slice(0, 1))
-    .filter(Boolean)
-    .slice(0, 2);
-  const appearance = appearanceFacts.length > 1
-    ? appearanceFacts[0] + getAndParticle(appearanceFacts[0]) + ' ' + appearanceFacts[1]
-    : appearanceFacts[0] || '';
-  const uses = joinGluedWoodApplications(facts.applications, 2);
-  let description = (appearance ? appearance + getObjectParticle(appearance) + ' 지닌 ' : '') +
-    (facts.jointLabel ? facts.jointLabel + ' 집성판' : '집성판');
-  if (uses) description += '으로 ' + uses + (/작업$/.test(uses) ? '에 쓰입니다' : ' 작업에 쓰입니다');
-  return ensureSentence(description.replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim());
+  return [
+    buildGluedWoodJointSentence(facts),
+    buildGluedWoodAppearanceSentence(facts),
+    buildGluedWoodUseSentence(facts.applications, 4, facts)
+  ].filter(Boolean).join(' ');
 }
 
 function buildGluedWoodTypeCUIBlocks(data, profile) {
@@ -3635,8 +4088,15 @@ function buildGluedWoodTypeCUIBlocks(data, profile) {
     }));
   }, []).slice(0, 4);
   const appearance = displayKnowledge && displayKnowledge.appearance ? displayKnowledge.appearance : { color: [], grain: [], knots: [], texture: [], scent: [], workability: [] };
-  const appearanceAxes = splitGluedWoodAppearanceAxes(appearance);
+  const appearanceAxes = splitGluedWoodAppearanceAxes(appearance, Boolean(displayKnowledge.heroCopy));
   const surfaceFacts = appearanceAxes.surface;
+  const jointSummary = {
+    title: '집성 구조',
+    caption: '여러 원목을 이어\n하나의 판재로 만든 구조'
+  };
+  const typeCProductProfile = resolveGluedWoodTypeCProductProfile(data);
+  const uniqueTopFeature = buildGluedWoodUniqueTopFeature(typeCProductProfile, profile, displayKnowledge);
+  const topFeatures = buildGluedWoodTopFeatureItems(displayKnowledge, appearanceAxes, uniqueTopFeature);
   return {
     version: 'GLUED_WOOD_TYPE_C_LAYOUT_V3',
     isExactApproved: Boolean(approved),
@@ -3644,16 +4104,19 @@ function buildGluedWoodTypeCUIBlocks(data, profile) {
       title: displayKnowledge.title || profile.productTitle,
       surfaceCopy: displayKnowledge.heroCopy || '',
       facts: appearanceAxes.hero,
+      features: topFeatures,
       imageRole: 'full_product_photo',
       position: 'top_55',
       forbidden: ['ADDITIONAL_COPY', 'HEALTH_CLAIM', 'PERFORMANCE_CLAIM', 'MARKETING_CLAIM']
     },
     surfaceOptions: surfaceOptions,
     surfaceFacts: surfaceFacts,
+    jointSummary: jointSummary,
     joint: {
       type: jointType,
       title: displayKnowledge.jointTitle || GLUED_WOOD_JOINT_TYPE_KNOWLEDGE[jointType].title,
       caption: displayKnowledge.jointCaption || '',
+      detailCaption: displayKnowledge.jointDetailCaption || displayKnowledge.jointCaption || '',
       imageRole: visualRule.imageRole,
       position: surfaceOptions.length > 0 ? 'middle_right' : 'middle_full',
       positive: visualRule.positive.slice(),
@@ -3675,19 +4138,21 @@ function buildGluedWoodTypeCUIBlocks(data, profile) {
 function buildGluedWoodTypeCUIBlockPrompt(data, profile) {
   const ui = buildGluedWoodTypeCUIBlocks(data, profile);
   const renderText = [
-    ui.hero.title,
-    ui.hero.surfaceCopy
+    ui.hero.title
   ].concat(
+    ui.hero.features.reduce(function (lines, feature) {
+      return lines.concat([feature.title, feature.caption]);
+    }, []),
     ui.surfaceFacts,
     ui.surfaceOptions.reduce(function (lines, option) {
       return lines.concat([option.title, option.caption]);
     }, []),
-    [ui.joint.title, ui.joint.caption],
+    [ui.jointSummary.title, ui.jointSummary.caption, ui.joint.title, ui.joint.detailCaption],
     ui.applications.map(function (application) { return application.caption; })
   ).filter(Boolean).map(function (text) { return '"' + text + '"'; }).join('\n');
   const surfaceLayout = ui.surfaceOptions.length > 0
-    ? 'MIDDLE_LEFT_10: ' + ui.surfaceOptions.length + ' equal real surface option photo block(s).'
-    : 'MIDDLE_LEFT_10: omit this block and expand the hero or joint photo.';
+    ? 'Keep ' + ui.surfaceOptions.length + ' approved real surface option photo block(s) in the existing surface option area.'
+    : 'No surface option photo block is required.';
   const applicationLayout = ui.applications.length > 1
     ? 'BOTTOM_25: group the approved application captions into two balanced real-photo areas without adding another use.'
     : ui.applications.length === 1
@@ -3704,28 +4169,25 @@ JOINT_VISUAL=SOLID
 - No uneven strip width, oversized or undersized strip, random block layout, short pieces, teeth, zipper pattern, plywood-like layers or repeated CGI texture.`,
     SIDE_FINGER: `
 JOINT_VISUAL=SIDE_FINGER
-- Lock the panel coordinate system before rendering: TOP_SURFACE is the widest face, LONG_SIDE_FACE is the long narrow face parallel to board length, SHORT_END_FACE is the narrow end-grain face perpendicular to board length.
-- Camera must show TOP_SURFACE and one continuous LONG_SIDE_FACE clearly; SHORT_END_FACE may be visible only as a plain end-grain reference.
-- TOP_SURFACE: no finger joints.
-- LONG_SIDE_FACE: exactly one local finger-jointed length splice, positioned away from both short ends and away from every corner.
-- Mark that one splice on the same continuous LONG_SIDE_FACE in the main product photo and connect it to one closeup of the exact same physical point.
-- Strip width before and after the splice must remain identical.
-- Main photo and closeup must match in wood color, grain direction, splice position, strip width, panel thickness and finger direction.
-- SHORT_END_FACE: cross-sections of the widthwise-arranged wood strips only; zero finger joints.
-- The closeup must not rotate, mirror or relocate the splice onto SHORT_END_FACE, TOP_SURFACE, a corner or EDGE_LINE.
-- EDGE_LINE and every corner: zero decorative teeth and zero joint markers.
-- Never fill the full side, full height or full width with teeth.
-- No zipper, comb, stitch, layered teeth or plywood-like pattern.`,
+- TOP_SURFACE: show a normal glued wood panel with an almost continuous wood surface; any connection trace must be nearly invisible and must not show finger teeth.
+- MAIN_IMAGE: use the normal full-panel camera composition with ordinary wood surface, color and grain as the focus. Do not deliberately reveal, mark, zoom or emphasize any finger-jointed connection.
+- CLOSEUP: use a side-view closeup of the exact same connection inside that one wood piece; show only a few short, naturally irregular finger interlocks with matching wood color and grain.
+- Every adjacent wood piece must remain continuous and must not share that connection line.
+- Every other part of LONG_SIDE_FACE, plus SHORT_END_FACE and EDGE_LINE, has ordinary wood boundaries only; zero finger joints, teeth or joint markers.
+- Never fill the full side, full thickness, full height or full width with teeth.
+- No zipper, ladder, barcode, comb, stitch, layered teeth, repeated finger pattern or plywood-like pattern.`,
     TOP_FINGER: `
 JOINT_VISUAL=TOP_FINGER
-- TOP_SURFACE: exactly one local finger-jointed length splice, clearly visible once in the hero product photo.
-- Mark that one splice in the main product photo and connect it to one closeup of the exact same physical point.
+- TOP_SURFACE: show a normal glued wood panel with only one localized, short finger-jointed length splice inside one wood piece. Keep every other wood piece and ordinary strip boundary continuous.
+- MAIN_IMAGE: use a natural top-surface-focused product angle where that one local connection is only subtly recognizable. Never draw a seam across the full panel width or make the board into a block-pattern diagram.
+- CLOSEUP: enlarge the exact same single top-surface connection. Center one short interlocking joint between two wood pieces; show no second seam, crossing seam, or repeated joint pattern.
 - Strip width before and after the splice must remain identical; preserve continuous grain direction, color distribution and strip arrangement across the splice.
 - Main photo and closeup must match in wood color, grain direction, splice position, strip width, panel thickness and finger direction.
 - LONG_SIDE_FACE: ordinary wood strip boundaries only; zero finger-joint closeups.
 - SHORT_END_FACE: cross-sections of the widthwise-arranged wood strips only; zero finger joints.
 - The closeup must not invent a joint absent from the hero or relocate it to another strip or face.
-- No repeated joint lines, full-end teeth, short-block chain, plywood-like layers, zipper, comb, stitch or side-finger pattern.`,
+- Use only a few short, broad wood fingers with slight natural irregularity; never use thin dense teeth, metal-zipper regularity, drawn lines, lace, stitch or decorative sawtooth forms.
+- No full-panel seam, repeated joint line, enlarged plain strip boundary, oversized glued blocks, full-end teeth, short-block chain, plywood-like layers, zipper, comb or side-finger pattern.`,
     UNKNOWN: `
 JOINT_VISUAL=UNKNOWN
 - Show the full product and ordinary widthwise wood-strip construction only.
@@ -3747,12 +4209,13 @@ RENDER CONTRACT
 - Do not create empty cards or fill space with benefits, performance, health, advertising or explanatory copy.
 
 FIXED UI BLOCKS
-- TOP_55: product title, one dominant full-product photo, the approved catalog subtitle and two or three approved hero facts.
-- ${surfaceLayout}
-- MIDDLE_RIGHT_10: one joint structure photo or closeup with the approved joint title and caption.
+- TOP_55: product title, one dominant full-product photo, the approved catalog subtitle, and exactly ${ui.hero.features.length} valid product feature card(s). Use only color, grain or pattern, surface texture, and product-specific material characteristics. Do not render a joint structure, joint type, or generic fallback card in this block. When there are three valid cards, use a balanced three-card arrangement with no empty fourth slot and keep the existing text scale.
+- MIDDLE_LEFT_10: one compact common joint summary using "${ui.jointSummary.title}" and "${ui.jointSummary.caption}". ${surfaceLayout}
+- MIDDLE_RIGHT_10: one joint structure photo or closeup with the approved structure-specific joint title and the detailed joint caption (jointDetailCaption) only.
 - ${applicationLayout}
 - Keep the visual hierarchy: product → surface option → joint structure → applications.
 - Real product photography first; restrained catalog grid; white background; large readable Korean typography.
+- Keep all Type C feature titles to one line and bodies to no more than two lines at one consistent existing text scale; never reduce text size, card size or spacing to fit extra copy.
 - Use only #FFFFFF background, #123628 main, #C9A84C accent, #1C1C1C text, #616161 secondary text and #E0E0E0 borders.
 - Preserve the existing exact profile's natural-light, low-saturation, uncoated product-photo appearance.
 - If a block is omitted, expand existing product or structure photography instead of creating another card.
@@ -3773,6 +4236,7 @@ HERO PHOTO — HIGHEST PRIORITY
 
 SURFACE RULES
 - Use only the approved hero facts and surface option labels as surface information.
+- Present approved information in this order: color, grain or pattern, then joint structure.
 - Display at most four surface facts, with no repeated meaning.
 - Scent is text-only and must never be visualized.
 - H and K source text are validation evidence only and are not renderable content.
@@ -3846,36 +4310,36 @@ ${content.surfaceOptions.map(function (option) { return '- ' + option.name + ': 
       ? `TOP FINGER 이미지 생성 규칙
 MUST: TOP FINGER의 가장 중요한 특징은 상판이며 메인 제품 사진에서 Finger Joint가 실제 판매 제품처럼 자연스럽게 분명히 보여야 한다.
 MUST: Finger Joint는 상판 윗면에서 긴 스트립을 길이 방향으로 이어주는 실제 이음으로만 생성한다.
-MUST: 메인 상판에는 실제 목재 조각의 끝과 끝이 만나는 TOP FINGER 접합부를 전체에서 1~2곳만 자연스럽게 노출한다.
-MUST: 핑거 접합선은 스트립을 길이 방향으로 연결하면서 판재 폭을 가로지르는 한 줄의 이음으로 표현한다.
+MUST: 메인 상판은 한 원목 부재 안의 짧은 TOP FINGER 연결부가 국소적으로만 인식되는 상판 중심 구도를 사용한다. 일반 집성 블록 경계는 눈에 띄지 않게 최소화한다.
+MUST: 핑거 이음은 판재 폭 전체를 가로지르지 않고, 상판의 한 곳에서만 짧게 맞물린 형태로 표현한다.
 MUST: 확대 이미지는 독립된 구조를 새로 만들지 않고 메인 상판에 실제 생성된 접합부 1곳을 선택해 그대로 확대한다.
 MUST: 메인 상판과 확대 영역의 접합 위치·방향·형상·목재색·나뭇결은 완전히 동일하며 연결선 또는 확대 표시로 두 영역을 연결한다.
-MUST: 확대 영역에서 상판 결 방향과 핑거 방향이 함께 보이게 하고 같은 접합부는 한 줄만 크게 표시한다.
-MUST: 실제 목공 가공이 가능한 개수와 간격의 가늘고 뾰족한 ㅅ형 맞물림을 사용하며 핑거 길이·폭·간격을 일정하고 자연스럽게 유지한다.
+MUST: 확대 영역은 상판 시점에서 같은 연결부의 짧은 핑거 맞물림 하나만 화면 중앙에 보여준다. 일반 집성 블록 경계나 단순 접착선은 확대의 주제가 되지 않게 한다.
+MUST: 실제 목공 가공처럼 짧고 넓은 소수의 핑거만 사용하며, 약간의 자연스러운 불규칙성을 둔다.
 MUST: 측면에는 Finger Joint 없이 일반 집성 단면과 원목 스트립 경계만 보이게 한다.
 MUST: 상판 Finger Joint 노출은 선택 사항이 아니라 필수 이미지 요소다.
 MUST NOT: 측면(face) 전체에 Finger Joint를 만들거나 측면 전용 맞물림과 SIDE FINGER 확대 형태를 혼입하지 않는다. 이 형태가 나타나면 실패다.
 MUST NOT: 메인에 없는 핑거 라인을 확대 영역에 추가하거나 접합부 개수와 밀도를 임의로 늘리지 않는다.
+MUST NOT: 확대 영역을 단순한 집성 블록 경계, 넓은 목재 조각의 경계, 일반 접착선 확대, 상하좌우 교차 이음이나 여러 연결선처럼 표현하지 않는다.
 MUST NOT: 모든 스트립마다 핑거를 반복하거나 접합부를 제품 전체의 주 패턴으로 만들지 않는다.
-MUST NOT: 여러 줄이 스트립 방향과 나란히 길게 반복되는 세로 빗살무늬, 지퍼, 재봉선, 빗과 솔 브러시 형태를 생성하지 않는다.
-MUST NOT: 수십 개의 바늘 모양 초밀집 핑거, 두 줄 이상 반복된 확대 접합부와 메인·확대의 방향 불일치를 생성하지 않는다.
+MUST NOT: 상판 전체를 가로지르는 연속 이음선, 여러 줄이 길게 반복되는 빗살무늬, 지퍼, 봉제선, 레이스, 톱니 장식, 빗과 솔 브러시 형태를 생성하지 않는다.
+MUST NOT: 가늘고 촘촘한 금속 지퍼 이빨 같은 반복, 두 줄 이상 반복된 확대 접합부와 메인·확대의 방향 불일치를 생성하지 않는다.
 MUST NOT: 단순 톱니무늬 아이콘, 굵고 성긴 핑거 형상과 가짜 도식으로 표현하지 않는다.`
       : typeCStructureLibrary === 'SIDE_FINGER'
       ? `SIDE FINGER 이미지 생성 규칙
-MUST: 상판은 Finger Joint가 보이지 않는 긴 원목 스트립을 길이 방향으로 놓고 폭 방향으로 나란히 배열한 자연스러운 표면으로 생성한다.
-MUST: 메인 제품은 상판과 긴 측면(face)이 동시에 보이는 사선 구도로 배치한다.
-MUST: 긴 측면의 제한된 접합 지점 1곳에만 실제 핑거조인트를 표현한다.
-MUST: 메인 사진에서 그 접합 지점 1곳을 표시하고 확대 이미지는 연결선으로 이어진 동일 지점만 확대한다.
-MUST: 메인 사진과 확대 이미지의 목재색, 나뭇결 방향, 접합 위치와 핑거 방향을 완전히 동일하게 유지한다.
-MUST: 확대 영역은 전체 이미지의 약 25~30%를 사용하고 맞물리는 두 목재 부재의 국부 접합 경계를 명확하게 보여준다.
-MUST: 메인 접합 1곳과 동일 지점 확대 1곳은 반드시 유지한다.
-MUST NOT: 상판에 Finger Joint를 생성하거나 TOP FINGER처럼 상판 길이 이음을 표시하지 않는다.
-MUST NOT: 상판 전체 핑거 패턴, 모서리 한 줄 장식과 판재 끝면 전체 높이를 관통하는 톱니를 생성하지 않는다.
-MUST NOT: 긴 측면 전체를 반복하는 지퍼 패턴, 굵은 사각 톱니, 직각 블록과 합판 적층처럼 반복되는 층상 톱니를 생성하지 않는다.
+MUST: 상판은 거의 연속된 원목처럼 자연스럽게 보이게 하고, 핑거 이음이나 뚜렷한 연결선을 보이지 않는다.
+MUST: 메인 사진은 일반 집성판의 전체 구도를 유지하고 상판의 색감과 나뭇결을 중심으로 보이게 한다. 측면은 자연스럽게만 보이게 하며 핑거 이음을 의도적으로 강조·표시하지 않는다.
+MUST NOT: 메인 사진에서 핑거 치형, 측면 중앙의 지퍼형 이음, 구조 설명용 연결부, 여러 인접 원목 부재를 가로지르는 정렬 이음을 만들지 않는다.
+MUST: 확대 이미지는 메인 사진의 동일한 측면 연결부를 측면 시점으로만 확대하며, 상판 탑뷰나 판 두께 전체 단면을 보여주지 않는다.
+MUST: 확대컷에서는 한 원목 부재를 이루는 좌우 목재가 짧고 자연스러운 소수의 핑거로 맞물린 모습만 분명하게 보여준다.
+MUST: 메인 사진과 확대 이미지의 목재색, 나뭇결 방향과 연결 위치를 완전히 동일하게 유지한다.
+MUST: 인접한 다른 원목 부재에는 같은 연결선이나 핑거 이음이 없어야 한다.
+MUST NOT: 상판, 판 두께 전체, 측면 전체 또는 여러 위치에 Finger Joint를 생성하지 않는다.
+MUST NOT: 세로 지퍼, 사다리, 바코드, 봉합선, 반복 핑거, 굵은 사각 톱니와 합판 적층처럼 반복되는 층상 톱니를 생성하지 않는다.
 MUST NOT: TOP FINGER 형태와 SOLID 구조를 혼입하지 않는다.`
       : typeCStructureLibrary === 'SOLID'
       ? `SOLID 이미지 생성 규칙
-MUST: Finger Joint가 전혀 없는 다양한 폭의 긴 원목 스트립만 폭 방향으로 자연스럽게 연결하고 하나의 넓은 통판처럼 생성한다.
+MUST: Finger Joint가 전혀 없는 여러 개의 긴 원목을 나란히 이어 만든 집성판으로 생성한다.
 MUST: 상판과 측면 모두 통원목 스트립이 자연스럽게 이어지고 접합선은 원목 스트립 경계만 존재하게 한다.
 MUST NOT: 상면·측면·끝단 어디에도 Finger Joint, 톱니형 접합과 짧은 블록 연결을 생성하지 않는다.
 MUST NOT: 2개·3개의 대형 블록, 인위적인 접합선, 굵은 반복 접합선, 합판 적층과 벽돌 패턴을 생성하지 않는다.`
@@ -3967,7 +4431,7 @@ ${typeC.structureVisualOverride ? '- ' + typeC.structureVisualOverride : ''}
 - TOP_FINGER, SIDE_FINGER, SOLID는 이미지 하나만 봐도 서로 구분되게 하며 구조 확대는 실제 교육자료처럼 명확하게 표현한다.
 - 제품 전체 사진을 가장 크게 유지하고 표면 옵션·접합 확대·실제 적용 사례를 남은 공간에 자연스럽게 확장한다.
 - L/M이 비어 있으면 적용 사례 영역을 만들지 않고 제품 사진과 접합 확대 영역을 넓힌다.
-- SIDE_FINGER는 측면 접합부 확대에 전체 이미지의 약 25~30%를 사용한다.
+- SIDE_FINGER는 측면의 동일한 국소 연결부 확대에 전체 이미지의 약 25~30%를 사용한다.
 - SOLID와 TOP_FINGER는 기존 exact 프로필의 사진 비율과 구조 시각 규칙을 유지한다.
 - 동일한 재단 방향 카드와 반복 구조 확대를 생성하지 않는다.
 
@@ -4529,18 +4993,16 @@ function buildProductIntroductionFromKnowledge(data, fallback) {
   const knowledge = buildProductKnowledgeContext(data);
   if (knowledge.gluedWood) {
     const facts = buildGluedWoodHtmlFacts(data);
-    const first = facts && facts.jointCaption
-      ? buildGluedWoodJointSentence(facts)
-      : '여러 목재 스트립을 폭 방향으로 접합한 집성판입니다.';
-    const surface = facts && facts.heroCopy ? facts.heroCopy : '';
-    const surfaceFacts = facts ? buildGluedWoodSurfaceSentence(facts, 3) : '';
-    const uses = facts ? joinGluedWoodApplications(facts.applications, 6) : '';
-    const second = [
-      surface ? ensureSentence(surface) : '',
-      surfaceFacts,
-      uses ? buildGluedWoodUseSentence(facts.applications, 6) : ''
-    ].filter(Boolean).join(' ');
-    return cleanHumanWritingText([first, second].filter(Boolean).join('<br><br>'));
+    const productName = cleanEntityValue(facts && facts.productName);
+    const definitionSentence = buildGluedWoodIntroductionDefinitionSentence(facts);
+    const first = productName && definitionSentence
+      ? productName + getSubjectParticle(productName) + ' ' + definitionSentence
+      : definitionSentence;
+    return cleanHumanWritingText([
+      first,
+      buildGluedWoodIntroductionReasonSentence(facts),
+      buildGluedWoodIntroductionUseSentence(facts)
+    ].filter(Boolean).join('<br><br>'));
   }
   if (knowledge.productGroup !== 'PLYWOOD') return cleanHumanWritingText(fallback);
 
@@ -5709,6 +6171,7 @@ function buildTypeCPrompt(data) {
   const typeCThirdInstruction = isGluedWoodTypeC
     ? `- 기존 카드 디자인을 유지하고 접합부 상태 확인, 재단 방향, 표면 상태, 마감 여부 중 입력 근거가 있는 항목만 최대 2개 사용
 - 기존의 단순한 아이콘 표현을 유지하고 새로운 카드나 레이아웃을 만들지 않는다.
+- 각 아이콘에는 하나의 짧은 설명을 반드시 함께 두고, 아이콘 수와 설명 수를 정확히 같게 한다.
 - 외관과 핵심 비교에서 사용한 정보는 반복하지 않는다.
 - 활용 예시, 추천 가구, 아동가구, 테이블 등 용도를 생성하지 않는다.
 - 정보가 부족하면 카드 수를 줄이고 유의어나 설명 문장으로 빈 공간을 채우지 않는다.`

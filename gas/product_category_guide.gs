@@ -312,27 +312,29 @@ const VERIFIED_GLUED_WOOD_PRODUCT_USES = {
 const APPROVED_GLUED_WOOD_TYPE_C_COPY = {
   '고무나무 집성판 탑핑거': {
     title: '고무나무 집성판 탑핑거',
-    heroCopy: '밝은 황갈색과 차분한 나뭇결이 이어지는 고무나무 집성판',
+    heroCopy: '밝은 황갈색과 연한 베이지 계열의 원목 색감',
     appearance: { color: ['밝은 황갈색과 연한 베이지 색감'], grain: ['차분하고 고르게 이어지는 나뭇결'], knots: [], texture: ['비교적 고른 표면 인상'], scent: [], workability: [] },
     surfaceOptions: [],
     jointType: 'TOP_FINGER',
     jointTitle: '탑핑거 집성',
-    jointCaption: '목재 스트립의 길이를 연장하기 위해 상판 길이 이음부를 핑거조인트로 연결한 방식',
+    jointCaption: '짧은 원목을 이어\n하나의 판재로 만든 집성 구조',
+    jointDetailCaption: '상판에서 여러 원목 부재의 연결선이 이어져 보이는 집성 방식',
     identificationLevel: 'TRADE_NAME_UNVERIFIED',
     restrictions: ['건강·성능·품질 우열 생성 금지', '승인되지 않은 수종 특징 생성 금지', 'H/K 원문 출력 금지']
   },
   '레드파인 집성판 솔리드': {
     title: '레드파인 집성판 솔리드',
-    heroCopy: '따뜻한 색감과 자연스러운 옹이가 어우러진 레드파인',
+    heroCopy: '따뜻한 밝은 원목 색감',
     appearance: { color: ['따뜻한 밝은 색감', '은은한 붉은 기'], grain: [], knots: ['자연스러운 옹이'], texture: ['유절 목재 표면'], scent: ['은은한 천연 나무 향'], workability: [] },
     surfaceOptions: [{ title: '유절', caption: '옹이가 드러나는 표면 옵션' }],
     jointType: 'SOLID',
     jointTitle: '솔리드 집성',
-    jointCaption: '긴 목재 스트립을 나란히 배치한 폭 방향 접합'
+    jointCaption: '여러 원목을 나란히 이어 만든\n집성 구조',
+    jointDetailCaption: '여러 원목이 나란히 이어진 접합선이 상판에 자연스럽게 보이는 구조입니다.'
   },
   '라디에타파인 솔리드': {
     title: '라디에타파인 솔리드',
-    heroCopy: '밝은 색감과 자연스러운 나뭇결이 돋보이는 라디에타파인',
+    heroCopy: '밝은 원목 색감',
     appearance: { color: ['밝은 색감'], grain: ['자연스럽게 이어지는 나뭇결'], knots: ['옵션에 따라 달라지는 옹이 노출'], texture: [], scent: [], workability: ['비교적 가볍고 재단과 가공을 고려하기 좋은 목재'] },
     surfaceOptions: [
       { title: '양면유절', caption: '양쪽 면에 옹이가 드러나는 표면 옵션' },
@@ -341,58 +343,156 @@ const APPROVED_GLUED_WOOD_TYPE_C_COPY = {
     ],
     jointType: 'SOLID',
     jointTitle: '솔리드 집성',
-    jointCaption: '긴 목재 스트립을 나란히 배치한 폭 방향 접합'
+    jointCaption: '여러 원목을 나란히 이어 만든\n집성 구조',
+    jointDetailCaption: '여러 원목이 나란히 이어진 접합선이 상판에 자연스럽게 보이는 구조입니다.'
   },
   '라왕 집성판 사이드핑거': {
     title: '라왕 집성판 사이드핑거',
-    heroCopy: '제품마다 다른 색감과 무늬를 살린 라왕 계열 집성판',
+    heroCopy: '제품마다 조금씩 다른 붉은 기가 보이는 원목 색감',
     appearance: { color: ['제품에 따라 보이는 붉은 기'], grain: ['자연스러운 무늬결'], knots: [], texture: ['제품별로 달라지는 표면 인상'], scent: [], workability: ['가구 제작과 가공 작업에 쓰는 목재'] },
     surfaceOptions: [],
     jointType: 'SIDE_FINGER',
     jointTitle: '사이드핑거 집성',
-    jointCaption: '목재 스트립의 길이 이음부를 긴 측면에서 보여주는 핑거조인트 방식'
+    jointCaption: '원목을 길이 방향으로 이어 만든\n집성 구조',
+    jointDetailCaption: '측면의 한 원목 부재에서만\n짧은 핑거 이음이 국소적으로 보입니다.'
   },
   '자작나무 집성판 사이드핑거': {
     title: '자작나무 집성판 사이드핑거',
-    heroCopy: '밝은 색감과 곱고 선명한 결이 돋보이는 자작나무',
+    heroCopy: '맑고 밝은 원목 색감',
     appearance: { color: ['맑고 밝은 색감'], grain: ['곱고 선명한 나뭇결'], knots: [], texture: ['화사한 표면 인상'], scent: [], workability: [] },
     surfaceOptions: [],
     jointType: 'SIDE_FINGER',
     jointTitle: '사이드핑거 집성',
-    jointCaption: '목재 스트립의 길이 이음부를 긴 측면에서 보여주는 핑거조인트 방식'
+    jointCaption: '원목을 길이 방향으로 이어 만든\n집성 구조',
+    jointDetailCaption: '측면의 한 원목 부재에서만\n짧은 핑거 이음이 국소적으로 보입니다.'
   },
   '애쉬 집성판 사이드핑거': {
     title: '애쉬 집성판 사이드핑거',
-    heroCopy: '밝은 톤과 선명한 나뭇결을 살린 애쉬 집성판',
+    heroCopy: '자연스럽고 밝은 원목 색감',
     appearance: { color: ['자연스럽고 밝은 목재 톤'], grain: ['곧게 이어지는 선명한 나뭇결'], knots: [], texture: ['결이 분명하게 드러나는 표면'], scent: [], workability: ['가구 제작과 가공 작업에 많이 쓰는 목재'] },
     surfaceOptions: [],
     jointType: 'SIDE_FINGER',
     jointTitle: '사이드핑거 집성',
-    jointCaption: '목재 스트립의 길이 이음부를 긴 측면에서 보여주는 핑거조인트 방식'
+    jointCaption: '원목을 길이 방향으로 이어 만든\n집성 구조',
+    jointDetailCaption: '측면의 한 원목 부재에서만\n짧은 핑거 이음이 국소적으로 보입니다.'
   },
   '히노끼(편백) 집성판 사이드핑거(유절/무절)': {
     title: '히노끼(편백) 집성판 사이드핑거',
-    heroCopy: '유절과 무절 표면을 함께 고를 수 있는 히노끼 집성판',
-    appearance: { color: [], grain: [], knots: ['유절의 자연스러운 옹이', '무절의 정돈된 표면'], texture: ['유절과 무절의 표면 차이'], scent: [], workability: [] },
+    heroCopy: '밝고 깨끗한 원목 색감',
+    appearance: { color: ['밝고 깨끗한 원목 색감'], grain: ['곱고 고르게 이어지는 원목 결'], knots: ['유절의 자연스러운 옹이', '무절의 정돈된 표면'], texture: ['부드럽고 고운 목재 질감'], scent: ['은은한 목재 향'], workability: [] },
+    researchNote: '연구 참고: 편백 잎·가지 정유의 항균 활성은 식품유래 병원균을 대상으로 한 실험 연구에서 보고됐습니다(Park et al., Journal of Microbiology, 2010). 이는 정유를 대상으로 한 연구 결과이며, 완성된 집성판의 성능은 가공과 마감 상태에 따라 달라질 수 있습니다.',
     surfaceOptions: [
       { title: '유절', caption: '옹이가 드러나는 표면 옵션' },
       { title: '무절', caption: '무절로 구분한 표면 옵션' }
     ],
     jointType: 'SIDE_FINGER',
     jointTitle: '사이드핑거 집성',
-    jointCaption: '목재 스트립의 길이 이음부를 긴 측면에서 보여주는 핑거조인트 방식'
+    jointCaption: '원목을 길이 방향으로 이어 만든\n집성 구조',
+    jointDetailCaption: '측면의 한 원목 부재에서만\n짧은 핑거 이음이 국소적으로 보입니다.'
   },
   '히노끼(편백) 집성판 솔리드(유절/무절)': {
     title: '히노끼(편백) 집성판 솔리드',
-    heroCopy: '유절과 무절의 표면 차이를 살린 히노끼 솔리드',
-    appearance: { color: [], grain: [], knots: ['유절의 자연스러운 옹이', '무절의 정돈된 표면'], texture: ['유절과 무절의 표면 차이'], scent: [], workability: [] },
+    heroCopy: '밝고 깨끗한 원목 색감',
+    appearance: { color: ['밝고 깨끗한 원목 색감'], grain: ['곱고 고르게 이어지는 원목 결'], knots: ['유절의 자연스러운 옹이', '무절의 정돈된 표면'], texture: ['부드럽고 고운 목재 질감'], scent: ['은은한 목재 향'], workability: [] },
+    researchNote: '연구 참고: 편백 잎·가지 정유의 항균 활성은 식품유래 병원균을 대상으로 한 실험 연구에서 보고됐습니다(Park et al., Journal of Microbiology, 2010). 이는 정유를 대상으로 한 연구 결과이며, 완성된 집성판의 성능은 가공과 마감 상태에 따라 달라질 수 있습니다.',
     surfaceOptions: [
       { title: '유절', caption: '옹이가 드러나는 표면 옵션' },
       { title: '무절', caption: '무절로 구분한 표면 옵션' }
     ],
     jointType: 'SOLID',
     jointTitle: '솔리드 집성',
-    jointCaption: '길게 이어진 목재 스트립의 폭 방향 접합'
+    jointCaption: '여러 원목을 나란히 이어 만든\n집성 구조',
+    jointDetailCaption: '여러 원목이 나란히 이어진 접합선이 상판에 자연스럽게 보이는 구조입니다.'
+  }
+};
+
+const GLUED_WOOD_TYPE_C_PRODUCT_PROFILES = {
+  '고무나무 집성판 탑핑거': {
+    physical: ['중간 정도의 밀도', '비교적 고른 조직'],
+    surface: ['밝은 황갈색과 연한 베이지 바탕', '차분하고 고른 결'],
+    purchaseFeature: '밝고 고른 표면을 기준으로 색상 편차와 마감 상태를 살펴보는 원목입니다.'
+  },
+  '라디에타파인 집성판 탑핑거': {
+    physical: ['가벼운 편의 침엽수 조직', '부드러운 목재 질감'],
+    surface: ['밝은 미백색과 크림색 바탕', '은은하고 곧게 이어지는 소나무 결'],
+    purchaseFeature: '밝은 바탕색과 옹이·결의 노출 정도를 함께 살펴보는 소나무 집성판입니다.'
+  },
+  '라디에타파인 계단재': {
+    physical: ['가벼운 편의 침엽수 조직', '부드러운 목재 질감'],
+    surface: ['밝은 미백색과 크림색 바탕', '은은하고 곧게 이어지는 소나무 결'],
+    purchaseFeature: '밝은 표면과 소나무 결의 노출 상태를 기준으로 고르는 라디에타파인 판재입니다.'
+  },
+  '삼나무 집성판 솔리드': {
+    physical: ['가벼운 편의 침엽수 조직', '부드러운 목재 질감'],
+    surface: ['밝은 베이지 바탕과 옅은 붉은 기', '옹이와 곧게 이어지는 삼나무 결'],
+    purchaseFeature: '옹이와 색상 편차가 자연스럽게 드러나는 표면을 확인하는 원목입니다.'
+  },
+  '아카시아 집성판 사이드핑거': {
+    physical: ['단단하고 무게감 있는 조직', '밀도감 있는 목재'],
+    surface: ['밝은 변재와 중간 갈색 심재의 색 차이', '원목마다 다른 결과 색의 대비'],
+    purchaseFeature: '심재와 변재의 색 차이, 결의 변화가 함께 드러나는 원목 표면을 살펴보는 제품입니다.'
+  },
+  '엘더 집성판 사이드핑거': {
+    physical: ['비교적 가벼운 조직', '고르게 이어지는 목재 질감'],
+    surface: ['따뜻한 연황색과 연갈색 바탕', '잔잔하고 비교적 고른 결'],
+    purchaseFeature: '따뜻한 색조와 잔잔한 결의 균형을 기준으로 표면을 살펴보는 원목입니다.'
+  },
+  '티크 집성판 사이드핑거': {
+    physical: ['중간 이상 밀도의 조직', '자연 유분이 있는 목재'],
+    surface: ['골드브라운과 황갈색 바탕', '유분감이 은은하게 드러나는 결'],
+    purchaseFeature: '골드브라운 색조와 자연 유분이 보이는 표면 상태를 함께 살펴보는 원목입니다.'
+  },
+  '멀바우 집성판 사이드핑거': {
+    physical: ['무게감 있고 치밀한 조직', '단단한 하드우드'],
+    surface: ['중간 톤의 브라운과 적갈색 바탕', '치밀한 결이 드러나는 표면'],
+    purchaseFeature: '무게감 있는 조직과 치밀한 결이 특징인 하드우드 표면을 살펴보는 제품입니다.'
+  },
+  '오크 집성판 사이드핑거': {
+    physical: ['단단하고 밀도감 있는 조직', '뚜렷한 나뭇결'],
+    surface: ['연한 황갈색과 중간 브라운 바탕', '굵은 결과 호반문이 드러나는 무늬'],
+    purchaseFeature: '굵은 결과 호반문의 방향, 색상 편차를 기준으로 표면을 살펴보는 원목입니다.'
+  },
+  '오동나무 집성판 솔리드': {
+    physical: ['매우 가벼운 조직', '부드러운 목재 질감'],
+    surface: ['밝은 황백색과 연한 베이지 바탕', '단순하고 부드러운 결'],
+    purchaseFeature: '가벼운 조직과 밝은 표면을 기준으로 상태를 살펴보는 원목입니다.'
+  },
+  '레드파인 집성판 솔리드': {
+    physical: ['가벼운 편의 침엽수 조직', '부드러운 목재 질감'],
+    surface: ['밝은 황갈색과 연한 적갈색 바탕', '옹이와 소나무 결이 드러나는 표면'],
+    purchaseFeature: '옹이와 붉은 기의 정도가 자연스럽게 달라지는 표면을 확인하는 원목입니다.'
+  },
+  '라디에타파인 솔리드': {
+    physical: ['가벼운 편의 침엽수 조직', '부드러운 목재 질감'],
+    surface: ['밝은 미백색과 크림색 바탕', '은은하고 곧게 이어지는 소나무 결'],
+    purchaseFeature: '밝은 색감과 옹이·결의 노출 상태를 기준으로 고르는 소나무 집성판입니다.'
+  },
+  '라왕 집성판 사이드핑거': {
+    physical: ['수종 구성에 따라 달라지는 조직', '제품별 편차가 있는 목재'],
+    surface: ['밝은 색부터 황갈색·적갈색까지의 색 변화', '제품마다 달라질 수 있는 결'],
+    purchaseFeature: '라왕은 여러 수종을 포함하므로 실제 제품의 색상과 결을 확인해 고르는 목재입니다.'
+  },
+  '자작나무 집성판 사이드핑거': {
+    physical: ['단단하고 비교적 고른 조직', '매끈한 목재 질감'],
+    surface: ['밝고 맑은 바탕색', '곱고 선명한 결'],
+    purchaseFeature: '밝은 색상과 곱게 이어지는 결의 상태를 기준으로 표면을 살펴보는 원목입니다.'
+  },
+  '애쉬 집성판 사이드핑거': {
+    physical: ['단단하고 밀도감 있는 조직', '굵은 결이 드러나는 목재'],
+    surface: ['밝은 갈색 바탕', '곧고 선명한 나뭇결'],
+    purchaseFeature: '굵고 선명한 결의 방향과 색상 편차를 기준으로 표면을 살펴보는 원목입니다.'
+  },
+  '히노끼(편백) 집성판 사이드핑거(유절/무절)': {
+    physical: ['가벼운 편의 침엽수 조직', '부드럽고 고운 목재 질감', '은은한 목재 향'],
+    signatureFeature: { title: '은은한 편백 향', caption: '편백 특유의 목재 향이\n은은하게 느껴지는 수종' },
+    surface: ['밝은 색감과 고운 결', '유절·무절에 따라 달라지는 옹이 노출'],
+    purchaseFeature: '옹이가 드러나는 유절과 정돈된 무절 중 필요한 표면 상태를 선택하는 원목입니다.'
+  },
+  '히노끼(편백) 집성판 솔리드(유절/무절)': {
+    physical: ['가벼운 편의 침엽수 조직', '부드럽고 고운 목재 질감', '은은한 목재 향'],
+    signatureFeature: { title: '은은한 편백 향', caption: '편백 특유의 목재 향이\n은은하게 느껴지는 수종' },
+    surface: ['밝은 색감과 고운 결', '유절·무절에 따라 달라지는 옹이 노출'],
+    purchaseFeature: '옹이가 드러나는 유절과 정돈된 무절 중 필요한 표면 상태를 선택하는 원목입니다.'
   }
 };
 
@@ -403,13 +503,13 @@ const GLUED_WOOD_JOINT_VISUAL_RULES = {
     forbidden: ['FINGER_JOINT_ANY_FACE', 'TOOTHED_JOINT', 'UNEVEN_STRIP_WIDTH', 'SHORT_BLOCK_PATTERN', 'RANDOM_BLOCK_LAYOUT', 'PLYWOOD_LAYERS', 'PROCEDURAL_CG_PATTERN']
   },
   SIDE_FINGER: {
-    imageRole: 'long_side_local_finger_joint_same_point_closeup',
-    positive: ['THREE_FACE_COORDINATE_LOCK', 'TOP_SURFACE_NO_FINGER', 'LONG_SIDE_ONE_LOCAL_FINGER_JOINT', 'SAME_LONG_SIDE_AND_SAME_POINT_MAIN_AND_CLOSEUP', 'SHORT_END_STRIP_CROSS_SECTIONS', 'SAME_STRIP_WIDTH_ACROSS_SPLICE', 'GRAIN_COLOR_THICKNESS_CONTINUITY', 'NO_CORNER_TEETH'],
-    forbidden: ['TOP_SURFACE_FINGER', 'SHORT_END_FINGER', 'CORNER_FINGER', 'EDGE_LINE_TEETH', 'FULL_HEIGHT_TEETH', 'FULL_WIDTH_TEETH', 'FULL_SIDE_ZIPPER', 'MISMATCHED_MAIN_CLOSEUP', 'MATERIAL_COLOR_CHANGE_AT_JOINT', 'STRIP_WIDTH_CHANGE_AT_JOINT', 'LAYERED_TEETH']
+    imageRole: 'single_wood_piece_localized_long_side_connection_same_point_closeup',
+    positive: ['SINGLE_WOOD_PIECE_ONE_LOCAL_LENGTH_SPLICE', 'ONE_PIECE_ONLY_NOT_PANEL_SPANNING', 'LONG_SIDE_ONE_LOCAL_FINGER_JOINT', 'TOP_SURFACE_NEARLY_CONTINUOUS', 'SAME_WOOD_PIECE_AND_SAME_POINT_MAIN_AND_CLOSEUP', 'SHORT_NATURAL_FINGER_INTERLOCKS', 'GRAIN_COLOR_CONTINUITY'],
+    forbidden: ['LONG_SIDE_FACE_FINGER', 'FULL_THICKNESS_FINGER', 'ADJACENT_PIECE_REPEATED_SPLICE', 'SHORT_END_FINGER', 'CORNER_FINGER', 'EDGE_LINE_TEETH', 'FULL_HEIGHT_TEETH', 'FULL_WIDTH_TEETH', 'FULL_SIDE_ZIPPER', 'ZIPPER_PATTERN', 'LADDER_PATTERN', 'BARCODE_PATTERN', 'MISMATCHED_MAIN_CLOSEUP', 'MATERIAL_COLOR_CHANGE_AT_JOINT', 'LAYERED_TEETH']
   },
   TOP_FINGER: {
-    imageRole: 'top_surface_local_finger_joint_same_point_closeup',
-    positive: ['TOP_SURFACE_ONE_LOCAL_LENGTH_SPLICE', 'SAME_POINT_MAIN_AND_CLOSEUP', 'SAME_STRIP_WIDTH_ACROSS_SPLICE', 'GRAIN_COLOR_STRIP_CONTINUITY', 'LONG_SIDE_NO_FINGER', 'SHORT_END_STRIP_CROSS_SECTIONS', 'TOP_SURFACE_ONLY_FINGER'],
+    imageRole: 'top_surface_continuous_multi_piece_length_splice_same_point_closeup',
+    positive: ['TOP_SURFACE_CONTINUOUS_MULTI_PIECE_LENGTH_SPLICE', 'ALIGNED_SEAM_ACROSS_ADJACENT_WOOD_PIECES', 'SAME_POINT_MAIN_AND_CLOSEUP', 'SAME_STRIP_WIDTH_ACROSS_SPLICE', 'GRAIN_COLOR_STRIP_CONTINUITY', 'LONG_SIDE_NO_FINGER', 'SHORT_END_STRIP_CROSS_SECTIONS', 'TOP_SURFACE_ONLY_FINGER'],
     forbidden: ['LONG_SIDE_FINGER', 'SHORT_END_FINGER', 'FULL_END_TEETH', 'REPEATED_JOINT_LINES', 'DETACHED_CLOSEUP_JOINT', 'STRIP_WIDTH_CHANGE_AT_JOINT', 'SHORT_BLOCK_CHAIN', 'PLYWOOD_LAYER_PATTERN', 'ZIPPER_PATTERN', 'COMB_PATTERN', 'STITCH_PATTERN']
   },
   UNKNOWN: {
