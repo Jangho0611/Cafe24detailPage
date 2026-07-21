@@ -316,6 +316,10 @@ const APPROVED_GLUED_WOOD_TYPE_C_COPY = {
     appearance: { color: ['밝은 황갈색과 연한 베이지 색감'], grain: ['차분하고 고르게 이어지는 나뭇결'], knots: [], texture: ['비교적 고른 표면 인상'], scent: [], workability: [] },
     surfaceOptions: [],
     jointType: 'TOP_FINGER',
+    jointOptions: [
+      { title: '탑핑거', jointType: 'TOP_FINGER', caption: '상판에서 연결 무늬를 확인하는 방식' },
+      { title: '사이드핑거', jointType: 'SIDE_FINGER', caption: '측면에서 연결 무늬를 확인하는 방식' }
+    ],
     jointTitle: '탑핑거 집성',
     jointCaption: '짧은 원목을 이어\n하나의 판재로 만든 집성 구조',
     jointDetailCaption: '상판에서 여러 원목 부재의 연결선이 이어져 보이는 집성 방식',

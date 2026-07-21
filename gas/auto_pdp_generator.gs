@@ -152,6 +152,7 @@ function generateHTML(row) {
     return;
   }
 
+  const schemaDefine = content.define;
   content.define = buildProductIntroductionFromKnowledge(data, content.define);
 
   const css = `<style>
@@ -208,7 +209,7 @@ function generateHTML(row) {
   const gluedWoodSpecRows = isGluedWoodHtml ? buildGluedWoodSpecRowsHtml(data) : '';
   const faqItems = buildFAQItems(data, defaultNotes);
   const faqHtml = buildFAQHtml(faqItems);
-  const schemaHtml = buildSchemaHtml(data, content.define, faqItems);
+  const schemaHtml = buildSchemaHtml(data, isGsNaturalWaterResistantGypsumBoard(data) ? schemaDefine : content.define, faqItems);
   const aiSummary = buildAISummary(entityData);
   const aiSummaryHtml = buildAISummaryHtml(aiSummary);
   const contentQualityScore = evaluateContentQuality({
@@ -515,6 +516,35 @@ function buildTypeAInfographicAlt(data, productName, imageIndex, knowledge) {
   };
 }
 
+function isRauanGakjaeProduct(data) {
+  return cleanEntityValue(data && data.productName).replace(/\s+/g, '') === '라왕각재';
+}
+
+function isGsNaturalWaterResistantGypsumBoard(data) {
+  return cleanEntityValue(data && data.productName) === 'GS자이 천연 방수석고보드';
+}
+
+function getProductSpecificInfographicAlt(data, productName, imageIndex) {
+  const name = cleanEntityValue(productName);
+  const detail = Number(imageIndex) > 1;
+  const describe = function (description, comparison) {
+    if (comparison) return limitInfographicAlt(description + getObjectParticle(description) + ' 비교한 인포그래픽');
+    return limitInfographicAlt(description + getObjectParticle(description) + (detail ? ' 설명하는 구조 인포그래픽' : ' 보여주는 인포그래픽'));
+  };
+  if (isRauanGakjaeProduct(data)) {
+    const description = '라왕 각재의 라왕다루끼·후지·심재 옵션';
+    return detail ? describe(description, false) : describe(description, true);
+  }
+  if (name === 'CRC보드') return describe('CRC보드의 회백색 무기질 표면과 균일한 판재 단면');
+  if (/^LVL\s*합판각재$/i.test(name)) return describe('LVL 합판각재의 길이 방향 단판 적층 구조');
+  if (name === 'GS자이 천연 방수석고보드') return describe('GS자이 천연 방수석고보드의 방수 처리 원지 표면과 석고보드 구조');
+  if (name === '라디에타파인 계단재') return describe('라디에타파인 계단재의 밝은 원목 색감과 곧은 소나무 결, 집성판 구조');
+  if (name === '자나무(미장용)') return describe('자나무(미장용)의 목재 표면과 미장 작업용 판재 형태');
+  if (/^소송\s*각재\s*\(KD\)$/i.test(name)) return '소송 각재 (KD)의 사각 단면과 규격별 각재 형태를 보여주는 인포그래픽';
+  if (name === '뉴송 각재') return describe('뉴송 각재의 사각 단면과 목재 결이 보이는 각재 형태');
+  return '';
+}
+
 function hasTypeBAltPromptInstruction(value) {
   return /이미지\s*추천|표현해야|표현해야함|얇게\s*표현|두껍게\s*표현|극대화|(?:^|\s)[123]단(?:에서는|:)|가로\s*\/\s*세로|코어층\s*표현|라미네이팅[^.!?\n]{0,80}표현해야|생성(?:한다|하지)|배치(?:한다|하지)|확대뷰|라벨은|금지/.test(String(value || ''));
 }
@@ -613,6 +643,9 @@ function buildInfographicSemanticInfo(data, sectionTitle, imageIndex) {
   const type = cleanEntityValue(data && data.type);
   const index = Number(imageIndex) || 1;
   const knowledge = buildProductKnowledgeContext(data);
+
+  const specificAlt = getProductSpecificInfographicAlt(data, productName, index);
+  if (specificAlt) return { role: index > 1 ? 'detail' : 'overview', alt: specificAlt };
 
   if (knowledge.isGeneralImportedPlywood && knowledge.generalPlywood) {
     return index === 2
@@ -1368,6 +1401,14 @@ function buildAISummary(entity) {
   const dictionary = getHumanExpressionDictionary(entity.productGroup);
   const knowledge = entity.productKnowledge || {};
 
+  if (isRauanGakjaeProduct(entity)) {
+    return [
+      '라왕다루끼·후지·심재 중 필요한 단면 규격과 길이에 맞춰 선택합니다.',
+      '세 옵션은 상품에서 선택 가능한 규격·형태 구분입니다.',
+      '주문 전 옵션명, 단면 치수와 재단 여부를 함께 확인합니다.'
+    ];
+  }
+
   if (knowledge.gluedWood) {
     return buildGluedWoodAISummary(entity);
   }
@@ -1632,6 +1673,16 @@ function buildProductSpecificFAQItems(entity) {
   const productName = cleanEntityValue(entity && entity.productName);
   const compareTarget = cleanEntityValue(entity && entity.compareProduct);
   const knowledge = entity && entity.productKnowledge || {};
+  if (isRauanGakjaeProduct(entity)) {
+    return items(
+      '라왕다루끼·후지·심재는 어떻게 선택하나요?',
+      '세 옵션 중 필요한 단면 규격과 길이에 맞는 항목을 상품 옵션에서 선택합니다.',
+      '옵션별 성능 차이가 있나요?',
+      '현재 승인 데이터에는 옵션별 성능이나 우열 정보가 없으므로, 규격·형태 구분으로만 확인합니다.',
+      '주문 전에 무엇을 확인해야 하나요?',
+      '옵션명, 단면 치수, 길이와 재단 여부를 주문 조건에 맞춰 확인합니다.'
+    );
+  }
   function items(firstQuestion, firstAnswer, secondQuestion, secondAnswer, thirdQuestion, thirdAnswer) {
     return [
       { question: firstQuestion, answer: firstAnswer },
@@ -2185,6 +2236,10 @@ function buildSchemaHtml(data, defineText, faqItems) {
     const surfaceOptionText = gluedWoodFacts.surfaceOptions.map(function (option) { return option.title; }).join(' / ');
     if (surfaceOptionText) {
       additionalProperty.push({ '@type': 'PropertyValue', name: '표면 옵션', value: surfaceOptionText });
+    }
+    const jointOptionText = getGluedWoodJointOptionText(gluedWoodFacts);
+    if (jointOptionText) {
+      additionalProperty.push({ '@type': 'PropertyValue', name: '집성 방식 옵션', value: jointOptionText });
     }
   } else if (shouldDisplayGrade(data.grade)) {
     additionalProperty.push({
@@ -2819,6 +2874,16 @@ function hasOverlappingNoteTopic(notes, note) {
 function buildDefaultNotes(data) {
   const notes = [];
   const knowledge = buildProductKnowledgeContext(data);
+  if (isGsNaturalWaterResistantGypsumBoard(data)) {
+    return ['주문 전에는 습기가 많은 공간의 시공 위치와 마감 조건을 먼저 확인하는 것이 좋습니다.'];
+  }
+  if (isRauanGakjaeProduct(data)) {
+    return [
+      '• 라왕다루끼·후지·심재 중 필요한 옵션명을 먼저 정하세요.',
+      '• 단면 치수와 길이를 작업 기준에 맞춰 확인하세요.',
+      '• 재단이 필요하면 주문 조건에 함께 적어두세요.'
+    ];
+  }
   if (knowledge.gluedWood) {
     const facts = buildGluedWoodHtmlFacts(data);
     return buildGluedWoodPurchaseNotes(facts);
@@ -2923,6 +2988,32 @@ function setError(sheet, row, message) {
   }
 }
 
+function buildRauanGakjaeComparisonPrompt() {
+  return `
+추가 옵션 안내 — 라왕 각재:
+- 기존 각재 인포그래픽의 제품 설명, 사각 단면 형태, 규격·길이·건조 상태·재단 확인과 기존 선택 정보를 그대로 유지한다.
+- 기존 레이아웃 안에 라왕다루끼, 후지, 심재가 하나의 상품에서 선택 가능한 규격·형태 옵션임을 보조 정보로 추가한다.
+- 세 옵션은 기존 각재 제품 이미지와 함께 자연스럽게 배치하고 옵션 카드 3개만 나열한 비교 화면으로 만들지 않는다.
+- 각 카드에는 "라왕다루끼", "후지", "심재"만 정확히 표기한다.
+- 옵션별 성능, 강도, 내구성, 품질, 가격 우열이나 승인되지 않은 용도를 추가하지 않는다.
+- 단면 치수와 길이는 실제 입력값이 없는 한 숫자로 추정해 표기하지 않는다.
+- 옵션명·단면 치수·길이·재단 여부 확인은 기존 선택 정보와 중복하지 않게 한 번만 보조 안내한다.
+`;
+}
+
+function buildRubberwoodJointOptionComparisonPrompt() {
+  return `
+선택 가능한 집성 방식 추가 안내:
+- 기존 고무나무 집성판 Type C 인포그래픽의 색감·나뭇결·여러 원목 부재를 이어 만든 구조·상판과 측면 형태·기존 구매 확인 정보와 레이아웃을 그대로 유지한다.
+- 탑핑거와 사이드핑거가 실제 선택 가능한 집성 방식 옵션임을 기존 이미지의 보조 비교 정보로 추가하며, 연결부 비교 화면만 단독으로 구성하지 않는다.
+- 왼쪽 "탑핑거": 상판의 한 원목 부재 안에서만 짧은 핑거 연결 무늬가 보이게 한다. 전체 상판을 가로지르는 지퍼선·반복 치형은 금지한다.
+- 오른쪽 "사이드핑거": 긴 측면의 한 원목 부재 안에서만 짧은 핑거 연결 무늬가 보이게 한다. 판 두께 전체를 가르는 지퍼·사다리·바코드 형태는 금지한다.
+- 두 옵션 모두 기존 고무나무의 밝은 황갈색과 연한 베이지 계열 표면, 차분하고 고른 나뭇결을 유지한다.
+- "탑핑거", "사이드핑거"와 각 연결 무늬가 보이는 위치만 간결하게 표기한다.
+- 강도, 내구성, 가격, 품질, 성능 우열을 만들지 않는다.
+`;
+}
+
 function buildInfographicPrompt(data) {
   const knowledge = buildProductKnowledgeContext(data);
   const outputType = knowledge.productGroup === 'PLYWOOD' || (data.type === 'C' && knowledge.gluedWood) ? 'image' : '';
@@ -2940,7 +3031,8 @@ function buildInfographicPrompt(data) {
   if (data.type === 'A') prompt = buildTypeAPrompt(data);
   if (data.type === 'B') prompt = buildTypeBPrompt(data);
   if (data.type === 'C') prompt = buildTypeCPrompt(data);
-  return prompt ? prompt + buildGlobalImageReadabilityRule(false) + buildGeneratedContentRemedyGuard(outputType) : null;
+  const optionPrompt = isRauanGakjaeProduct(data) ? buildRauanGakjaeComparisonPrompt() : '';
+  return prompt ? prompt + optionPrompt + buildGlobalImageReadabilityRule(false) + buildGeneratedContentRemedyGuard(outputType) : null;
 }
 
 function isVerticalGeneralPlywoodInfographic(data) {
@@ -3537,6 +3629,29 @@ function resolveApprovedGluedWoodTypeCCopy(data) {
   return copy ? JSON.parse(JSON.stringify(copy)) : null;
 }
 
+function getApprovedGluedWoodJointOptions(approved) {
+  if (!approved || !Array.isArray(approved.jointOptions)) return [];
+  return approved.jointOptions.map(function (option) {
+    return {
+      title: cleanEntityValue(option && option.title),
+      jointType: cleanEntityValue(option && option.jointType),
+      caption: cleanEntityValue(option && option.caption)
+    };
+  }).filter(function (option) {
+    return option.title && option.jointType && option.caption;
+  });
+}
+
+function hasGluedWoodJointOptionComparison(facts) {
+  return Boolean(facts && facts.jointOptions && facts.jointOptions.length > 1);
+}
+
+function getGluedWoodJointOptionText(facts) {
+  return hasGluedWoodJointOptionComparison(facts)
+    ? facts.jointOptions.map(function (option) { return option.title; }).join('·')
+    : '';
+}
+
 function normalizeGluedWoodTypeCProductProfileKey(value) {
   return cleanEntityValue(value).toLowerCase().replace(/[‐‑–—]/g, '-').replace(/\s+/g, '');
 }
@@ -3809,6 +3924,7 @@ function buildGluedWoodHtmlFacts(data) {
     appearance: approved && approved.appearance ? approved.appearance : { color: profileSurface.slice(0, 1), grain: profileSurface.slice(1, 2), knots: [], texture: [], scent: [], workability: [] },
     researchNote: approved ? cleanEntityValue(approved.researchNote) : '',
     surfaceOptions: getApprovedGluedWoodSurfaceOptions(approved),
+    jointOptions: getApprovedGluedWoodJointOptions(approved),
     applications: resolvedApplications
   };
 }
@@ -3955,6 +4071,10 @@ function buildGluedWoodPurchaseNotes(facts) {
     ]
   };
   const notes = (notesByJoint[(facts && facts.jointType) || 'UNKNOWN'] || notesByJoint.UNKNOWN).slice();
+  const jointOptionText = getGluedWoodJointOptionText(facts);
+  if (jointOptionText) {
+    notes.splice(1, 0, '• ' + jointOptionText + ' 중 필요한 집성 방식을 상품 옵션에서 확인하세요.');
+  }
   if (optionText) {
     notes.splice(2, 0, '• ' + optionText + ' 중 노출면에 맞는 표면 옵션을 선택하세요.');
   }
@@ -4092,6 +4212,20 @@ function buildGluedWoodSpeciesFAQCandidates(facts) {
     candidates.push(candidate);
   }
 
+  if (hasGluedWoodJointOptionComparison(facts)) {
+    const options = facts.jointOptions;
+    addCandidate({
+      key: 'JOINT_OPTIONS',
+      question: (function () {
+        const titleText = options.map(function (option) { return option.title; }).join('·');
+        return titleText + getSubjectParticle(titleText) + ' 어떻게 다른가요?';
+      })(),
+      answer: ensureSentence(options.map(function (option, index) {
+        return option.title + getSubjectParticle(option.title) + ' ' + option.caption + (index === options.length - 1 ? '입니다' : '이고');
+      }).join(', '))
+    });
+  }
+
   const optionFAQ = buildGluedWoodSurfaceOptionFAQ(facts && facts.surfaceOptions);
   if (optionFAQ) addCandidate({ key: 'OPTIONS', question: optionFAQ.question, answer: optionFAQ.answer });
 
@@ -4189,6 +4323,9 @@ function buildGluedWoodConsultationFAQItems(facts, items) {
 
 function buildGluedWoodJointSentence(facts) {
   if (!facts) return '';
+  if (hasGluedWoodJointOptionComparison(facts)) {
+    return getGluedWoodJointOptionText(facts) + ' 옵션이 있으며, 연결 무늬가 보이는 위치를 기준으로 선택합니다.';
+  }
   if (facts.jointType === 'TOP_FINGER') return '상판에서 짧은 핑거 이음이 보이는 탑핑거 집성판입니다.';
   if (facts.jointType === 'SIDE_FINGER') return '측면의 한 원목 부재에서 핑거 이음이 보이는 사이드핑거 집성판입니다.';
   if (facts.jointType === 'SOLID') return '여러 원목을 나란히 이어 만든 솔리드 집성판입니다.';
@@ -4344,6 +4481,11 @@ function buildGluedWoodSurfaceSentence(facts, limit) {
 function buildGluedWoodInfographicAlt(data, imageIndex) {
   const facts = buildGluedWoodHtmlFacts(data);
   if (!facts) return '';
+  if (hasGluedWoodJointOptionComparison(facts)) {
+    return Number(imageIndex) > 1
+      ? '탑핑거와 사이드핑거의 연결 무늬 위치를 비교한 구조 인포그래픽'
+      : '밝은 고무나무 색감과 고른 나뭇결, 탑핑거·사이드핑거 집성 방식 옵션을 비교한 인포그래픽';
+  }
   const profile = getSelectionInfographicProfile(data);
   const ui = profile ? buildGluedWoodTypeCUIBlocks(data, profile) : null;
   const optionTitles = [].concat(ui ? ui.surfaceOptions || [] : facts.surfaceOptions || [], ui ? ui.knotOptionComparison || [] : [])
@@ -4383,6 +4525,8 @@ function buildGluedWoodSpecRowsHtml(data) {
   if (!facts) return '';
   const rows = [];
   if (facts.jointLabel) rows.push(`    <tr><th>집성 방식</th><td>${escapeHtml(facts.jointLabel)}</td></tr>`);
+  const jointOptionText = getGluedWoodJointOptionText(facts);
+  if (jointOptionText) rows.push(`    <tr><th>집성 방식 옵션</th><td>${escapeHtml(jointOptionText)}</td></tr>`);
   const optionText = facts.surfaceOptions.map(function (option) { return option.title; }).join(' / ');
   if (optionText) rows.push(`    <tr><th>표면 옵션</th><td>${escapeHtml(optionText)}</td></tr>`);
   return rows.join('\n');
@@ -5375,7 +5519,9 @@ function buildProductIntroductionFromKnowledge(data, fallback) {
     const purchaseFeatureAlreadyListsOptions = facts && facts.surfaceOptions && facts.surfaceOptions.length > 1 && facts.surfaceOptions.every(function (option) {
       return purchaseFeatureSentence.indexOf(cleanEntityValue(option && option.title)) !== -1;
     });
-    const jointSentence = facts && facts.jointTitle
+    const jointSentence = hasGluedWoodJointOptionComparison(facts)
+      ? getGluedWoodJointOptionText(facts) + ' 옵션이 있으며, 탑핑거는 상판에서, 사이드핑거는 측면에서 연결 무늬를 확인합니다.'
+      : facts && facts.jointTitle
       ? ensureSentence(facts.jointTitle + ' 방식으로 구성한 집성판입니다')
       : buildGluedWoodIntroductionDefinitionSentence(facts);
     const first = productName && speciesSentence
@@ -5387,6 +5533,12 @@ function buildProductIntroductionFromKnowledge(data, fallback) {
       purchaseFeatureAlreadyListsOptions ? '' : surfaceOptionSentence,
       jointSentence
     ].filter(Boolean).join('<br><br>'));
+  }
+  if (isRauanGakjaeProduct(data)) {
+    return cleanHumanWritingText('라왕 각재는 라왕다루끼·후지·심재 중 필요한 단면 규격과 길이에 맞춰 선택하는 목재 각재입니다.<br><br>세 옵션은 상품에서 선택 가능한 규격·형태 구분이며, 주문 전 옵션명과 단면 치수, 길이, 재단 여부를 함께 확인합니다.');
+  }
+  if (isGsNaturalWaterResistantGypsumBoard(data)) {
+    return '석고 코어에 방수제를 첨가하고 표면에 원지를 적용한 방수 석고보드입니다.';
   }
   if (knowledge.productGroup !== 'PLYWOOD') return cleanHumanWritingText(fallback);
 
@@ -6528,8 +6680,11 @@ ${typeBRepeatedHtmlBan}
 function buildTypeCPrompt(data) {
   const specialBoardPrompt = buildSpecialBoardInfographicPrompt(data, 'C');
   if (specialBoardPrompt) return specialBoardPrompt;
+  const optionPrompt = cleanEntityValue(data && data.productName) === '고무나무 집성판 탑핑거'
+    ? buildRubberwoodJointOptionComparisonPrompt()
+    : '';
   const selectionPrompt = buildSelectionInfographicPrompt(data, 'C');
-  if (selectionPrompt) return selectionPrompt;
+  if (selectionPrompt) return selectionPrompt + optionPrompt;
   const knowledge = buildProductKnowledgeContext(data);
   const typeCProductLabel = String(data && data.productName || '') + ' ' + String(data && data.category || '');
   const isGluedWoodTypeC = (
@@ -6612,7 +6767,7 @@ ${typeCThirdInstruction}
 - 영어 라벨 금지
 - 광고 배너 느낌 금지
 - 지정 색상 외 추가 금지
-  `;
+  ` + optionPrompt;
 }
 
 function buildHTMLPrompt(data) {
