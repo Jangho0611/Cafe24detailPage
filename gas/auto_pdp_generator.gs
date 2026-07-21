@@ -3369,8 +3369,11 @@ function resolveGluedWoodTypeCProductProfile(data) {
   if (typeof GLUED_WOOD_TYPE_C_PRODUCT_PROFILES === 'undefined') return null;
   const normalizedProductName = normalizeGluedWoodTypeCProductProfileKey(data && data.productName);
   if (!normalizedProductName) return null;
+  const optionBundleProductName = normalizedProductName.replace(/\([^)]*\/[^)]*\)/g, '');
   const matchedKey = Object.keys(GLUED_WOOD_TYPE_C_PRODUCT_PROFILES).find(function (key) {
     return normalizeGluedWoodTypeCProductProfileKey(key) === normalizedProductName;
+  }) || Object.keys(GLUED_WOOD_TYPE_C_PRODUCT_PROFILES).find(function (key) {
+    return normalizeGluedWoodTypeCProductProfileKey(key) === optionBundleProductName;
   });
   return matchedKey ? {
     key: matchedKey,
@@ -3782,7 +3785,122 @@ function buildGluedWoodPurchaseNotes(facts) {
   return notes.slice(0, 5);
 }
 
+function getGluedWoodSpeciesProfileFacts(facts) {
+  const profile = facts && facts.productProfile && facts.productProfile.profile || {};
+  const appearance = facts && facts.appearance || {};
+  const surface = (Array.isArray(profile.surface) && profile.surface.length > 0
+    ? profile.surface
+    : [].concat(facts && facts.heroCopy || [], appearance.grain || []))
+    .map(normalizeGluedWoodAppearanceFact)
+    .filter(Boolean);
+  const physical = (profile.physical || []).map(cleanEntityValue).filter(Boolean);
+  return {
+    surface: surface,
+    physical: physical,
+    purchaseFeature: cleanEntityValue(profile.purchaseFeature)
+  };
+}
+
+function buildGluedWoodSpeciesIntroductionSentence(facts) {
+  const speciesFacts = getGluedWoodSpeciesProfileFacts(facts);
+  const surface = speciesFacts.surface[0] || '';
+  const physical = speciesFacts.physical[0] || '';
+  if (surface && physical) {
+    const combined = /바탕$/.test(surface)
+      ? surface + '에 ' + physical + getNominativeParticle(physical) + ' 더해진'
+      : surface + getAndParticle(surface) + ' ' + physical + getNominativeParticle(physical) + ' 특징인';
+    return ensureSentence(combined + ' 원목입니다');
+  }
+  if (surface) return ensureSentence(surface + getNominativeParticle(surface) + ' 특징인 원목입니다');
+  if (physical) return ensureSentence(physical + getNominativeParticle(physical) + ' 특징인 원목입니다');
+  return '';
+}
+
+function buildGluedWoodSpeciesPurchaseFeatureSentence(facts) {
+  const feature = cleanEntityValue(facts && facts.productProfile && facts.productProfile.profile && facts.productProfile.profile.purchaseFeature);
+  if (!feature) return '';
+  const guidance = feature
+    .replace(/살펴보는\s*(?:원목|제품|소나무 집성판)입니다\.?$/, '확인합니다.')
+    .replace(/확인하는\s*(?:원목|제품)입니다\.?$/, '확인합니다.');
+  return /^선택할 때에는/.test(guidance) ? guidance : '선택할 때에는 ' + guidance;
+}
+
+function buildGluedWoodSpeciesPhysicalQuestion(physicalFact) {
+  if (/질감/.test(physicalFact)) return '목재 질감은 어떤 편인가요?';
+  if (/밀도/.test(physicalFact)) return '조직의 밀도감은 어떤 편인가요?';
+  if (/조직/.test(physicalFact)) return '조직은 어떤 편인가요?';
+  return '목재의 특징은 무엇인가요?';
+}
+
+function buildGluedWoodSpeciesPhysicalAnswer(physicalFact) {
+  if (physicalFact) return ensureSentence(physicalFact + getNominativeParticle(physicalFact) + ' 특징입니다');
+  return '';
+}
+
+function buildGluedWoodSurfaceOptionFAQ(options) {
+  const validOptions = (options || []).filter(function (option) {
+    return cleanEntityValue(option && option.title) && cleanEntityValue(option && option.caption);
+  });
+  if (validOptions.length < 2) return null;
+  const titles = validOptions.map(function (option) { return cleanEntityValue(option.title); });
+  const titleText = titles.length === 2
+    ? titles[0] + getAndParticle(titles[0]) + ' ' + titles[1]
+    : titles.join('·');
+  const answer = validOptions.map(function (option, index) {
+    const title = cleanEntityValue(option.title);
+    const caption = cleanEntityValue(option.caption).replace(/[.]$/, '');
+    return title + getSubjectParticle(title) + ' ' + caption + (index === validOptions.length - 1 ? '입니다' : index === validOptions.length - 2 ? '이고' : '이며');
+  }).join(', ');
+  return {
+    question: titleText + '은 어떻게 다른가요?',
+    answer: ensureSentence(answer)
+  };
+}
+
+function buildGluedWoodSurfaceOptionIntroductionSentence(options) {
+  const validOptions = (options || []).filter(function (option) {
+    return cleanEntityValue(option && option.title) && cleanEntityValue(option && option.caption);
+  });
+  if (validOptions.length < 2) return '';
+  const titles = validOptions.map(function (option) { return cleanEntityValue(option.title); });
+  const titleText = titles.length === 2
+    ? titles[0] + getAndParticle(titles[0]) + ' ' + titles[1]
+    : titles.join('·');
+  return titleText + ' 중 노출면에 맞는 표면 옵션을 선택할 수 있습니다.';
+}
+
+function buildGluedWoodSpeciesFAQItems(facts, items) {
+  const speciesFacts = getGluedWoodSpeciesProfileFacts(facts);
+  if (speciesFacts.surface.length === 0 && speciesFacts.physical.length === 0 && !speciesFacts.purchaseFeature) return null;
+  const optionFAQ = buildGluedWoodSurfaceOptionFAQ(facts && facts.surfaceOptions);
+  const faq = [];
+  const surfaceFact = speciesFacts.surface.filter(function (fact) { return !/(?:유절|무절|옵션)/.test(fact); })[1] ||
+    speciesFacts.surface.filter(function (fact) { return !/(?:유절|무절|옵션)/.test(fact); })[0] || '';
+  const physicalFact = speciesFacts.physical[1] || speciesFacts.physical[0];
+  if (surfaceFact) {
+    faq.push(surfaceFact + getSubjectParticle(surfaceFact) + ' 어떻게 보이나요?', surfaceFact + getNominativeParticle(surfaceFact) + ' 제품 표면에서 드러납니다.');
+  }
+  if (optionFAQ) {
+    faq.push(optionFAQ.question, optionFAQ.answer);
+  } else if (physicalFact) {
+    faq.push(buildGluedWoodSpeciesPhysicalQuestion(physicalFact), buildGluedWoodSpeciesPhysicalAnswer(physicalFact));
+  }
+  if (physicalFact && faq.length < 6 && optionFAQ) {
+    faq.push(buildGluedWoodSpeciesPhysicalQuestion(physicalFact), buildGluedWoodSpeciesPhysicalAnswer(physicalFact));
+  }
+  if (faq.length >= 6) return items.apply(null, faq.slice(0, 6));
+  if (faq.length === 4) {
+    return [
+      { question: cleanHumanWritingText(faq[0]), answer: cleanHumanWritingText(faq[1]) },
+      { question: cleanHumanWritingText(faq[2]), answer: cleanHumanWritingText(faq[3]) }
+    ];
+  }
+  return null;
+}
+
 function buildGluedWoodConsultationFAQItems(facts, items) {
+  const speciesFAQ = buildGluedWoodSpeciesFAQItems(facts, items);
+  if (speciesFAQ) return speciesFAQ;
   const hasKnotOptionComparison = getGluedWoodKnotOptionComparison(facts && facts.surfaceOptions).length === 2;
   const knotOptionAnswer = '유절은 옹이가 자연스럽게 드러나고, 무절은 눈에 띄는 옹이가 적어 비교적 정돈된 표면으로 구분합니다.';
   if (!facts) return items(
@@ -5019,13 +5137,23 @@ function buildProductIntroductionFromKnowledge(data, fallback) {
   if (knowledge.gluedWood) {
     const facts = buildGluedWoodHtmlFacts(data);
     const productName = cleanEntityValue(facts && facts.productName);
-    const definitionSentence = buildGluedWoodIntroductionDefinitionSentence(facts);
-    const first = productName && definitionSentence
-      ? productName + getSubjectParticle(productName) + ' ' + definitionSentence
-      : definitionSentence;
+    const speciesSentence = buildGluedWoodSpeciesIntroductionSentence(facts);
+    const purchaseFeatureSentence = buildGluedWoodSpeciesPurchaseFeatureSentence(facts);
+    const surfaceOptionSentence = buildGluedWoodSurfaceOptionIntroductionSentence(facts && facts.surfaceOptions);
+    const purchaseFeatureAlreadyListsOptions = facts && facts.surfaceOptions && facts.surfaceOptions.length > 1 && facts.surfaceOptions.every(function (option) {
+      return purchaseFeatureSentence.indexOf(cleanEntityValue(option && option.title)) !== -1;
+    });
+    const jointSentence = facts && facts.jointTitle
+      ? ensureSentence(facts.jointTitle + ' 방식으로 구성한 집성판입니다')
+      : buildGluedWoodIntroductionDefinitionSentence(facts);
+    const first = productName && speciesSentence
+      ? productName + getSubjectParticle(productName) + ' ' + speciesSentence
+      : speciesSentence || jointSentence;
     return cleanHumanWritingText([
       first,
-      buildGluedWoodIntroductionReasonSentence(facts)
+      purchaseFeatureSentence,
+      purchaseFeatureAlreadyListsOptions ? '' : surfaceOptionSentence,
+      jointSentence
     ].filter(Boolean).join('<br><br>'));
   }
   if (knowledge.productGroup !== 'PLYWOOD') return cleanHumanWritingText(fallback);
