@@ -432,30 +432,180 @@ function collectInfographicAltFacts(data, productName, values) {
   return facts;
 }
 
-function buildTypeAInfographicAlt(data, productName, imageIndex) {
-  const compareFact = collectInfographicAltFacts(data, productName, [data && data.compareTarget])[0] || '';
-  const featureFact = collectInfographicAltFacts(data, productName, [data && data.keyValue, data && data.emphasis, data && data.structure])[0] || '';
-  if (Number(imageIndex) > 1) {
-    if (featureFact) return { role: 'feature-detail', alt: limitInfographicAlt(featureFact + getObjectParticle(featureFact) + ' 보여주는 상세 인포그래픽') };
-    if (compareFact) return { role: 'comparison-detail', alt: limitInfographicAlt(compareFact + getObjectParticle(compareFact) + ' 비교한 상세 인포그래픽') };
-    return { role: 'detail', alt: '제품 특징을 보여주는 상세 인포그래픽' };
+function hasTypeAAltPromptInstruction(value) {
+  return /이미지\s*추천|표현해야|표현해야함|극대화|(?:^|\s)[123]단(?:에서는|:)|생성(?:한다|하지)|배치(?:한다|하지)|확대뷰|라벨은|금지/.test(String(value || ''));
+}
+
+function getTypeAProductLabel(productName) {
+  return cleanEntityValue(productName)
+    .replace(/\(\s*([^)]*\/[^)]*)\s*\)/g, function (_, grades) {
+      return ' ' + String(grades).split(/\s*,\s*/).join('·');
+    })
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+
+function getTypeASafeFeatureFact(data, productName) {
+  return [data && data.keyValue, data && data.emphasis, data && data.structure]
+    .map(function (value) { return cleanInfographicAltFact(value, productName); })
+    .find(function (fact) {
+      return fact && fact.length <= 90 && !hasTypeAAltPromptInstruction(fact) && isSafeInfographicAltFact(fact, data) &&
+        /표면|단면|적층|단판|등급|코팅|필름|섬유|결|무늬|질감|규격|내수/.test(fact);
+    }) || '';
+}
+
+function getTypeAComparisonTarget(data, productName) {
+  const source = cleanEntityValue(data && data.compareTarget);
+  if (!source || hasTypeAAltPromptInstruction(source)) return '';
+  if (/고밀도|\bHDF\b/i.test(source)) return '고밀도 제품';
+  if (/일반\s*합판/.test(source)) return '일반합판';
+  return '';
+}
+
+function buildTypeABirchAlt(productLabel, data, imageIndex) {
+  const grades = extractPlywoodSurfaceGrades(productLabel);
+  const normalizedLabel = grades.length > 1
+    ? '자작합판 ' + grades.filter(function (grade, index, values) { return values.indexOf(grade) === index; }).join('·')
+    : productLabel;
+  const description = normalizedLabel + '의 앞면과 뒷면 표면 등급 차이';
+  return {
+    role: Number(imageIndex) > 1 ? 'surface-grade-detail' : 'surface-grade',
+    alt: limitInfographicAlt(description + (Number(imageIndex) > 1 ? '를 설명하는 구조 인포그래픽' : '를 비교한 인포그래픽'))
+  };
+}
+
+function buildTypeAInfographicAlt(data, productName, imageIndex, knowledge) {
+  const productLabel = getTypeAProductLabel(productName) || '제품';
+  const featureFact = getTypeASafeFeatureFact(data, productName);
+  const comparisonTarget = getTypeAComparisonTarget(data, productName);
+  const isBirch = Boolean(knowledge && knowledge.isBirchPlywood);
+
+  if (isUvCoatedBirchFinishCompare(data)) {
+    const description = productLabel + '의 상도와 하도 마감 차이';
+    return {
+      role: Number(imageIndex) > 1 ? 'finish-detail' : 'finish-comparison',
+      alt: limitInfographicAlt(description + (Number(imageIndex) > 1 ? '를 설명하는 구조 인포그래픽' : '를 비교한 인포그래픽'))
+    };
   }
-  if (compareFact) return { role: 'comparison', alt: limitInfographicAlt(compareFact + getObjectParticle(compareFact) + ' 비교한 인포그래픽') };
-  if (featureFact) return { role: 'feature', alt: limitInfographicAlt(featureFact + getObjectParticle(featureFact) + ' 보여주는 인포그래픽') };
-  return { role: 'overview', alt: '제품 특징을 설명하는 인포그래픽' };
+  if (isBirch) return buildTypeABirchAlt(productLabel, data, imageIndex);
+  if (comparisonTarget) {
+    const description = productLabel + getAndParticle(productLabel) + ' ' + comparisonTarget + '의 특성';
+    return {
+      role: Number(imageIndex) > 1 ? 'comparison-detail' : 'comparison',
+      alt: limitInfographicAlt(description + (Number(imageIndex) > 1 ? '을 설명하는 구조 인포그래픽' : '을 비교한 인포그래픽'))
+    };
+  }
+  if (/내수/.test(productLabel)) {
+    const description = productLabel + '의 규격과 내수 기준';
+    return {
+      role: Number(imageIndex) > 1 ? 'detail' : 'overview',
+      alt: limitInfographicAlt(description + (Number(imageIndex) > 1 ? '을 설명하는 구조 인포그래픽' : '을 설명하는 인포그래픽'))
+    };
+  }
+  if (featureFact) {
+    const description = productLabel + '의 ' + featureFact;
+    return {
+      role: Number(imageIndex) > 1 ? 'feature-detail' : 'feature',
+      alt: limitInfographicAlt(description + getObjectParticle(description) + (Number(imageIndex) > 1 ? ' 설명하는 구조 인포그래픽' : ' 보여주는 인포그래픽'))
+    };
+  }
+  return {
+    role: Number(imageIndex) > 1 ? 'detail' : 'overview',
+    alt: limitInfographicAlt(productLabel + '의 구조를 설명하는 인포그래픽')
+  };
+}
+
+function hasTypeBAltPromptInstruction(value) {
+  return /이미지\s*추천|표현해야|표현해야함|얇게\s*표현|두껍게\s*표현|극대화|(?:^|\s)[123]단(?:에서는|:)|가로\s*\/\s*세로|코어층\s*표현|라미네이팅[^.!?\n]{0,80}표현해야|생성(?:한다|하지)|배치(?:한다|하지)|확대뷰|라벨은|금지/.test(String(value || ''));
+}
+
+function getTypeBSafeAltFact(value, data, productName) {
+  const fact = cleanInfographicAltFact(value, productName);
+  if (!fact || fact.length > 100 || hasTypeBAltPromptInstruction(fact)) return '';
+  if (!isSafeInfographicAltFact(fact, data)) return '';
+  return /표면|나뭇결|결|무늬|단면|적층|단판|필름|코팅|브러싱|엠보|곡면|유연|휘어|접합|구조|방향/.test(fact) ? fact : '';
+}
+
+function buildTypeBAltVisualFacts(data, knowledge, productName) {
+  const sourceText = [data && data.productName, data && data.keyValue, data && data.emphasis, data && data.structure, data && data.compareTarget]
+    .map(function (value) { return cleanEntityValue(value); })
+    .join(' ');
+  const facts = [];
+  const add = function (fact) {
+    if (fact && facts.indexOf(fact) === -1) facts.push(fact);
+  };
+
+  if (/오징어합판|아로합판|곡면\s*시공|유연한\s*구조/.test(sourceText)) {
+    add('단판 배열과 곡면 시공이 가능한 유연한 구조');
+  }
+  if (/낙엽송[^\n]{0,40}(?:엠보|브러싱)|(?:엠보|브러싱)[^\n]{0,40}낙엽송/.test(sourceText)) {
+    add('브러싱 표면과 입체적인 나뭇결');
+  }
+  if (/백색[^\n]{0,40}(?:코팅|필름)|(?:코팅|필름)[^\n]{0,40}백색|(?:포리|polyester)\s*(?:필름|코팅)|라미네이팅/.test(sourceText)) {
+    add('백색 필름 표면');
+  }
+
+  const structure = getProductKnowledgeStructure(data, knowledge);
+  const safeStructure = getTypeBSafeAltFact(structure, data, productName);
+  if (safeStructure) add(safeStructure);
+
+  [data && data.keyValue, data && data.emphasis, data && data.compareTarget, data && data.structure].forEach(function (value) {
+    const fact = getTypeBSafeAltFact(value, data, productName);
+    if (fact) add(fact);
+  });
+  return facts.slice(0, 2);
+}
+
+function getTypeBAltLead(sourceText) {
+  if (/오징어합판|아로합판/.test(sourceText)) return '오징어합판의 ';
+  if (/낙엽송[^\n]{0,40}(?:엠보|브러싱)|(?:엠보|브러싱)[^\n]{0,40}낙엽송/.test(sourceText)) return '낙엽송 엠보합판의 ';
+  if (/백색[^\n]{0,40}(?:코팅|필름)|(?:코팅|필름)[^\n]{0,40}백색/.test(sourceText)) return '백색 코팅합판의 ';
+  return '';
 }
 
 function buildTypeBInfographicAlt(data, knowledge, productName, imageIndex) {
-  const structureFact = collectInfographicAltFacts(data, productName, [data && data.structure, getProductKnowledgeStructure(data, knowledge)])[0] || '';
-  const compareFact = collectInfographicAltFacts(data, productName, [data && data.compareTarget, data && data.keyValue, data && data.emphasis])[0] || '';
+  const sourceText = [data && data.productName, data && data.keyValue, data && data.emphasis, data && data.structure, data && data.compareTarget]
+    .map(function (value) { return cleanEntityValue(value); })
+    .join(' ');
+  const facts = buildTypeBAltVisualFacts(data, knowledge, productName);
+  const lead = getTypeBAltLead(sourceText);
+  const primaryFact = facts[0] || '제품 구조';
+  const secondaryFact = facts[1] || '';
+
   if (Number(imageIndex) > 1) {
-    if (compareFact) return { role: 'comparison-detail', alt: limitInfographicAlt(compareFact + getObjectParticle(compareFact) + ' 비교한 인포그래픽') };
-    if (structureFact) return { role: 'structure-detail', alt: limitInfographicAlt(structureFact + getObjectParticle(structureFact) + ' 보여주는 구조 인포그래픽') };
-    return { role: 'detail', alt: '제품 특징을 비교한 인포그래픽' };
+    if (secondaryFact) return { role: 'structure-detail', alt: limitInfographicAlt(secondaryFact + getObjectParticle(secondaryFact) + ' 설명하는 구조 인포그래픽') };
+    return { role: 'structure-detail', alt: limitInfographicAlt(lead + primaryFact + getObjectParticle(primaryFact) + ' 설명하는 구조 인포그래픽') };
   }
-  if (structureFact) return { role: 'structure', alt: limitInfographicAlt(structureFact + getObjectParticle(structureFact) + ' 설명하는 구조 인포그래픽') };
-  if (compareFact) return { role: 'comparison', alt: limitInfographicAlt(compareFact + getObjectParticle(compareFact) + ' 보여주는 비교 인포그래픽') };
-  return { role: 'overview', alt: '제품 구조와 특징을 설명하는 인포그래픽' };
+  if (lead) return { role: 'feature', alt: limitInfographicAlt(lead + primaryFact + getObjectParticle(primaryFact) + ' 보여주는 인포그래픽') };
+  if (secondaryFact) return { role: 'feature', alt: limitInfographicAlt(primaryFact + getAndParticle(primaryFact) + ' ' + secondaryFact + getObjectParticle(secondaryFact) + ' 보여주는 인포그래픽') };
+  return { role: 'structure', alt: limitInfographicAlt(lead + primaryFact + getObjectParticle(primaryFact) + ' 보여주는 인포그래픽') };
+}
+
+function getNonGluedTypeCSurfaceFact(data, productName) {
+  const sourceText = [data && data.productName, data && data.keyValue, data && data.emphasis, data && data.grade, data && data.structure]
+    .map(function (value) { return cleanEntityValue(value); })
+    .join(' ');
+  if (/오징어합판|아로합판|곡면\s*시공|유연한\s*구조/.test(sourceText)) return '단판 배열과 곡면 시공이 가능한 유연한 구조';
+  if (/엠보|브러싱/.test(sourceText)) return '브러싱 표면과 입체적인 나뭇결';
+  if (/양면무절/.test(sourceText)) return '깨끗한 무절 표면과 밝은 나뭇결';
+  if (/무절/.test(sourceText)) return '깨끗한 무절 표면과 자연스러운 나뭇결';
+  if (/(?:유절|옹이)/.test(sourceText)) return '자연스러운 나뭇결과 옹이가 드러나는 표면 질감';
+
+  const fact = [data && data.keyValue, data && data.emphasis, data && data.grade]
+    .map(function (value) { return cleanInfographicAltFact(value, productName); })
+    .find(function (value) {
+      return value && value.length <= 90 && isSafeInfographicAltFact(value, data) && /표면|나뭇결|결\b|무늬|질감|색감|색상|코팅|광택|브러싱|엠보/.test(value);
+    }) || '';
+  return fact;
+}
+
+function buildNonGluedTypeCInfographicAlt(data, productName, imageIndex) {
+  const surfaceFact = getNonGluedTypeCSurfaceFact(data, productName) || '표면 특징';
+  const lead = productName + '의 ';
+  if (Number(imageIndex) > 1) {
+    return limitInfographicAlt(lead + surfaceFact + getObjectParticle(surfaceFact) + ' 설명하는 인포그래픽');
+  }
+  return limitInfographicAlt(lead + surfaceFact + getObjectParticle(surfaceFact) + ' 보여주는 인포그래픽');
 }
 
 function buildInfographicSemanticInfo(data, sectionTitle, imageIndex) {
@@ -470,7 +620,7 @@ function buildInfographicSemanticInfo(data, sectionTitle, imageIndex) {
       : { role: 'overview', alt: '일반합판의 적층 구조와 고급합판·콤비·알비자·MLH 구성을 보여주는 인포그래픽' };
   }
 
-  if (type === 'A') return buildTypeAInfographicAlt(data, productName, index);
+  if (type === 'A') return buildTypeAInfographicAlt(data, productName, index, knowledge);
 
   if (type === 'B') return buildTypeBInfographicAlt(data, knowledge, productName, index);
 
@@ -479,29 +629,10 @@ function buildInfographicSemanticInfo(data, sectionTitle, imageIndex) {
     if (gluedWoodFacts) {
       return { role: index > 1 ? 'structure-detail' : 'surface', alt: buildGluedWoodInfographicAlt(data, index) };
     }
-    const surfaceEvidence = [data && data.keyValue, data && data.emphasis, data && data.grade]
-      .map(function (value) { return cleanInfographicAltFact(value, productName); })
-      .find(function (value) {
-        return isSafeInfographicAltFact(value, data) && /표면|나뭇결|결\b|무늬|질감|옹이|유절|무절|색감|색상|코팅|광택/.test(value);
-      }) || '';
-    const gluedWood = knowledge.gluedWood;
-    const speciesAppearance = gluedWood && gluedWood.species && gluedWood.species.appearance
-      ? cleanInfographicAltFact(gluedWood.species.appearance, productName)
-      : '';
-    const jointType = gluedWood ? resolveGluedWoodJointTypeFromProductName(data) : 'UNKNOWN';
-    const jointTitle = jointType !== 'UNKNOWN' && GLUED_WOOD_JOINT_TYPE_KNOWLEDGE[jointType]
-      ? GLUED_WOOD_JOINT_TYPE_KNOWLEDGE[jointType].title
-      : '';
-    const surfaceFact = surfaceEvidence || speciesAppearance;
-    if (surfaceFact && jointTitle) {
-      return { role: index > 1 ? 'structure-detail' : 'surface', alt: limitInfographicAlt(surfaceFact + getAndParticle(surfaceFact) + ' ' + jointTitle + getObjectParticle(jointTitle) + ' 보여주는 인포그래픽') };
-    }
-    if (surfaceFact) {
-      return { role: index > 1 ? 'surface-detail' : 'surface', alt: limitInfographicAlt(surfaceFact + getObjectParticle(surfaceFact) + ' 보여주는 인포그래픽') };
-    }
-    if (jointTitle) {
-      return { role: index > 1 ? 'structure-detail' : 'surface', alt: limitInfographicAlt(jointTitle + getAndParticle(jointTitle) + ' 구조를 보여주는 인포그래픽') };
-    }
+    return {
+      role: index > 1 ? 'surface-detail' : 'surface',
+      alt: buildNonGluedTypeCInfographicAlt(data, productName, index)
+    };
   }
 
   return index > 1
@@ -2509,10 +2640,35 @@ function getUseParticle(text) {
   return ((lastChar - 0xAC00) % 28) === 0 ? '로' : '으로';
 }
 
+function buildNonGluedTypeCEmphasisNote(cleanEmphasis, data) {
+  if (!cleanEmphasis || cleanEntityValue(data && data.type) !== 'C') return '';
+  const knowledge = buildProductKnowledgeContext(data);
+  if (knowledge.gluedWood) return '';
+  const sourceText = [data && data.category, data && data.productName, cleanEmphasis]
+    .map(function (value) { return cleanEntityValue(value); })
+    .join(' ');
+
+  if (/오징어합판|아로합판|곡면|라운드/.test(sourceText)) {
+    return '주문 전에는 필요한 곡률과 시공 방향을 먼저 확인하는 것이 좋습니다.';
+  }
+  if (/백색[^\n]{0,40}(?:코팅|면)|(?:코팅|시트지)[^\n]{0,40}백색/.test(sourceText)) {
+    return '주문 전에는 백색 코팅면의 상태와 사용 방향을 먼저 확인하는 것이 좋습니다.';
+  }
+  if (/미송합판|내추럴|빈티지|목재\s*본연|분위기|연출/.test(sourceText)) {
+    return '주문 전에는 원하는 목재 분위기에 맞는 표면 상태를 먼저 확인하는 것이 좋습니다.';
+  }
+  if (/표면|옹이|무절|유절|나뭇결|결\b|재단/.test(sourceText)) {
+    return '주문 전에는 표면 상태와 재단면을 먼저 확인하는 것이 좋습니다.';
+  }
+  return '';
+}
+
 function buildEmphasisNote(cleanEmphasis, data) {
   if (!cleanEmphasis) return '';
   const label = String(data && data.category || '') + ' ' + String(data && data.productName || '');
   const rawEmphasis = String(data && data.emphasis || '');
+  const nonGluedTypeCNote = buildNonGluedTypeCEmphasisNote(cleanEmphasis, data);
+  if (nonGluedTypeCNote) return nonGluedTypeCNote;
   if (label.indexOf('석고') !== -1 && cleanEmphasis.indexOf('재단') !== -1) {
     return '석고보드는 절단면이 깨지지 않도록 칼선과 지지 상태를 먼저 보는 것이 좋습니다.';
   }
