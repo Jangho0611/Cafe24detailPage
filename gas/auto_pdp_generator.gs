@@ -422,38 +422,57 @@ function isSafeInfographicAltFact(value, data) {
   return !needsSource || cleanEntityValue(data && data.source) !== '';
 }
 
+function collectInfographicAltFacts(data, productName, values) {
+  const facts = [];
+  (values || []).forEach(function (value) {
+    const fact = cleanInfographicAltFact(value, productName);
+    if (!fact || !isSafeInfographicAltFact(fact, data) || facts.indexOf(fact) !== -1) return;
+    facts.push(fact);
+  });
+  return facts;
+}
+
+function buildTypeAInfographicAlt(data, productName, imageIndex) {
+  const compareFact = collectInfographicAltFacts(data, productName, [data && data.compareTarget])[0] || '';
+  const featureFact = collectInfographicAltFacts(data, productName, [data && data.keyValue, data && data.emphasis, data && data.structure])[0] || '';
+  if (Number(imageIndex) > 1) {
+    if (featureFact) return { role: 'feature-detail', alt: limitInfographicAlt(featureFact + getObjectParticle(featureFact) + ' 보여주는 상세 인포그래픽') };
+    if (compareFact) return { role: 'comparison-detail', alt: limitInfographicAlt(compareFact + getObjectParticle(compareFact) + ' 비교한 상세 인포그래픽') };
+    return { role: 'detail', alt: '제품 특징을 보여주는 상세 인포그래픽' };
+  }
+  if (compareFact) return { role: 'comparison', alt: limitInfographicAlt(compareFact + getObjectParticle(compareFact) + ' 비교한 인포그래픽') };
+  if (featureFact) return { role: 'feature', alt: limitInfographicAlt(featureFact + getObjectParticle(featureFact) + ' 보여주는 인포그래픽') };
+  return { role: 'overview', alt: '제품 특징을 설명하는 인포그래픽' };
+}
+
+function buildTypeBInfographicAlt(data, knowledge, productName, imageIndex) {
+  const structureFact = collectInfographicAltFacts(data, productName, [data && data.structure, getProductKnowledgeStructure(data, knowledge)])[0] || '';
+  const compareFact = collectInfographicAltFacts(data, productName, [data && data.compareTarget, data && data.keyValue, data && data.emphasis])[0] || '';
+  if (Number(imageIndex) > 1) {
+    if (compareFact) return { role: 'comparison-detail', alt: limitInfographicAlt(compareFact + getObjectParticle(compareFact) + ' 비교한 인포그래픽') };
+    if (structureFact) return { role: 'structure-detail', alt: limitInfographicAlt(structureFact + getObjectParticle(structureFact) + ' 보여주는 구조 인포그래픽') };
+    return { role: 'detail', alt: '제품 특징을 비교한 인포그래픽' };
+  }
+  if (structureFact) return { role: 'structure', alt: limitInfographicAlt(structureFact + getObjectParticle(structureFact) + ' 설명하는 구조 인포그래픽') };
+  if (compareFact) return { role: 'comparison', alt: limitInfographicAlt(compareFact + getObjectParticle(compareFact) + ' 보여주는 비교 인포그래픽') };
+  return { role: 'overview', alt: '제품 구조와 특징을 설명하는 인포그래픽' };
+}
+
 function buildInfographicSemanticInfo(data, sectionTitle, imageIndex) {
   const productName = cleanEntityValue(data && data.productName) || '제품';
   const type = cleanEntityValue(data && data.type);
   const index = Number(imageIndex) || 1;
   const knowledge = buildProductKnowledgeContext(data);
-  const finish = function (role, alt) {
-    const distinctAlt = index > 1 ? alt + ' 추가 안내' : alt;
-    return { role: role, alt: limitInfographicAlt(distinctAlt) };
-  };
 
   if (knowledge.isGeneralImportedPlywood && knowledge.generalPlywood) {
     return index === 2
-      ? { role: 'guide', alt: '일반합판의 원산지별 상태와 표면·측면·재단면 확인 안내' }
-      : { role: 'overview', alt: '일반합판의 구조와 고급합판·콤비·알비자·MLH 구성 안내' };
+      ? { role: 'guide', alt: '일반합판의 원산지별 특징과 표면·측면·재단면을 비교한 인포그래픽' }
+      : { role: 'overview', alt: '일반합판의 적층 구조와 고급합판·콤비·알비자·MLH 구성을 보여주는 인포그래픽' };
   }
 
-  if (type === 'A') {
-    const compareTarget = cleanInfographicAltFact(data && data.compareTarget, productName);
-    if (compareTarget && isSafeInfographicAltFact(compareTarget, data)) {
-      return finish('comparison', productName + '의 ' + compareTarget + ' 차이를 보여주는 비교 이미지');
-    }
-  }
+  if (type === 'A') return buildTypeAInfographicAlt(data, productName, index);
 
-  if (type === 'B') {
-    const structure = cleanInfographicAltFact(
-      cleanEntityValue(data && data.structure) || getProductKnowledgeStructure(data, knowledge),
-      productName
-    );
-    if (structure && isSafeInfographicAltFact(structure, data)) {
-      return finish('structure', productName + '의 ' + structure + getObjectParticle(structure) + ' 보여주는 구조 이미지');
-    }
-  }
+  if (type === 'B') return buildTypeBInfographicAlt(data, knowledge, productName, index);
 
   if (type === 'C') {
     const gluedWoodFacts = buildGluedWoodHtmlFacts(data);
@@ -475,18 +494,19 @@ function buildInfographicSemanticInfo(data, sectionTitle, imageIndex) {
       : '';
     const surfaceFact = surfaceEvidence || speciesAppearance;
     if (surfaceFact && jointTitle) {
-      return finish('surface', productName + '의 ' + surfaceFact + getAndParticle(surfaceFact) + ' ' + jointTitle + getObjectParticle(jointTitle) + ' 보여주는 표면 이미지');
+      return { role: index > 1 ? 'structure-detail' : 'surface', alt: limitInfographicAlt(surfaceFact + getAndParticle(surfaceFact) + ' ' + jointTitle + getObjectParticle(jointTitle) + ' 보여주는 인포그래픽') };
     }
     if (surfaceFact) {
-      return finish('surface', productName + '의 ' + surfaceFact + getObjectParticle(surfaceFact) + ' 보여주는 표면 이미지');
+      return { role: index > 1 ? 'surface-detail' : 'surface', alt: limitInfographicAlt(surfaceFact + getObjectParticle(surfaceFact) + ' 보여주는 인포그래픽') };
     }
     if (jointTitle) {
-      return finish('surface', productName + '의 ' + jointTitle + getAndParticle(jointTitle) + ' 표면 상태를 보여주는 이미지');
+      return { role: index > 1 ? 'structure-detail' : 'surface', alt: limitInfographicAlt(jointTitle + getAndParticle(jointTitle) + ' 구조를 보여주는 인포그래픽') };
     }
   }
 
-  const fallbackAlt = productName + ' 제품 정보 이미지';
-  return finish('fallback', fallbackAlt);
+  return index > 1
+    ? { role: 'detail', alt: '제품 특징을 보여주는 상세 인포그래픽' }
+    : { role: 'overview', alt: '제품 특징을 설명하는 인포그래픽' };
 }
 
 function buildInfographicHtml(data, sectionTitle, withVersion) {
@@ -4181,7 +4201,7 @@ function buildGluedWoodInfographicAlt(data, imageIndex) {
     .slice(0, 2);
   const jointTitle = cleanEntityValue(ui && ui.joint && ui.joint.title || facts.jointTitle);
   if (Number(imageIndex) > 1) {
-    return limitInfographicAlt((jointTitle ? jointTitle + '의 접합부 위치와 형태를 설명하는' : '집성 구조를 설명하는') + ' 구조 보조 인포그래픽');
+    return limitInfographicAlt((jointTitle ? jointTitle + '의 접합부 위치를 설명하는' : '집성 구조를 설명하는') + ' 구조 인포그래픽');
   }
   const surfaceText = surfaceFacts.join('과 ');
   const optionText = uniqueOptionTitles.length > 0 ? uniqueOptionTitles.join('·') + ' 표면 옵션' : '';
