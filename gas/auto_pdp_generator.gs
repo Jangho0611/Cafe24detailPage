@@ -231,7 +231,7 @@ ${aiSummaryHtml}
   <div class="ds-define">${content.define}</div>
   <div class="ds-block-title">규격 정보</div>
   <table class="ds-spec-table">
-    <tr><th>규격</th><td>${data.size}</td></tr>
+    <tr><th>규격</th><td>${escapeHtml(getProductSizeDisplayText(data))}</td></tr>
     <tr><th>두께옵션</th><td>${data.thickness}</td></tr>
 ${gradeRowHtml}
 ${gluedWoodSpecRows}
@@ -520,6 +520,13 @@ function isRauanGakjaeProduct(data) {
   return cleanEntityValue(data && data.productName).replace(/\s+/g, '') === '라왕각재';
 }
 
+function getProductSizeDisplayText(data) {
+  if (isRauanGakjaeProduct(data) && Object.keys(parseGakjaeOptionSpecs(data)).length > 1) {
+    return '상품 옵션별 상이';
+  }
+  return cleanEntityValue(data && data.size);
+}
+
 function isGsNaturalWaterResistantGypsumBoard(data) {
   return cleanEntityValue(data && data.productName) === 'GS자이 천연 방수석고보드';
 }
@@ -535,6 +542,9 @@ function getProductSpecificInfographicAlt(data, productName, imageIndex) {
     const description = '라왕 각재의 라왕다루끼·후지·심재 옵션';
     return detail ? describe(description, false) : describe(description, true);
   }
+  if (name === 'GS자이 천연 일반석고보드') return 'GS자이 천연 일반석고보드의 원지 표면과 석고 코어 구조를 보여주는 인포그래픽';
+  if (name === '프리미엄 단열재 PF보드') return '프리미엄 단열재 PF보드의 면재와 페놀수지 발포층 구조를 보여주는 인포그래픽';
+  if (name === '단열재 아이소핑크') return '단열재 아이소핑크의 독립기포 구조와 압출법(XPS) 단열재 단면을 보여주는 인포그래픽';
   if (name === 'CRC보드') return describe('CRC보드의 회백색 무기질 표면과 균일한 판재 단면');
   if (/^LVL\s*합판각재$/i.test(name)) return describe('LVL 합판각재의 길이 방향 단판 적층 구조');
   if (name === 'GS자이 천연 방수석고보드') return describe('GS자이 천연 방수석고보드의 방수 처리 원지 표면과 석고보드 구조');
@@ -1677,8 +1687,8 @@ function buildProductSpecificFAQItems(entity) {
     return items(
       '라왕다루끼·후지·심재는 어떻게 선택하나요?',
       '세 옵션 중 필요한 단면 규격과 길이에 맞는 항목을 상품 옵션에서 선택합니다.',
-      '옵션별 성능 차이가 있나요?',
-      '현재 승인 데이터에는 옵션별 성능이나 우열 정보가 없으므로, 규격·형태 구분으로만 확인합니다.',
+      '후지와 심재는 어떻게 구분하나요?',
+      '후지와 심재는 상품 옵션에 표시된 규격과 형태를 확인해 필요한 항목을 선택합니다.',
       '주문 전에 무엇을 확인해야 하나요?',
       '옵션명, 단면 치수, 길이와 재단 여부를 주문 조건에 맞춰 확인합니다.'
     );
@@ -2994,20 +3004,56 @@ const GAKJAE_OPTION_ENTITIES = Object.freeze({
   '심재': { label: '심재', description: '문틀·문짝 내부 코어용' }
 });
 
+const GAKJAE_COMPARISON_FACTS = Object.freeze({
+  '소송 각재|라왕 각재': {
+    leftTitle: '소송 각재',
+    leftBullets: ['밝은 색상', '결이 곧고 균일한 편', '가벼운 조직'],
+    rightTitle: '라왕 각재',
+    rightBullets: ['적갈색 계열', '무늬가 비교적 선명함', '조직이 치밀한 편']
+  }
+});
+
+function getGakjaeComparisonFacts(data) {
+  const target = cleanEntityValue(data && data.compareTarget);
+  const productName = cleanEntityValue(data && data.productName);
+  return GAKJAE_COMPARISON_FACTS[target + '|' + productName] || null;
+}
+
+function parseGakjaeOptionSpecs(data) {
+  const sizeText = cleanEntityValue(data && data.size);
+  if (sizeText.indexOf(';') === -1) return {};
+  return sizeText.split(';').reduce(function (specs, item) {
+    const separatorIndex = item.indexOf(':');
+    if (separatorIndex <= 0) return specs;
+    const optionName = item.slice(0, separatorIndex).trim();
+    const spec = item.slice(separatorIndex + 1).trim();
+    if (optionName && spec) specs[optionName] = spec;
+    return specs;
+  }, {});
+}
+
 function getGakjaeOptionEntities(data) {
   const optionText = [data && data.thickness, data && data.size, data && data.productName]
     .map(cleanEntityValue)
     .join(' ');
+  const optionSpecs = parseGakjaeOptionSpecs(data);
   return Object.keys(GAKJAE_OPTION_ENTITIES)
     .filter(function (key) { return optionText.indexOf(key) !== -1; })
-    .map(function (key) { return GAKJAE_OPTION_ENTITIES[key]; });
+    .map(function (key) {
+      const entity = GAKJAE_OPTION_ENTITIES[key];
+      return {
+        label: entity.label,
+        description: entity.description,
+        spec: optionSpecs[key] || ''
+      };
+    });
 }
 
 function buildGakjaeOptionPrompt(data) {
   const options = getGakjaeOptionEntities(data);
   if (!options.length) return '';
   const optionLines = options.map(function (option) {
-    return '- ' + option.label + ': ' + option.description;
+    return '- ' + option.label + ': ' + (option.spec || option.description);
   }).join('\n');
   return `
 추가 선택 옵션 — 실제 시트 옵션명에 맞는 항목만 표시:
@@ -3032,28 +3078,27 @@ function buildGakjaeSlimInfographicPrompt(data) {
   const category = cleanEntityValue(data && data.category) || '각재/목재';
   const keyValue = cleanEntityValue(data && data.keyValue);
   const structure = cleanEntityValue(data && data.structure);
-  const emphasis = cleanEntityValue(data && data.emphasis);
   const compareTarget = cleanEntityValue(data && data.compareTarget);
   const size = cleanEntityValue(data && data.size);
   const thickness = cleanEntityValue(data && data.thickness);
-  const grade = cleanEntityValue(data && data.grade);
-  const maker = cleanEntityValue(data && data.maker);
-  const source = cleanEntityValue(data && data.source);
-  const uses = [data && data.use1, data && data.use2].map(cleanEntityValue).filter(Boolean);
   const factLines = [
     '- 상품명: "' + productName + '"',
     '- 카테고리: "' + category + '"',
     keyValue ? '- 시트 핵심표현: ' + keyValue : '',
     structure ? '- 시트 구조 설명: ' + structure : '',
-    emphasis ? '- 시트 강조 포인트: ' + emphasis : '',
     thickness ? '- 시트 옵션 또는 규격 정보: ' + thickness : '',
-    size ? '- 시트 규격 정보: ' + size : '',
-    grade ? '- 시트 등급 정보: ' + grade : '',
-    maker ? '- 시트 제조·원산 정보: ' + maker : '',
-    source ? '- 시트 근거 출처: ' + source : '',
-    uses.length ? '- 시트 등록 활용 정보: ' + uses.join(' / ') : ''
+    size ? '- 시트 규격 정보: ' + size : ''
   ].filter(Boolean).join('\n');
-  const comparisonLine = compareTarget
+  const comparisonFacts = getGakjaeComparisonFacts(data);
+  const comparisonLine = comparisonFacts
+    ? `- 좌측에는 "${comparisonFacts.leftTitle}", 우측에는 "${comparisonFacts.rightTitle}"을 배치한다.
+- 각 제품 사진 바로 아래에 다음 Bullet만 한 줄씩 표시한다.
+- "${comparisonFacts.leftTitle}":
+  ${comparisonFacts.leftBullets.map(function (bullet) { return '• ' + bullet; }).join('\n  ')}
+- "${comparisonFacts.rightTitle}":
+  ${comparisonFacts.rightBullets.map(function (bullet) { return '• ' + bullet; }).join('\n  ')}
+- Bullet은 특성 차이만 전달하며, 우열·성능 비교·순위·점수는 쓰지 않는다.`
+    : compareTarget
     ? '- 좌측에는 "' + compareTarget + '", 우측에는 "' + productName + '"을 배치한다. 비교 근거가 없는 성능 차이·우열은 쓰지 않는다.'
     : '- 제품 단독 구성을 사용하고, 근거 없는 비교 대상이나 성능 차이를 만들지 않는다.';
   const optionPrompt = buildGakjaeOptionPrompt(data);
@@ -3074,7 +3119,7 @@ ${factLines}
 1단: 제품 또는 비교 대상의 사각 단면과 목재 결을 같은 시점에서 크게 보여준다.
 ${comparisonLine}
 2단: 시트에 근거가 있는 구조·가공면·규격 확인 포인트를 최대 3개로 짧게 정리한다.
-3단: 사각 단면, 길이 방향 목재 결, 재단·길이 확인 위치를 단순한 구조 안내로 보여준다. 1·2단 정보는 반복하지 않는다.
+3단: 재단 여부 확인 위치와 길이 확인 위치만 단순한 안내로 보여준다. 1·2단 정보는 반복하지 않는다.
 - 각 단은 카드만 나열하지 말고 목재 이미지, 단면, 짧은 라벨의 비중을 우선한다.
 
 텍스트·가독성:
@@ -3092,22 +3137,37 @@ ${optionPrompt}
 }
 
 function hasTopAndSideGluedWoodJointOptions(data) {
-  const options = getApprovedGluedWoodJointOptions(resolveApprovedGluedWoodTypeCCopy(data));
-  return options.some(function (option) { return option.jointType === 'TOP_FINGER'; }) &&
-    options.some(function (option) { return option.jointType === 'SIDE_FINGER'; });
+  return getTopAndSideGluedWoodJointOptionCards(data).length === 2;
 }
 
-function buildTopAndSideJointOptionComparisonPrompt(data) {
+function getTopAndSideGluedWoodJointOptionCards(data) {
   const options = getApprovedGluedWoodJointOptions(resolveApprovedGluedWoodTypeCCopy(data));
   const topOption = options.find(function (option) { return option.jointType === 'TOP_FINGER'; });
   const sideOption = options.find(function (option) { return option.jointType === 'SIDE_FINGER'; });
-  if (!topOption || !sideOption) return '';
+  if (!topOption || !sideOption) return [];
+  return [
+    {
+      title: topOption.title + ' — 상판',
+      caption: '상판에서 짧은 조각 연결 흔적이 보이는 방식',
+      imageRole: 'top_surface_joint_option_photo'
+    },
+    {
+      title: sideOption.title + ' — 측면',
+      caption: '측면에서 연결 흔적이 보이고 상판은 길게 이어지는 방식',
+      imageRole: 'side_face_joint_option_photo'
+    }
+  ];
+}
+
+function buildTopAndSideJointOptionComparisonPrompt(data) {
+  const optionCards = getTopAndSideGluedWoodJointOptionCards(data);
+  if (optionCards.length !== 2) return '';
   return `
 하단 선택 가능한 집성 방식:
 - 기존 고무나무 집성판 Type C 인포그래픽의 색감·나뭇결·여러 원목 부재를 이어 만든 구조·상판과 측면 형태·기존 구매 확인 정보와 레이아웃을 그대로 유지한다.
 - 하단에서만 두 옵션의 연결 흔적이 보이는 면을 한눈에 비교한다.
-- "${topOption.title} — 상판": 상판에서 짧은 조각 연결 흔적이 보이는 방식.
-- "${sideOption.title} — 측면": 측면에서 연결 흔적이 보이고 상판은 길게 이어지는 방식.
+- "${optionCards[0].title}": ${optionCards[0].caption}.
+- "${optionCards[1].title}": ${optionCards[1].caption}.
 - 중단 또는 상단에 탑핑거·사이드핑거 방식 카드, 상세 연결 묘사, 조인트 설명을 다시 만들지 않는다.
 - 이 안내는 두 옵션을 비교하기 위한 보조 정보이며, 옵션 비교 화면만 단독으로 구성하지 않는다.
 - 두 옵션 모두 기존 고무나무의 밝은 황갈색과 연한 베이지 계열 표면, 차분하고 고른 나뭇결을 유지한다.
@@ -4709,7 +4769,8 @@ function buildGluedWoodTypeCUIBlocks(data, profile) {
     title: '집성 구조',
     caption: '여러 원목을 이어\n하나의 판재로 만든 구조'
   };
-  const hasTopAndSideOptions = hasTopAndSideGluedWoodJointOptions(data);
+  const jointOptionCards = getTopAndSideGluedWoodJointOptionCards(data);
+  const hasTopAndSideOptions = jointOptionCards.length === 2;
   const jointPanel = hasTopAndSideOptions
     ? {
       type: 'OPTION_COMPARISON',
@@ -4751,6 +4812,7 @@ function buildGluedWoodTypeCUIBlocks(data, profile) {
     surfaceFacts: surfaceFacts,
     jointSummary: jointSummary,
     joint: jointPanel,
+    jointOptionCards: jointOptionCards,
     applications: applications,
     fidelity: {
       identificationLevel: species ? species.identificationLevel : 'UNKNOWN',
@@ -4780,6 +4842,9 @@ function buildGluedWoodTypeCUIBlockPrompt(data, profile) {
       return lines.concat([option.title, option.caption]);
     }, []),
     [ui.jointSummary.title, ui.jointSummary.caption, ui.joint.title, ui.joint.detailCaption],
+    ui.jointOptionCards.reduce(function (lines, option) {
+      return lines.concat([option.title, option.caption]);
+    }, []),
     ui.applications.map(function (application) { return application.caption; })
   ).filter(Boolean).map(function (text) { return '"' + text + '"'; }).join('\n');
   const surfaceLayout = ui.surfaceOptions.length > 0
@@ -4788,7 +4853,12 @@ function buildGluedWoodTypeCUIBlockPrompt(data, profile) {
   const knotOptionComparisonLayout = ui.knotOptionComparison.length === 2
     ? '- BELOW_JOINT: place one side-by-side real-surface comparison photo block directly below the joint structure image, using only the approved "유절" and "무절" labels and captions. Keep this as a surface-choice comparison only; do not imply quality, price, performance or ranking.'
     : '';
-  const applicationLayout = ui.applications.length > 1
+  const jointOptionAndApplicationLayout = ui.jointOptionCards.length === 2
+    ? `BOTTOM_35: keep the lower option-comparison area. Its upper half contains two equal-width option cards, each with one representative product image above its title and one-line caption: "${ui.jointOptionCards[0].title}" / "${ui.jointOptionCards[1].title}". Its lower half contains the approved application photos. Keep every application caption in its own aligned title area directly below its own image, on the same baseline; never overlay labels on photos or merge captions between columns.`
+    : '';
+  const applicationLayout = ui.jointOptionCards.length === 2
+    ? jointOptionAndApplicationLayout
+    : ui.applications.length > 1
     ? 'BOTTOM_25: group the approved application captions into two balanced real-photo areas without adding another use.'
     : ui.applications.length === 1
     ? 'BOTTOM_25: one full-width real application photo with one caption.'
