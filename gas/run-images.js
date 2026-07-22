@@ -43,6 +43,7 @@ const STATUS = {
 const DEFAULT_IMAGE_CONFIG = {
   image_provider: 'gpt',
   gpt_model: 'gpt-image-2',
+  vision_model: 'gpt-4o-mini',
   nano_banana_model: 'gemini-3-pro-image',
   nano_banana_fast_model: 'gemini-3.1-flash-image',
   fallback_provider: 'gpt',
@@ -156,6 +157,10 @@ function validateImageConfig(config) {
     throw new Error('gpt_model 설정이 비어 있습니다.');
   }
 
+  if (!config.vision_model) {
+    throw new Error('vision_model 설정이 비어 있습니다.');
+  }
+
   if (!config.nano_banana_model) {
     throw new Error('nano_banana_model 설정이 비어 있습니다.');
   }
@@ -176,11 +181,32 @@ function createProviders(imageConfig) {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     providers.gpt = {
       model: imageConfig.gpt_model,
-      generate: async (prompt, audit, imageSize) => {
-        const response = await callGptImageAPIWithRetry(openai, imageConfig.gpt_model, prompt, imageSize);
-        auditOpenAIResponse(audit, response);
-        return extractOpenAIImageBuffer(response);
+      generate: async (prompt, audit, imageSize, requestContext) => {
+        const response = await callGptImageAPIWithRetry(
+          openai,
+          imageConfig.gpt_model,
+          prompt,
+          imageSize,
+          3,
+          audit,
+          requestContext
+        );
+        auditOpenAIResponse(audit, response, requestContext, imageConfig.gpt_model);
+        auditOpenAIInputTokenWarning(response, requestContext, audit);
+        const generated = extractOpenAIImageBuffer(response);
+        audit.write('openai_image_decoded', {
+          rowIndex: requestContext.rowIndex,
+          productName: requestContext.productName,
+          sourceType: generated.type,
+          decodedBytes: generated.type === 'buffer' ? generated.data.length : null,
+          sourceUrlPresent: generated.type === 'url',
+        });
+        return generated;
       },
+    };
+    providers.vision = {
+      model: imageConfig.vision_model,
+      validate: async (buffer, context) => validateImageWithVision(openai, imageConfig.vision_model, buffer, context),
     };
   }
 
@@ -343,15 +369,39 @@ async function processRow({ providers, imageConfig, sheets, sheetId, row, audit 
         promptFirst500: job.prompt.slice(0, 500),
         promptLast500: job.prompt.slice(-500),
       });
+      let generated;
       let buffer;
       try {
-        const generated = await generateImage({
+        generated = await generateImage({
           providers,
           imageConfig,
           row: { ...row, prompt: job.prompt },
           audit,
         });
         buffer = await materializeImageBuffer(generated);
+        audit.write('image_materialized', {
+          rowIndex,
+          partIndex,
+          imageKey: job.key,
+          productName: row.productName,
+          sourceType: generated.type,
+          bufferBytes: buffer.length,
+          bufferSha256: sha256(buffer),
+        });
+        const validation = await validateGeneratedImage({
+          providers,
+          buffer,
+          row,
+          partIndex,
+          imageKey: job.key,
+          audit,
+        });
+        if (validation.result !== 'PASS') {
+          const error = new Error(`Vision validation ${validation.result}: ${validation.reason}`);
+          error.code = `VISION_VALIDATION_${validation.result}`;
+          error.noFallback = true;
+          throw error;
+        }
       } catch (error) {
         throw withPartContext(error, partIndex, job.key);
       }
@@ -402,21 +452,28 @@ function withPartContext(error, partIndex, imageKey) {
 
 async function generateImage({ providers, imageConfig, row, audit }) {
   const { prompt, imageSize } = row;
+  const requestContext = {
+    rowIndex: row.rowIndex,
+    productName: row.productName,
+    promptLength: prompt.length,
+    promptBytes: Buffer.byteLength(prompt, 'utf8'),
+    promptSha256: sha256(Buffer.from(prompt, 'utf8')),
+  };
 
   const primaryProvider = resolveRowProvider(row.imageProvider);
   const fallbackProvider = getFallbackProvider(imageConfig, primaryProvider);
 
   try {
-    return await runProvider(providers, primaryProvider, prompt, audit, imageSize);
+    return await runProvider(providers, primaryProvider, prompt, audit, imageSize, requestContext);
   } catch (error) {
-    if (!fallbackProvider) {
+    if (!fallbackProvider || error?.noFallback) {
       throw error;
     }
 
     console.warn(
       `1차 provider 실패: ${primaryProvider} -> ${error.message}\nfallback provider ${fallbackProvider} 로 재시도합니다.`
     );
-    return runProvider(providers, fallbackProvider, prompt, audit, imageSize);
+    return runProvider(providers, fallbackProvider, prompt, audit, imageSize, requestContext);
   }
 }
 
@@ -444,7 +501,7 @@ function getFallbackProvider(imageConfig, primaryProvider) {
   return fallbackProvider;
 }
 
-async function runProvider(providers, providerName, prompt, audit, imageSize) {
+async function runProvider(providers, providerName, prompt, audit, imageSize, requestContext) {
   const provider = providers[providerName];
 
   if (!provider) {
@@ -458,12 +515,26 @@ async function runProvider(providers, providerName, prompt, audit, imageSize) {
   }
 
   console.log(`이미지 provider: ${providerName} / model: ${provider.model}`);
-  return provider.generate(prompt, audit, imageSize);
+  return provider.generate(prompt, audit, imageSize, requestContext);
 }
 
-async function callGptImageAPIWithRetry(openai, model, prompt, imageSize, maxRetry = 3) {
+async function callGptImageAPIWithRetry(openai, model, prompt, imageSize, maxRetry = 3, audit, requestContext) {
   for (let i = 0; i < maxRetry; i += 1) {
     try {
+      if (audit && requestContext) {
+        audit.write('openai_request_ready', {
+          rowIndex: requestContext.rowIndex,
+          productName: requestContext.productName,
+          model,
+          imageSize,
+          attempt: i + 1,
+          promptLength: requestContext.promptLength,
+          promptBytes: requestContext.promptBytes,
+          promptSha256: requestContext.promptSha256,
+          promptFirst300: prompt.slice(0, 300),
+          promptLast300: prompt.slice(-300),
+        });
+      }
       return await openai.images.generate({
         model,
         prompt,
@@ -482,14 +553,146 @@ async function callGptImageAPIWithRetry(openai, model, prompt, imageSize, maxRet
   }
 }
 
-function auditOpenAIResponse(audit, response) {
+function getOpenAIRequestId(response) {
+  return response?._request_id || response?.request_id || response?.requestId || null;
+}
+
+function getOpenAIInputTextTokens(response) {
+  const value = response?.usage?.input_tokens_details?.text_tokens;
+  return Number.isFinite(value) ? value : null;
+}
+
+function auditOpenAIInputTokenWarning(response, requestContext, audit) {
+  const inputTextTokens = getOpenAIInputTextTokens(response);
+  if (requestContext.promptLength < 1000 || inputTextTokens === null || inputTextTokens >= 100) {
+    return;
+  }
+
+  const message = `OpenAI input token warning: row=${requestContext.rowIndex}, promptSha256=${requestContext.promptSha256}, inputTextTokens=${inputTextTokens}`;
+  audit.write('openai_input_token_anomaly', {
+    rowIndex: requestContext.rowIndex,
+    productName: requestContext.productName,
+    promptLength: requestContext.promptLength,
+    promptSha256: requestContext.promptSha256,
+    requestId: getOpenAIRequestId(response),
+    inputTextTokens,
+    action: 'warning_only',
+    message,
+  });
+}
+
+function buildVisionValidationPrompt() {
+  return [
+    'You are a conservative image safety checker for a Korean construction-material product infographic.',
+    'Judge only obvious topic mismatch. Do not require exact product-name text or small Korean text to be readable.',
+    'PASS: a construction-material, wood, timber, beam, board, cross-section, or material infographic is clearly shown.',
+    'RETRY: food, health, travel, people, animals, or another clearly unrelated topic is shown.',
+    'REVIEW: the topic is ambiguous or the image cannot be judged confidently.',
+    'Return the required JSON only.'
+  ].join(' ');
+}
+
+function parseVisionValidationResponse(response) {
+  const raw = String(response && response.output_text || '').trim();
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (error) {
+    throw new Error(`Vision validation response is not JSON: ${raw.slice(0, 200)}`);
+  }
+  const result = String(parsed && parsed.result || '').trim().toUpperCase();
+  const reason = String(parsed && parsed.reason || '').trim();
+  if (!['PASS', 'RETRY', 'REVIEW'].includes(result) || !reason) {
+    throw new Error('Vision validation response has an invalid result or reason.');
+  }
+  return { result, reason };
+}
+
+async function validateImageWithVision(openai, model, buffer, context) {
+  const response = await openai.responses.create({
+    model,
+    input: [{
+      role: 'user',
+      content: [
+        { type: 'input_text', text: buildVisionValidationPrompt() },
+        { type: 'input_image', image_url: `data:image/png;base64,${buffer.toString('base64')}`, detail: 'low' },
+      ],
+    }],
+    text: {
+      format: {
+        type: 'json_schema',
+        name: 'infographic_validation',
+        strict: true,
+        schema: {
+          type: 'object',
+          properties: {
+            result: { type: 'string', enum: ['PASS', 'RETRY', 'REVIEW'] },
+            reason: { type: 'string' },
+          },
+          required: ['result', 'reason'],
+          additionalProperties: false,
+        },
+      },
+    },
+  });
+  const validation = parseVisionValidationResponse(response);
+  return {
+    ...validation,
+    requestId: getOpenAIRequestId(response),
+    model,
+    usage: response && response.usage,
+    responseId: response && response.id || null,
+    rowIndex: context.rowIndex,
+    productName: context.productName,
+  };
+}
+
+async function validateGeneratedImage({ providers, buffer, row, partIndex, imageKey, audit }) {
+  const context = {
+    rowIndex: row.rowIndex,
+    productName: row.productName,
+    partIndex,
+    imageKey,
+  };
+  if (!providers.vision || typeof providers.vision.validate !== 'function') {
+    throw new Error('Vision validation provider is unavailable.');
+  }
+  audit.write('vision_validation_requested', {
+    ...context,
+    model: providers.vision.model,
+    imageBytes: buffer.length,
+  });
+  try {
+    const validation = await providers.vision.validate(buffer, context);
+    audit.write('vision_validation_result', validation);
+    return validation;
+  } catch (error) {
+    audit.write('vision_validation_failed', {
+      ...context,
+      model: providers.vision.model,
+      message: normalizeErrorMessage(error),
+    });
+    const wrapped = new Error(`Vision validation failed: ${normalizeErrorMessage(error)}`);
+    wrapped.code = 'VISION_VALIDATION_FAILED';
+    wrapped.noFallback = true;
+    throw wrapped;
+  }
+}
+
+function auditOpenAIResponse(audit, response, requestContext, model) {
   const data = Array.isArray(response && response.data) ? response.data : [];
   const first = data[0] || {};
   audit.write('openai_response', {
     receivedAt: new Date().toISOString(),
+    rowIndex: requestContext && requestContext.rowIndex,
+    productName: requestContext && requestContext.productName,
+    model,
+    requestId: getOpenAIRequestId(response),
     responseFields: Object.keys(response || {}),
     created: response && response.created,
     usage: response && response.usage,
+    outputFormat: response && response.output_format,
+    imageSize: response && response.size,
     revisedPrompt: first.revised_prompt || null,
     dataLength: data.length,
     hasB64Json: typeof first.b64_json === 'string' && first.b64_json.length > 0,
