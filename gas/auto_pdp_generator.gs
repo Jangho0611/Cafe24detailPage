@@ -2988,32 +2988,137 @@ function setError(sheet, row, message) {
   }
 }
 
-function buildRauanGakjaeComparisonPrompt() {
+const GAKJAE_OPTION_ENTITIES = Object.freeze({
+  '라왕다루끼': { label: '라왕다루끼', description: '기본 규격 각재' },
+  '후지': { label: '후지', description: '문틀 등 가장자리 마감용' },
+  '심재': { label: '심재', description: '문틀·문짝 내부 코어용' }
+});
+
+function getGakjaeOptionEntities(data) {
+  const optionText = [data && data.thickness, data && data.size, data && data.productName]
+    .map(cleanEntityValue)
+    .join(' ');
+  return Object.keys(GAKJAE_OPTION_ENTITIES)
+    .filter(function (key) { return optionText.indexOf(key) !== -1; })
+    .map(function (key) { return GAKJAE_OPTION_ENTITIES[key]; });
+}
+
+function buildGakjaeOptionPrompt(data) {
+  const options = getGakjaeOptionEntities(data);
+  if (!options.length) return '';
+  const optionLines = options.map(function (option) {
+    return '- ' + option.label + ': ' + option.description;
+  }).join('\n');
   return `
-추가 옵션 안내 — 라왕 각재:
-- 기존 각재 인포그래픽의 제품 설명, 사각 단면 형태, 규격·길이·건조 상태·재단 확인과 기존 선택 정보를 그대로 유지한다.
-- 기존 레이아웃 안에 라왕다루끼, 후지, 심재가 하나의 상품에서 선택 가능한 규격·형태 옵션임을 보조 정보로 추가한다.
-- 세 옵션은 기존 각재 제품 이미지와 함께 자연스럽게 배치하고 옵션 카드 3개만 나열한 비교 화면으로 만들지 않는다.
-- 각 카드에는 "라왕다루끼", "후지", "심재"만 정확히 표기한다.
-- 옵션별 성능, 강도, 내구성, 품질, 가격 우열이나 승인되지 않은 용도를 추가하지 않는다.
+추가 선택 옵션 — 실제 시트 옵션명에 맞는 항목만 표시:
+- 기존 각재 인포그래픽의 제품 설명, 사각 단면 형태, 규격·길이·재단 확인과 기존 선택 정보를 그대로 유지한다.
+- 기존 레이아웃 안에 아래 옵션을 하나의 상품에서 선택 가능한 규격·형태 옵션으로 보조 표기한다.
+${optionLines}
+- 옵션은 기존 각재 제품 이미지와 함께 자연스럽게 배치하고 옵션 카드만 나열한 비교 화면으로 만들지 않는다.
+- 옵션별 수치, 성능, 강도, 내구성, 품질, 가격 우열이나 승인되지 않은 용도를 추가하지 않는다.
 - 단면 치수와 길이는 실제 입력값이 없는 한 숫자로 추정해 표기하지 않는다.
-- 옵션명·단면 치수·길이·재단 여부 확인은 기존 선택 정보와 중복하지 않게 한 번만 보조 안내한다.
 `;
 }
 
-function buildRubberwoodJointOptionComparisonPrompt() {
+function isGakjaeInfographicProduct(data) {
+  const label = [data && data.category, data && data.productName]
+    .map(cleanEntityValue)
+    .join(' ');
+  return /각재|뉴송/.test(label);
+}
+
+function buildGakjaeSlimInfographicPrompt(data) {
+  const productName = cleanEntityValue(data && data.productName) || '각재';
+  const category = cleanEntityValue(data && data.category) || '각재/목재';
+  const keyValue = cleanEntityValue(data && data.keyValue);
+  const structure = cleanEntityValue(data && data.structure);
+  const emphasis = cleanEntityValue(data && data.emphasis);
+  const compareTarget = cleanEntityValue(data && data.compareTarget);
+  const size = cleanEntityValue(data && data.size);
+  const thickness = cleanEntityValue(data && data.thickness);
+  const grade = cleanEntityValue(data && data.grade);
+  const maker = cleanEntityValue(data && data.maker);
+  const source = cleanEntityValue(data && data.source);
+  const uses = [data && data.use1, data && data.use2].map(cleanEntityValue).filter(Boolean);
+  const factLines = [
+    '- 상품명: "' + productName + '"',
+    '- 카테고리: "' + category + '"',
+    keyValue ? '- 시트 핵심표현: ' + keyValue : '',
+    structure ? '- 시트 구조 설명: ' + structure : '',
+    emphasis ? '- 시트 강조 포인트: ' + emphasis : '',
+    thickness ? '- 시트 옵션 또는 규격 정보: ' + thickness : '',
+    size ? '- 시트 규격 정보: ' + size : '',
+    grade ? '- 시트 등급 정보: ' + grade : '',
+    maker ? '- 시트 제조·원산 정보: ' + maker : '',
+    source ? '- 시트 근거 출처: ' + source : '',
+    uses.length ? '- 시트 등록 활용 정보: ' + uses.join(' / ') : ''
+  ].filter(Boolean).join('\n');
+  const comparisonLine = compareTarget
+    ? '- 좌측에는 "' + compareTarget + '", 우측에는 "' + productName + '"을 배치한다. 비교 근거가 없는 성능 차이·우열은 쓰지 않는다.'
+    : '- 제품 단독 구성을 사용하고, 근거 없는 비교 대상이나 성능 차이를 만들지 않는다.';
+  const optionPrompt = buildGakjaeOptionPrompt(data);
   return `
-선택 가능한 집성 방식 추가 안내:
+한국어 건축자재 B2B 상세페이지용 각재 인포그래픽을 생성한다.
+광고 포스터가 아니라, 목재 각재의 형태와 선택 정보를 명확히 보여주는 실무형 자료로 만든다.
+
+제품 정보 — 시트 입력값만 사용:
+${factLines}
+
+필수 시각 요소:
+- 사각 단면의 목재 각재와 자연스러운 목재 결을 크게 보여준다.
+- 단면 치수와 길이는 실제 입력값이 있을 때만 보조 정보로 표시하고, 숫자를 추정하지 않는다.
+- 규격·길이·재단 여부는 주문 전 확인 항목으로만 간결하게 안내한다.
+- 목재 표면은 과한 광택이나 인공 무늬 없이 표현하고, 사각 모서리와 절단면이 각재 형태로 명확히 읽히게 한다.
+
+3단 레이아웃:
+1단: 제품 또는 비교 대상의 사각 단면과 목재 결을 같은 시점에서 크게 보여준다.
+${comparisonLine}
+2단: 시트에 근거가 있는 구조·가공면·규격 확인 포인트를 최대 3개로 짧게 정리한다.
+3단: 사각 단면, 길이 방향 목재 결, 재단·길이 확인 위치를 단순한 구조 안내로 보여준다. 1·2단 정보는 반복하지 않는다.
+- 각 단은 카드만 나열하지 말고 목재 이미지, 단면, 짧은 라벨의 비중을 우선한다.
+
+텍스트·가독성:
+- 한글 라벨은 짧고 선명하게 표시하며, 작은 글씨와 긴 문단은 넣지 않는다.
+- 흰색 바탕, 짙은 녹색 제목, 절제된 금색 포인트, 충분한 여백을 사용한다.
+- 이미지와 텍스트는 겹치지 않게 하고, 정보량보다 읽기 쉬운 구성을 우선한다.
+
+금지:
+- 각재와 무관한 다른 자재의 구조를 섞어 표현하지 않는다.
+- 근거 없는 수치, 성능, 강도, 내구성, 가격, 품질 우열, 승인되지 않은 용도를 만들지 않는다.
+- 비교 대상이 있더라도 성능 차이나 우열을 그래프, 등급, 점수로 표현하지 않는다.
+- 사람, 음식, 건강, 의학, 여행, 생활 정보 이미지를 생성하지 않는다.
+${optionPrompt}
+`;
+}
+
+function hasTopAndSideGluedWoodJointOptions(data) {
+  const options = getApprovedGluedWoodJointOptions(resolveApprovedGluedWoodTypeCCopy(data));
+  return options.some(function (option) { return option.jointType === 'TOP_FINGER'; }) &&
+    options.some(function (option) { return option.jointType === 'SIDE_FINGER'; });
+}
+
+function buildTopAndSideJointOptionComparisonPrompt(data) {
+  const options = getApprovedGluedWoodJointOptions(resolveApprovedGluedWoodTypeCCopy(data));
+  const topOption = options.find(function (option) { return option.jointType === 'TOP_FINGER'; });
+  const sideOption = options.find(function (option) { return option.jointType === 'SIDE_FINGER'; });
+  if (!topOption || !sideOption) return '';
+  return `
+하단 선택 가능한 집성 방식:
 - 기존 고무나무 집성판 Type C 인포그래픽의 색감·나뭇결·여러 원목 부재를 이어 만든 구조·상판과 측면 형태·기존 구매 확인 정보와 레이아웃을 그대로 유지한다.
-- 메인 영역에서 이미 설명한 탑핑거 구조와 확대 이미지를 하단에서 다시 복제하지 않는다.
-- 하단에는 "선택 가능한 집성 방식"이라는 짧은 선택 안내만 둔다. "탑핑거 — 상판", "사이드핑거 — 측면"처럼 연결 무늬가 보이는 면만 한 줄씩 표기하고, 연결부 확대 이미지·상세 구조 설명·추가 사진은 넣지 않는다.
-- 이 안내는 두 옵션을 비교하기 위한 보조 정보이며, 연결부 비교 화면만 단독으로 구성하지 않는다.
+- 하단에서만 두 옵션의 연결 흔적이 보이는 면을 한눈에 비교한다.
+- "${topOption.title} — 상판": 상판에서 짧은 조각 연결 흔적이 보이는 방식.
+- "${sideOption.title} — 측면": 측면에서 연결 흔적이 보이고 상판은 길게 이어지는 방식.
+- 중단 또는 상단에 탑핑거·사이드핑거 방식 카드, 상세 연결 묘사, 조인트 설명을 다시 만들지 않는다.
+- 이 안내는 두 옵션을 비교하기 위한 보조 정보이며, 옵션 비교 화면만 단독으로 구성하지 않는다.
 - 두 옵션 모두 기존 고무나무의 밝은 황갈색과 연한 베이지 계열 표면, 차분하고 고른 나뭇결을 유지한다.
 - 강도, 내구성, 가격, 품질, 성능 우열을 만들지 않는다.
 `;
 }
 
 function buildInfographicPrompt(data) {
+  if (isGakjaeInfographicProduct(data)) {
+    return buildGakjaeSlimInfographicPrompt(data);
+  }
   const knowledge = buildProductKnowledgeContext(data);
   const outputType = knowledge.productGroup === 'PLYWOOD' || (data.type === 'C' && knowledge.gluedWood) ? 'image' : '';
   const isVertical = isVerticalGeneralPlywoodInfographic(data);
@@ -4604,6 +4709,28 @@ function buildGluedWoodTypeCUIBlocks(data, profile) {
     title: '집성 구조',
     caption: '여러 원목을 이어\n하나의 판재로 만든 구조'
   };
+  const hasTopAndSideOptions = hasTopAndSideGluedWoodJointOptions(data);
+  const jointPanel = hasTopAndSideOptions
+    ? {
+      type: 'OPTION_COMPARISON',
+      title: '판재 두께·측면 구조',
+      caption: '판재의 두께와 측면 구조를\n확인하는 영역',
+      detailCaption: '두께·측면 구조와 재단면 확인 포인트',
+      imageRole: 'panel_thickness_and_side_profile',
+      position: surfaceOptions.length > 0 ? 'middle_right' : 'middle_full',
+      positive: [],
+      forbidden: ['JOINT_CLOSEUP', 'JOINT_TYPE_CARD', 'REPEATED_JOINT_EXPLANATION']
+    }
+    : {
+      type: jointType,
+      title: displayKnowledge.jointTitle || GLUED_WOOD_JOINT_TYPE_KNOWLEDGE[jointType].title,
+      caption: displayKnowledge.jointCaption || '',
+      detailCaption: displayKnowledge.jointDetailCaption || displayKnowledge.jointCaption || '',
+      imageRole: visualRule.imageRole,
+      position: surfaceOptions.length > 0 ? 'middle_right' : 'middle_full',
+      positive: visualRule.positive.slice(),
+      forbidden: visualRule.forbidden.slice()
+    };
   const typeCProductProfile = resolveGluedWoodTypeCProductProfile(data);
   const uniqueTopFeature = buildGluedWoodUniqueTopFeature(typeCProductProfile, profile, displayKnowledge);
   const topFeatures = buildGluedWoodTopFeatureItems(displayKnowledge, appearanceAxes, uniqueTopFeature);
@@ -4623,16 +4750,7 @@ function buildGluedWoodTypeCUIBlocks(data, profile) {
     knotOptionComparison: knotOptionComparison,
     surfaceFacts: surfaceFacts,
     jointSummary: jointSummary,
-    joint: {
-      type: jointType,
-      title: displayKnowledge.jointTitle || GLUED_WOOD_JOINT_TYPE_KNOWLEDGE[jointType].title,
-      caption: displayKnowledge.jointCaption || '',
-      detailCaption: displayKnowledge.jointDetailCaption || displayKnowledge.jointCaption || '',
-      imageRole: visualRule.imageRole,
-      position: surfaceOptions.length > 0 ? 'middle_right' : 'middle_full',
-      positive: visualRule.positive.slice(),
-      forbidden: visualRule.forbidden.slice()
-    },
+    joint: jointPanel,
     applications: applications,
     fidelity: {
       identificationLevel: species ? species.identificationLevel : 'UNKNOWN',
@@ -4675,6 +4793,9 @@ function buildGluedWoodTypeCUIBlockPrompt(data, profile) {
     : ui.applications.length === 1
     ? 'BOTTOM_25: one full-width real application photo with one caption.'
     : 'BOTTOM_25: omit this block and expand the hero and joint photo areas.';
+  const middleRightLayout = ui.joint.type === 'OPTION_COMPARISON'
+    ? 'MIDDLE_RIGHT_10: one panel-thickness and side-profile confirmation area only. Do not render a joint type card, enlarged connection detail or finger-joint explanation in this area.'
+    : 'MIDDLE_RIGHT_10: one joint structure photo or closeup with the approved structure-specific joint title and the detailed joint caption (jointDetailCaption) only.';
   const jointRules = {
     SOLID: `
 JOINT_VISUAL=SOLID
@@ -4728,7 +4849,7 @@ RENDER CONTRACT
 FIXED UI BLOCKS
 - TOP_55: product title, one dominant full-product photo, the approved catalog subtitle, and exactly ${ui.hero.features.length} valid product feature card(s). Use only color, grain or pattern, surface texture, and product-specific material characteristics. Do not render a joint structure, joint type, or generic fallback card in this block. When there are three valid cards, use a balanced three-card arrangement with no empty fourth slot and keep the existing text scale.
   - MIDDLE_LEFT_10: one compact common joint summary using "${ui.jointSummary.title}" and "${ui.jointSummary.caption}". ${surfaceLayout}
-  - MIDDLE_RIGHT_10: one joint structure photo or closeup with the approved structure-specific joint title and the detailed joint caption (jointDetailCaption) only.
+  - ${middleRightLayout}
   ${knotOptionComparisonLayout}
   - ${applicationLayout}
 - Keep the visual hierarchy: product → surface option → joint structure → applications.
@@ -6679,8 +6800,8 @@ ${typeBRepeatedHtmlBan}
 function buildTypeCPrompt(data) {
   const specialBoardPrompt = buildSpecialBoardInfographicPrompt(data, 'C');
   if (specialBoardPrompt) return specialBoardPrompt;
-  const optionPrompt = cleanEntityValue(data && data.productName) === '고무나무 집성판 탑핑거'
-    ? buildRubberwoodJointOptionComparisonPrompt()
+  const optionPrompt = hasTopAndSideGluedWoodJointOptions(data)
+    ? buildTopAndSideJointOptionComparisonPrompt(data)
     : '';
   const selectionPrompt = buildSelectionInfographicPrompt(data, 'C');
   if (selectionPrompt) return selectionPrompt + optionPrompt;
